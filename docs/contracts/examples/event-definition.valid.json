@@ -1,0 +1,54 @@
+{
+  "event_name": "task_submit_complete",
+  "schema_version": 2,
+  "event_type": "custom",
+  "description": "标注任务提交成功",
+  "owner": "team-annotation",
+  "trigger": "提交接口返回成功、界面显示提交成功提示时上报一次",
+  "priority": "critical",
+  "critical_reason": "用于标注员结算与任务审计，没有其他数据源可补回",
+  "status": "active",
+  "app_ids": ["demo-app"],
+  "fields": [
+    {
+      "name": "task_type",
+      "kind": "dimension",
+      "type": "enum",
+      "required": true,
+      "description": "任务类型",
+      "enum_values": ["label", "review", "qa"],
+      "sensitivity": "none"
+    },
+    {
+      "name": "result",
+      "kind": "dimension",
+      "type": "string",
+      "required": false,
+      "description": "审核结论",
+      "max_length": 32,
+      "sensitivity": "none"
+    },
+    {
+      "name": "duration_ms",
+      "kind": "metric",
+      "type": "integer",
+      "required": true,
+      "description": "从打开任务到提交的耗时",
+      "minimum": 0,
+      "unit": "ms",
+      "sensitivity": "none"
+    },
+    {
+      "name": "item_count",
+      "kind": "metric",
+      "type": "integer",
+      "required": false,
+      "description": "本次提交的标注条数",
+      "minimum": 0,
+      "unit": "count",
+      "sensitivity": "none"
+    }
+  ],
+  "change_note": "新增可选维度 result",
+  "replaces_version": 1
+}

@@ -1,0 +1,45 @@
+{
+  "_cases": "每个元素是一个非法批次，_why 说明应被拒绝的原因；契约测试逐个断言校验失败",
+  "cases": [
+    {
+      "_why": "缺少 events",
+      "protocol_version": 1, "app_id": "demo-app", "env": "staging", "release": "1.4.0",
+      "sdk_name": "web-report-sdk", "sdk_version": "0.1.0",
+      "device_id": "3f1c2a4e-8b7d-4c1a-9e2f-0a1b2c3d4e5f", "session_id": "7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d",
+      "batch_id": "b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "sent_at": 1793000000500, "clock_offset": 0
+    },
+    {
+      "_why": "protocol_version 不支持",
+      "protocol_version": 2, "app_id": "demo-app", "env": "staging", "release": "1.4.0",
+      "sdk_name": "web-report-sdk", "sdk_version": "0.1.0",
+      "device_id": "3f1c2a4e-8b7d-4c1a-9e2f-0a1b2c3d4e5f", "session_id": "7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d",
+      "batch_id": "b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "sent_at": 1793000000500, "clock_offset": 0,
+      "events": [{ "event_id": "e0000003-0000-4000-8000-000000000001", "event_name": "task_submit_complete", "event_type": "custom", "schema_version": 1, "occurred_at": 1793000000000, "priority": "normal" }]
+    },
+    {
+      "_why": "event_id 不是 UUID v4；event_name 只有一段；priority 非法",
+      "protocol_version": 1, "app_id": "demo-app", "env": "staging", "release": "1.4.0",
+      "sdk_name": "web-report-sdk", "sdk_version": "0.1.0",
+      "device_id": "3f1c2a4e-8b7d-4c1a-9e2f-0a1b2c3d4e5f", "session_id": "7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d",
+      "batch_id": "b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "sent_at": 1793000000500, "clock_offset": 0,
+      "events": [{ "event_id": "not-a-uuid", "event_name": "submit", "event_type": "custom", "schema_version": 1, "occurred_at": 1793000000000, "priority": "urgent" }]
+    },
+    {
+      "_why": "log 事件缺少 level；sample_rate 为 0",
+      "protocol_version": 1, "app_id": "demo-app", "env": "staging", "release": "1.4.0",
+      "sdk_name": "web-report-sdk", "sdk_version": "0.1.0",
+      "device_id": "3f1c2a4e-8b7d-4c1a-9e2f-0a1b2c3d4e5f", "session_id": "7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d",
+      "batch_id": "b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "sent_at": 1793000000500, "clock_offset": 0,
+      "events": [{ "event_id": "e0000003-0000-4000-8000-000000000002", "event_name": "app_debug_log", "event_type": "log", "schema_version": 1, "occurred_at": 1793000000000, "priority": "normal", "sample_rate": 0 }]
+    },
+    {
+      "_why": "维度值超过 256 字符；维度键含大写；出现未定义的顶层字段",
+      "protocol_version": 1, "app_id": "demo-app", "env": "staging", "release": "1.4.0",
+      "sdk_name": "web-report-sdk", "sdk_version": "0.1.0",
+      "device_id": "3f1c2a4e-8b7d-4c1a-9e2f-0a1b2c3d4e5f", "session_id": "7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d",
+      "batch_id": "b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "sent_at": 1793000000500, "clock_offset": 0,
+      "token": "should-not-be-here",
+      "events": [{ "event_id": "e0000003-0000-4000-8000-000000000003", "event_name": "task_submit_complete", "event_type": "custom", "schema_version": 1, "occurred_at": 1793000000000, "priority": "normal", "dimensions": { "TaskType": "x" } }]
+    }
+  ]
+}

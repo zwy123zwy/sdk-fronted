@@ -1,0 +1,30 @@
+{
+  "_cases": "每个元素是一个非法配置正文，_why 说明原因；契约测试逐个断言校验失败",
+  "cases": [
+    {
+      "_why": "缺少 config_version",
+      "format_version": 1, "app_id": "demo-app", "env": "staging", "published_at": 1793000000000
+    },
+    {
+      "_why": "采样率超出 [0, 1]",
+      "format_version": 1, "app_id": "demo-app", "env": "staging", "config_version": 43, "published_at": 1793000000000,
+      "sampling": { "session_rate": 1.5 }
+    },
+    {
+      "_why": "上报端点不是 HTTPS",
+      "format_version": 1, "app_id": "demo-app", "env": "staging", "config_version": 44, "published_at": 1793000000000,
+      "endpoints": { "ingest": "http://ingest.example.com" }
+    },
+    {
+      "_why": "overrides 试图修改 kill_switch",
+      "format_version": 1, "app_id": "demo-app", "env": "staging", "config_version": 45, "published_at": 1793000000000,
+      "overrides": [{ "when": { "session_bucket": [0, 10] }, "patch": { "kill_switch": { "all": true } } }]
+    },
+    {
+      "_why": "未知插件名；consent_mode 非法",
+      "format_version": 1, "app_id": "demo-app", "env": "staging", "config_version": 46, "published_at": 1793000000000,
+      "plugins": { "replay": { "enabled": true } },
+      "privacy": { "consent_mode": "always" }
+    }
+  ]
+}

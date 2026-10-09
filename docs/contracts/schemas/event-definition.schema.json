@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:web-report-sdk:contracts:event-definition:0.1",
+  "title": "埋点字典中的事件定义（S03 元模型）",
+  "description": "草案 0.1，未冻结。S03 存储、S04 校验、类型包生成（S03-F4）都以本 Schema 为准。",
+  "type": "object",
+  "required": [
+    "event_name",
+    "schema_version",
+    "event_type",
+    "description",
+    "owner",
+    "trigger",
+    "priority",
+    "status",
+    "fields"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "event_name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(_[a-z0-9]+)+$",
+      "maxLength": 64,
+      "not": { "pattern": "^(sdk|web)_" },
+      "description": "业务域前缀加小写下划线；sdk_、web_ 为 SDK 保留前缀"
+    },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "event_type": { "enum": ["custom", "log"] },
+    "description": { "type": "string", "minLength": 4, "maxLength": 500 },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "负责人或负责团队的标识，不写个人联系方式"
+    },
+    "trigger": { "type": "string", "minLength": 4, "maxLength": 500, "description": "触发时机，写清在哪个业务动作的哪个时刻上报" },
+    "priority": {
+      "enum": ["normal", "critical"],
+      "description": "投递等级，判定规则见 decisions/Q3；critical 需要同时填写 critical_reason"
+    },
+    "critical_reason": { "type": "string", "minLength": 10, "maxLength": 500 },
+    "status": { "enum": ["draft", "in_review", "active", "deprecated", "retired"] },
+    "app_ids": {
+      "type": "array",
+      "description": "允许上报该事件的应用；为空表示所有应用",
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$" },
+      "uniqueItems": true
+    },
+    "fields": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/field" }
+    },
+    "change_note": { "type": "string", "maxLength": 1000, "description": "本版本相对上一版本的变更说明" },
+    "replaces_version": { "type": "integer", "minimum": 1 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "priority": { "const": "critical" } } },
+      "then": { "required": ["critical_reason"] }
+    }
+  ],
+  "$defs": {
+    "field": {
+      "type": "object",
+      "required": ["name", "kind", "type", "required", "description", "sensitivity"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "kind": { "enum": ["dimension", "metric"], "description": "dimension 写入 dimensions，metric 写入 metrics" },
+        "type": {
+          "enum": ["string", "enum", "integer", "number", "boolean"],
+          "description": "dimension 只能是 string、enum、boolean；metric 只能是 integer、number、boolean"
+        },
+        "required": { "type": "boolean" },
+        "description": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "enum_values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": { "type": "string", "maxLength": 64 },
+          "uniqueItems": true
+        },
+        "max_length": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "unit": {
+          "enum": ["ms", "s", "bytes", "count", "ratio", "percent", "px", "none"],
+          "description": "metric 必填；字段名后缀必须与单位一致（_ms、_bytes、_ratio）"
+        },
+        "sensitivity": {
+          "enum": ["none", "mask", "hash", "drop"],
+          "description": "S04 二次脱敏时的处理方式（S03 安全要求、S04-F4）"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "enum" } } },
+          "then": { "required": ["enum_values"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "metric" } } },
+          "then": {
+            "required": ["unit"],
+            "properties": { "type": { "enum": ["integer", "number", "boolean"] } }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "dimension" } } },
+          "then": { "properties": { "type": { "enum": ["string", "enum", "boolean"] } } }
+        }
+      ]
+    }
+  }
+}

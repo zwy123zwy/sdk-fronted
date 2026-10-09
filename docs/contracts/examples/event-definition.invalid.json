@@ -1,0 +1,32 @@
+{
+  "_cases": "每个元素是一个非法事件定义，_why 说明原因；契约测试逐个断言校验失败",
+  "cases": [
+    {
+      "_why": "使用保留前缀 web_",
+      "event_name": "web_custom_click", "schema_version": 1, "event_type": "custom", "description": "点击按钮",
+      "owner": "team-a", "trigger": "点击按钮时", "priority": "normal", "status": "draft", "fields": []
+    },
+    {
+      "_why": "critical 缺少 critical_reason",
+      "event_name": "order_pay_success", "schema_version": 1, "event_type": "custom", "description": "支付成功",
+      "owner": "team-a", "trigger": "支付回调成功后", "priority": "critical", "status": "draft", "fields": []
+    },
+    {
+      "_why": "enum 字段缺少 enum_values；metric 缺少 unit",
+      "event_name": "video_load_complete", "schema_version": 1, "event_type": "custom", "description": "视频加载完成",
+      "owner": "team-media", "trigger": "首帧渲染后", "priority": "normal", "status": "draft",
+      "fields": [
+        { "name": "codec", "kind": "dimension", "type": "enum", "required": true, "description": "编码", "sensitivity": "none" },
+        { "name": "load_ms", "kind": "metric", "type": "integer", "required": true, "description": "加载耗时", "sensitivity": "none" }
+      ]
+    },
+    {
+      "_why": "dimension 使用 number 类型",
+      "event_name": "video_play_start", "schema_version": 1, "event_type": "custom", "description": "开始播放",
+      "owner": "team-media", "trigger": "点击播放后", "priority": "normal", "status": "draft",
+      "fields": [
+        { "name": "position", "kind": "dimension", "type": "number", "required": false, "description": "播放位置", "sensitivity": "none" }
+      ]
+    }
+  ]
+}

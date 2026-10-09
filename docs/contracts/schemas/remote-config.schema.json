@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:web-report-sdk:contracts:remote-config:0.1",
+  "title": "远程配置（I-02）",
+  "description": "草案 0.1，未冻结。$defs/envelope 为签名发布物，根对象为 payload 解码后的配置正文。SDK 必须忽略不认识的字段，因此正文允许额外字段。",
+  "type": "object",
+  "required": ["format_version", "app_id", "env", "config_version", "published_at"],
+  "properties": {
+    "format_version": { "const": 1 },
+    "app_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$" },
+    "env": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}$" },
+    "config_version": { "type": "integer", "minimum": 1 },
+    "published_at": { "type": "integer", "minimum": 1577836800000 },
+    "kill_switch": {
+      "type": "object",
+      "properties": {
+        "all": { "type": "boolean", "default": false },
+        "sdk_versions": { "type": "array", "items": { "$ref": "#/$defs/semverRange" }, "maxItems": 20 },
+        "plugins": { "type": "array", "items": { "$ref": "#/$defs/pluginName" }, "uniqueItems": true }
+      }
+    },
+    "sampling": { "$ref": "#/$defs/sampling" },
+    "plugins": { "$ref": "#/$defs/plugins" },
+    "privacy": {
+      "type": "object",
+      "properties": {
+        "consent_mode": { "enum": ["essential_only", "buffer", "full"], "default": "essential_only" },
+        "url_query_allowlist": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,64}$" },
+          "maxItems": 50
+        },
+        "sensitive_headers": {
+          "type": "array",
+          "description": "在内置列表（authorization、cookie、set-cookie、x-write-token 等）之上追加，不能删除内置项",
+          "items": { "type": "string", "pattern": "^[a-z0-9-]{1,64}$" },
+          "maxItems": 50
+        },
+        "extra_mask_rules": {
+          "type": "array",
+          "description": "追加的脱敏规则；与内置规则合计不超过 50 条（C04 性能指标）",
+          "maxItems": 40,
+          "items": {
+            "type": "object",
+            "required": ["name", "pattern"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+              "pattern": { "type": "string", "minLength": 1, "maxLength": 200 },
+              "flags": { "type": "string", "pattern": "^[imsu]{0,4}$" },
+              "replacement": { "type": "string", "maxLength": 32, "default": "***" }
+            }
+          }
+        }
+      }
+    },
+    "endpoints": {
+      "type": "object",
+      "properties": { "ingest": { "type": "string", "pattern": "^https://[^\\s/?#]+(/[^\\s?#]*)?$", "maxLength": 512 } }
+    },
+    "transport": { "$ref": "#/$defs/transport" },
+    "overrides": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["when", "patch"],
+        "properties": {
+          "when": {
+            "type": "object",
+            "minProperties": 1,
+            "properties": {
+              "sdk_versions": { "type": "array", "items": { "$ref": "#/$defs/semverRange" } },
+              "session_bucket": {
+                "type": "array",
+                "prefixItems": [
+                  { "type": "integer", "minimum": 0, "maximum": 100 },
+                  { "type": "integer", "minimum": 0, "maximum": 100 }
+                ],
+                "minItems": 2,
+                "maxItems": 2
+              }
+            }
+          },
+          "patch": {
+            "type": "object",
+            "propertyNames": { "enum": ["sampling", "plugins", "transport"] },
+            "properties": {
+              "sampling": { "$ref": "#/$defs/sampling" },
+              "plugins": { "$ref": "#/$defs/plugins" },
+              "transport": { "$ref": "#/$defs/transport" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "envelope": {
+      "type": "object",
+      "required": ["format_version", "key_id", "alg", "payload", "signature"],
+      "additionalProperties": false,
+      "properties": {
+        "format_version": { "const": 1 },
+        "key_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+        "alg": { "const": "ES256" },
+        "payload": { "type": "string", "minLength": 2, "maxLength": 65536 },
+        "signature": { "type": "string", "pattern": "^[A-Za-z0-9_-]{86}$" }
+      }
+    },
+    "semverRange": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "pluginName": { "enum": ["error", "perf", "route", "http", "apm_dual_write"] },
+    "rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "sampling": {
+      "type": "object",
+      "properties": {
+        "session_rate": { "$ref": "#/$defs/rate" },
+        "allow_users": { "type": "array", "items": { "type": "string", "maxLength": 128 }, "maxItems": 200 },
+        "rules": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "required": ["match", "rate"],
+            "additionalProperties": false,
+            "properties": {
+              "match": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": false,
+                "properties": {
+                  "event_name": { "type": "string", "maxLength": 64, "description": "精确匹配，或以 * 结尾的前缀匹配" },
+                  "event_type": { "enum": ["custom", "log", "error", "perf", "pageview", "http"] },
+                  "dimension": {
+                    "type": "object",
+                    "required": ["key", "equals"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+                      "equals": { "type": "string", "maxLength": 256 }
+                    }
+                  }
+                }
+              },
+              "rate": { "$ref": "#/$defs/rate" }
+            }
+          }
+        }
+      }
+    },
+    "plugins": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/pluginName" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["enabled"],
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "options": { "type": "object" }
+        }
+      }
+    },
+    "transport": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_batch_events": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "max_batch_bytes": { "type": "integer", "minimum": 1024, "maximum": 61440 },
+        "idle_flush_ms": { "type": "integer", "minimum": 200, "maximum": 10000 },
+        "max_wait_ms": { "type": "integer", "minimum": 1000, "maximum": 60000 },
+        "replay_batches_per_second": { "type": "number", "exclusiveMinimum": 0, "maximum": 2 }
+      }
+    }
+  }
+}

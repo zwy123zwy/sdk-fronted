@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:web-report-sdk:contracts:batch:0.1",
+  "title": "上报批次（I-01 请求体）",
+  "description": "草案 0.1，未冻结。字段语义见 event-standard.md。",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "app_id",
+    "env",
+    "release",
+    "sdk_name",
+    "sdk_version",
+    "device_id",
+    "session_id",
+    "batch_id",
+    "sent_at",
+    "clock_offset",
+    "events"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "protocol_version": { "const": 1 },
+    "app_id": { "$ref": "#/$defs/identifier" },
+    "env": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}$" },
+    "release": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "sdk_name": { "type": "string", "pattern": "^[a-z0-9@/._-]{1,64}$" },
+    "sdk_version": { "$ref": "#/$defs/semver" },
+    "device_id": { "$ref": "#/$defs/uuid" },
+    "device_id_persistent": {
+      "type": "boolean",
+      "description": "false 表示 device_id 是本次页面加载的临时值（未取得同意时），默认 true"
+    },
+    "session_id": { "$ref": "#/$defs/uuid" },
+    "user_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "user_id_hashed": { "type": "boolean", "description": "user_id 是否为哈希值，默认 false" },
+    "consent": { "enum": ["granted", "denied", "unknown"] },
+    "batch_id": { "$ref": "#/$defs/uuid" },
+    "sent_at": { "$ref": "#/$defs/timestamp" },
+    "clock_offset": {
+      "type": "integer",
+      "description": "服务端时间减客户端时间，毫秒；未校准时为 0",
+      "minimum": -86400000,
+      "maximum": 86400000
+    },
+    "clock_calibrated": { "type": "boolean" },
+    "common": { "$ref": "#/$defs/commonFields" },
+    "auth": {
+      "type": "object",
+      "description": "仅信标通道使用，见 ingest-protocol.md 2.2",
+      "required": ["app_id", "write_token"],
+      "additionalProperties": false,
+      "properties": {
+        "app_id": { "$ref": "#/$defs/identifier" },
+        "write_token": { "type": "string", "minLength": 16, "maxLength": 256 }
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/event" }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$" },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
+    },
+    "timestamp": { "type": "integer", "minimum": 1577836800000, "maximum": 4102444800000 },
+    "eventName": { "type": "string", "pattern": "^[a-z][a-z0-9]*(_[a-z0-9]+)+$", "maxLength": 64 },
+    "fieldKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+    "dimensions": {
+      "type": "object",
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "additionalProperties": { "type": "string", "maxLength": 256 }
+    },
+    "metrics": {
+      "type": "object",
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "additionalProperties": { "type": "number" }
+    },
+    "commonFields": {
+      "type": "object",
+      "description": "批次内所有事件取值相同的字段，由 C06 提升到批次头（C06-F3）。事件体中的同名字段优先",
+      "additionalProperties": false,
+      "properties": {
+        "page_id": { "type": "string", "maxLength": 256 },
+        "view_id": { "$ref": "#/$defs/uuid" },
+        "url": { "type": "string", "maxLength": 2048 },
+        "sample_rate": { "$ref": "#/$defs/sampleRate" },
+        "context": { "$ref": "#/$defs/dimensions" }
+      }
+    },
+    "sampleRate": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+    "event": {
+      "type": "object",
+      "required": ["event_id", "event_name", "event_type", "schema_version", "occurred_at", "priority"],
+      "additionalProperties": false,
+      "properties": {
+        "event_id": { "$ref": "#/$defs/uuid" },
+        "event_name": { "$ref": "#/$defs/eventName" },
+        "event_type": { "enum": ["custom", "log", "error", "perf", "pageview", "http", "sdk_internal"] },
+        "schema_version": { "type": "integer", "minimum": 1 },
+        "occurred_at": { "$ref": "#/$defs/timestamp" },
+        "priority": { "enum": ["normal", "critical"] },
+        "sample_rate": { "$ref": "#/$defs/sampleRate" },
+        "page_id": { "type": "string", "maxLength": 256 },
+        "view_id": { "$ref": "#/$defs/uuid" },
+        "url": { "type": "string", "maxLength": 2048 },
+        "level": { "enum": ["debug", "info", "warn", "error"] },
+        "dimensions": { "$ref": "#/$defs/dimensions" },
+        "metrics": { "$ref": "#/$defs/metrics" },
+        "context": { "$ref": "#/$defs/dimensions" },
+        "attachment": { "type": "string", "maxLength": 8192 },
+        "truncated": {
+          "type": "array",
+          "description": "被截断的字段路径，如 dimensions.title、attachment（C04-F6）",
+          "items": { "type": "string", "maxLength": 128 },
+          "maxItems": 60,
+          "uniqueItems": true
+        },
+        "retry_count": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "replayed": { "type": "boolean", "description": "是否为离线补发" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "event_type": { "const": "log" } } },
+          "then": { "required": ["level"] }
+        }
+      ]
+    }
+  }
+}
