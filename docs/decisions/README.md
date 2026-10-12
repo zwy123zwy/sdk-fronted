@@ -14,6 +14,7 @@
 |---|---|---|---|---|
 | [D001](D001-scope.md) | 项目范围：只做浏览器 SDK | 已确认 | — | 全部 |
 | [D002](D002-consent-full-mode.md) | `consent_mode: full` 只能在初始化参数中设置 | 已确认 | — | T07、T13、T14、T25、T34 |
+| [D003](D003-critical-reliability-tiered-target.md) | critical 可靠性目标分层（硬杀场景改为 best-effort） | 已确认 | — | T16、T20、T32、T35、接收方容量建议 |
 | [Q1](Q1-scale.md) | 规模假设（缩小为浏览器矩阵与客户端负载） | 已确认 | — | T15、T20、T30、T32 |
 | [Q2](Q2-pilot-apps.md) | 首期试点应用与对接人 | 待确认 | 只阻塞 T33 | T33 |
 | [Q3](Q3-critical-events.md) | 哪些事件归为 critical | 已确认 | — | T06、T16、T22、T32 |
@@ -22,7 +23,7 @@
 | [Q6](Q6-migration.md) | 迁移流程与旧链路下线 | 已确认 | — | T19、T33、T34 |
 | [Q7](Q7-apm-coexistence.md) | 迁移期与第三方 APM 共存 | 已确认 | — | T18、T19、T30 |
 
-确认人：wenye.zhang（项目负责人），2026-10-09。
+确认人：wenye.zhang（项目负责人）。D001–D002 与 Q1–Q7 于 2026-10-09 确认；D003 于 2026-10-12 确认（触发：T02 的 POC-1 结论触发 R02 升级）。
 
 ## 记录模板
 
