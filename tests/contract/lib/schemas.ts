@@ -150,6 +150,15 @@ export interface ContractRegistry {
   readonly validate: (name: string, value: unknown) => ValidationOutcome;
   /** 通过 `{ "$ref": "<$id>" }` 校验，用来证明 URN 形式的 $ref 能正确解析。 */
   readonly validateByRef: (name: string, value: unknown) => ValidationOutcome;
+  /**
+   * 校验某个契约 Schema 内部的一段 `$defs`（例如 `batch` 的 `event`）。
+   *
+   * 用途：真实产出的事件体正好是 `batch.schema.json#/$defs/event` 那一层
+   * （批次公共头不在其中），必须能独立于完整批次被校验。这里仍然编译**同一份冻结
+   * Schema**，只是换一个 `$ref` 指向，因此不会与 `validate('batch', ...)` 漂移；
+   * 片段名写错时 Ajv 在编译期就报「can't resolve reference」。
+   */
+  readonly validateFragment: (name: string, fragment: string, value: unknown) => ValidationOutcome;
   /** 校验远程配置发布物 envelope（`remote-config.schema.json#/$defs/envelope`）。 */
   readonly validateEnvelope: (value: unknown) => ValidationOutcome;
 }
@@ -181,6 +190,7 @@ export const compileInlineSchema = (ajv: Ajv2020, schema: Record<string, unknown
  * - 每条 Schema 都按原文件编译，Ajv 会解析全部内部 `$ref`（含 `#/$defs/*`），
  *   引用解析不了会在编译期抛错，从而被 CI 拦住。
  * - 额外按 `$id`（URN）编译一份 `{ "$ref": "<$id>" }` 包装器，验证 URN 解析路径。
+ * - `$defs` 片段（如 `batch#/$defs/event`）按需编译并缓存，供真实产出校验使用。
  */
 export const compileContractRegistry = (): ContractRegistry => {
   const ajv = createAjv();
@@ -207,6 +217,24 @@ export const compileContractRegistry = (): ContractRegistry => {
   }
   const envelope = ajv.compile({ $ref: `${remoteConfigId}${ENVELOPE_POINTER}` });
 
+  /** `$defs` 片段的校验器缓存，键为 `<Schema 基名>#/$defs/<片段名>`。 */
+  const fragments = new Map<string, ValidateFunction>();
+  const fragmentValidator = (name: string, fragment: string): ValidateFunction => {
+    const key = `${name}#/$defs/${fragment}`;
+    const cached = fragments.get(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const id = ids.get(name);
+    if (id === undefined) {
+      throw new Error(`未知的契约 Schema：${name}`);
+    }
+    // 与 validate(name, ...) 共用同一个 Ajv 实例（即同一份已编译的冻结 Schema）。
+    const compiled = ajv.compile({ $ref: `${id}#/$defs/${fragment}` });
+    fragments.set(key, compiled);
+    return compiled;
+  };
+
   const lookup = (map: Map<string, ValidateFunction>, name: string): ValidateFunction => {
     const validate = map.get(name);
     if (validate === undefined) {
@@ -226,6 +254,7 @@ export const compileContractRegistry = (): ContractRegistry => {
     },
     validate: (name, value) => outcomeOf(lookup(direct, name), value),
     validateByRef: (name, value) => outcomeOf(lookup(byRef, name), value),
+    validateFragment: (name, fragment, value) => outcomeOf(fragmentValidator(name, fragment), value),
     validateEnvelope: (value) => outcomeOf(envelope, value),
   };
 };
