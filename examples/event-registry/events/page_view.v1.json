@@ -1,0 +1,47 @@
+{
+  "event_name": "page_view",
+  "schema_version": 1,
+  "event_type": "custom",
+  "description": "页面浏览",
+  "owner": "team-web",
+  "trigger": "路由切换完成、页面首屏渲染后上报一次",
+  "priority": "normal",
+  "status": "active",
+  "app_ids": [
+    "demo-app"
+  ],
+  "fields": [
+    {
+      "name": "page_id",
+      "kind": "dimension",
+      "type": "string",
+      "required": true,
+      "description": "字段 page_id 的占位说明",
+      "sensitivity": "none",
+      "max_length": 64
+    },
+    {
+      "name": "view_kind",
+      "kind": "dimension",
+      "type": "enum",
+      "required": true,
+      "description": "字段 view_kind 的占位说明",
+      "sensitivity": "none",
+      "enum_values": [
+        "entry",
+        "detail",
+        "list"
+      ]
+    },
+    {
+      "name": "stay_ms",
+      "kind": "metric",
+      "type": "integer",
+      "required": false,
+      "description": "页面停留时长",
+      "unit": "ms",
+      "sensitivity": "none",
+      "minimum": 0
+    }
+  ]
+}

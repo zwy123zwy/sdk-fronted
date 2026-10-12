@@ -1,0 +1,35 @@
+{
+  "event_name": "search_result_click",
+  "schema_version": 1,
+  "event_type": "custom",
+  "description": "搜索结果被点击",
+  "owner": "team-search",
+  "trigger": "用户在结果列表点击某条结果时上报一次",
+  "priority": "normal",
+  "status": "active",
+  "app_ids": [
+    "demo-app"
+  ],
+  "fields": [
+    {
+      "name": "position",
+      "kind": "metric",
+      "type": "integer",
+      "required": true,
+      "description": "结果在列表中的位置，从 1 开始",
+      "unit": "count",
+      "sensitivity": "none",
+      "minimum": 1,
+      "maximum": 100
+    },
+    {
+      "name": "query_ref",
+      "kind": "dimension",
+      "type": "string",
+      "required": false,
+      "description": "查询词占位标识，写入前由调用方脱敏",
+      "sensitivity": "mask",
+      "max_length": 64
+    }
+  ]
+}

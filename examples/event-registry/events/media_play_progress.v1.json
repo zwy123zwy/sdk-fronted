@@ -1,0 +1,49 @@
+{
+  "event_name": "media_play_progress",
+  "schema_version": 1,
+  "event_type": "custom",
+  "description": "播放进度心跳",
+  "owner": "team-media",
+  "trigger": "播放中每 15 秒上报一次，暂停与结束时各补报一次",
+  "priority": "normal",
+  "status": "active",
+  "app_ids": [
+    "demo-app"
+  ],
+  "fields": [
+    {
+      "name": "quality",
+      "kind": "dimension",
+      "type": "enum",
+      "required": true,
+      "description": "字段 quality 的占位说明",
+      "sensitivity": "none",
+      "enum_values": [
+        "360p",
+        "720p",
+        "1080p"
+      ]
+    },
+    {
+      "name": "progress_ratio",
+      "kind": "metric",
+      "type": "number",
+      "required": false,
+      "description": "播放进度比例",
+      "unit": "ratio",
+      "sensitivity": "none",
+      "minimum": 0,
+      "maximum": 1
+    },
+    {
+      "name": "watched_ms",
+      "kind": "metric",
+      "type": "integer",
+      "required": false,
+      "description": "累计观看时长",
+      "unit": "ms",
+      "sensitivity": "none",
+      "minimum": 0
+    }
+  ]
+}

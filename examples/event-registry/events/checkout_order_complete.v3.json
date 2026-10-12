@@ -1,0 +1,70 @@
+{
+  "event_name": "checkout_order_complete",
+  "schema_version": 3,
+  "event_type": "custom",
+  "description": "订单支付完成并生成结算单",
+  "owner": "team-payment",
+  "trigger": "支付回调校验通过、结算单落库成功后上报一次",
+  "priority": "critical",
+  "critical_reason": "结算与对账的唯一数据源，丢失后没有其他数据可以补回",
+  "status": "active",
+  "app_ids": [
+    "demo-app"
+  ],
+  "change_note": "新增可选维度 buyer_ref",
+  "replaces_version": 2,
+  "fields": [
+    {
+      "name": "order_type",
+      "kind": "dimension",
+      "type": "enum",
+      "required": true,
+      "description": "字段 order_type 的占位说明",
+      "sensitivity": "none",
+      "enum_values": [
+        "normal",
+        "group",
+        "presale"
+      ]
+    },
+    {
+      "name": "channel",
+      "kind": "dimension",
+      "type": "string",
+      "required": true,
+      "description": "字段 channel 的占位说明",
+      "sensitivity": "none",
+      "max_length": 32
+    },
+    {
+      "name": "buyer_ref",
+      "kind": "dimension",
+      "type": "string",
+      "required": false,
+      "description": "买家占位标识，写入前由调用方脱敏",
+      "sensitivity": "hash",
+      "max_length": 64
+    },
+    {
+      "name": "amount_ratio",
+      "kind": "metric",
+      "type": "number",
+      "required": true,
+      "description": "实付金额占标价的比值",
+      "unit": "ratio",
+      "sensitivity": "none",
+      "minimum": 0,
+      "maximum": 1
+    },
+    {
+      "name": "item_count",
+      "kind": "metric",
+      "type": "integer",
+      "required": false,
+      "description": "订单内商品件数",
+      "unit": "count",
+      "sensitivity": "none",
+      "minimum": 0
+    }
+  ]
+}

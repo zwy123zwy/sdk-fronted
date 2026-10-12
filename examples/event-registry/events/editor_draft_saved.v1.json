@@ -1,0 +1,37 @@
+{
+  "event_name": "editor_draft_saved",
+  "schema_version": 1,
+  "event_type": "log",
+  "description": "编辑器草稿保存",
+  "owner": "team-editor",
+  "trigger": "本地草稿写入 localStorage 成功后上报一次",
+  "priority": "normal",
+  "status": "draft",
+  "app_ids": [
+    "demo-console"
+  ],
+  "fields": [
+    {
+      "name": "save_kind",
+      "kind": "dimension",
+      "type": "enum",
+      "required": true,
+      "description": "字段 save_kind 的占位说明",
+      "sensitivity": "none",
+      "enum_values": [
+        "auto",
+        "manual"
+      ]
+    },
+    {
+      "name": "draft_bytes",
+      "kind": "metric",
+      "type": "integer",
+      "required": false,
+      "description": "草稿序列化后的字节数",
+      "unit": "bytes",
+      "sensitivity": "none",
+      "minimum": 0
+    }
+  ]
+}
