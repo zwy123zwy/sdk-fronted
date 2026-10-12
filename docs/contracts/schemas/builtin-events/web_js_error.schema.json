@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:web-report-sdk:contracts:builtin-event:web_js_error:0.2",
+  "title": "内置事件 web_js_error（event_type: error）",
+  "description": "契约文档版本 0.2（2026-10-12 按兼容变更追加，不递增文档版本号）。校验对象是单个事件体，即 batch.schema.json $defs/event 那一层；批次公共头不在本 Schema 范围内。dimensions、metrics、attachment 的键名与含义逐项对齐 event-standard.md 第 6 节的 web_js_error 行，未新增表外语义。Q3 结论第 4 条要求自动采集的错误事件固定 priority: normal。本文件为兼容追加，未修改 event-standard.md 第 6 节。",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_name",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "priority",
+    "dimensions",
+    "metrics"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "#/$defs/uuid" },
+    "event_name": { "const": "web_js_error" },
+    "event_type": { "const": "error" },
+    "schema_version": {
+      "const": 1,
+      "description": "内置事件定义的版本。修改内置定义时递增，规则见 README.md 的版本与兼容规则"
+    },
+    "occurred_at": { "$ref": "#/$defs/timestamp" },
+    "priority": {
+      "const": "normal",
+      "description": "Q3 结论第 4 条：自动采集的错误、性能、页面浏览、HTTP 与 SDK 自监控事件一律为 normal"
+    },
+    "sample_rate": { "$ref": "#/$defs/sampleRate" },
+    "page_id": { "type": "string", "maxLength": 256, "description": "路由模板，如 /task/:id" },
+    "view_id": { "$ref": "#/$defs/uuid" },
+    "url": { "type": "string", "maxLength": 2048, "description": "脱敏后的完整 URL" },
+    "level": {
+      "enum": ["debug", "info", "warn", "error"],
+      "description": "event-standard.md 第 2 节：仅 event_type 为 log 时必填。本事件不使用本字段，保留它以与 batch.schema.json $defs/event 的字段集合保持一致"
+    },
+    "dimensions": {
+      "type": "object",
+      "description": "键名、含义见 event-standard.md 第 6 节 web_js_error 行：error_type、message、source、fingerprint",
+      "required": ["error_type", "message", "source", "fingerprint"],
+      "additionalProperties": false,
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "properties": {
+        "error_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "错误类型名，如 TypeError、ReferenceError；取不到时用占位名（如 UnknownError）"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "脱敏后的错误信息。上位约束见 event-standard.md 第 2 节（维度值不超过 256 字符）与第 4 节（超长由 C04 截断到 256 字符并写入 truncated）"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "错误来源。已知取值 window_error（C05-AC-01）、unhandled_rejection（C05-AC-02）；新增取值属于兼容变更"
+        },
+        "fingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "去重指纹（C05-AC-03），由错误类型、归一化后的 message 与错误栈生成"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "键名、含义见 event-standard.md 第 6 节 web_js_error 行：line、column、count",
+      "required": ["count"],
+      "additionalProperties": false,
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "properties": {
+        "line": { "type": "integer", "minimum": 0, "description": "错误发生的行号；取不到时不上报" },
+        "column": { "type": "integer", "minimum": 0, "description": "错误发生的列号；取不到时不上报" },
+        "count": { "type": "integer", "minimum": 1, "description": "同一指纹在聚合窗口内的出现次数（C05-AC-03）" }
+      }
+    },
+    "context": { "$ref": "#/$defs/dimensions" },
+    "attachment": {
+      "type": "string",
+      "maxLength": 8192,
+      "description": "event-standard.md 第 6 节：脱敏后的错误栈。跨域错误等取不到栈时不上报"
+    },
+    "truncated": { "$ref": "#/$defs/truncated" },
+    "retry_count": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "replayed": { "type": "boolean", "description": "是否为离线补发" }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "timestamp": { "type": "integer", "minimum": 1577836800000, "maximum": 4102444800000 },
+    "fieldKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+    "sampleRate": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+    "dimensions": {
+      "type": "object",
+      "description": "全局自定义上下文（context），与事件自有 dimensions 分开存放；约束同 batch.schema.json $defs/dimensions",
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "additionalProperties": { "type": "string", "maxLength": 256 }
+    },
+    "truncated": {
+      "type": "array",
+      "description": "被截断的字段路径，如 dimensions.message、attachment（C04-F6）",
+      "items": { "type": "string", "maxLength": 128 },
+      "maxItems": 60,
+      "uniqueItems": true
+    }
+  }
+}

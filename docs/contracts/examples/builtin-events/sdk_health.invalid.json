@@ -1,0 +1,22 @@
+{
+  "event_id": "e0000006-0000-4000-8000-000000000011",
+  "event_name": "sdk_health",
+  "event_type": "sdk_internal",
+  "schema_version": 1,
+  "occurred_at": 1793000060001,
+  "priority": "normal",
+  "sample_rate": 1,
+  "page_id": "/task/:id",
+  "view_id": "c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f",
+  "url": "https://app.example.com/task/123",
+  "dimensions": {
+    "sdk_version": "0.1.0",
+    "state": "running",
+    "config_version": "7"
+  },
+  "metrics": {
+    "calls_total": 0,
+    "window_ms": 60000,
+    "count_retry_5xx": 1
+  }
+}

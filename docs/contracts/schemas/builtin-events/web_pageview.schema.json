@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:web-report-sdk:contracts:builtin-event:web_pageview:0.2",
+  "title": "内置事件 web_pageview（event_type: pageview）",
+  "description": "契约文档版本 0.2（2026-10-12 按兼容变更追加，不递增文档版本号）。校验对象是单个事件体，即 batch.schema.json $defs/event 那一层。dimensions、metrics 的键名与含义逐项对齐 event-standard.md 第 6 节的 web_pageview 行：referrer_page_id、navigation_type、load_time_ms。Q3 结论第 4 条要求自动采集的页面浏览事件固定 priority: normal。",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_name",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "priority",
+    "dimensions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "#/$defs/uuid" },
+    "event_name": { "const": "web_pageview" },
+    "event_type": { "const": "pageview" },
+    "schema_version": {
+      "const": 1,
+      "description": "内置事件定义的版本。修改内置定义时递增，规则见 README.md 的版本与兼容规则"
+    },
+    "occurred_at": { "$ref": "#/$defs/timestamp" },
+    "priority": {
+      "const": "normal",
+      "description": "Q3 结论第 4 条：自动采集的错误、性能、页面浏览、HTTP 与 SDK 自监控事件一律为 normal"
+    },
+    "sample_rate": { "$ref": "#/$defs/sampleRate" },
+    "page_id": { "type": "string", "maxLength": 256, "description": "路由模板，如 /task/:id；每次路由变化上报一条" },
+    "view_id": { "$ref": "#/$defs/uuid", "description": "页面访问标识；路由变化时重新生成，入队时绑定（C04-F2）" },
+    "url": { "type": "string", "maxLength": 2048, "description": "脱敏后的完整 URL" },
+    "level": {
+      "enum": ["debug", "info", "warn", "error"],
+      "description": "event-standard.md 第 2 节：仅 event_type 为 log 时必填。本事件不使用本字段，保留它以与 batch.schema.json $defs/event 的字段集合保持一致"
+    },
+    "dimensions": {
+      "type": "object",
+      "description": "键名、含义见 event-standard.md 第 6 节 web_pageview 行：referrer_page_id、navigation_type",
+      "required": ["navigation_type"],
+      "additionalProperties": false,
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "properties": {
+        "referrer_page_id": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "来源页面标识（通常为上一页的 page_id 或路由模板）；首个页面访问没有来源时不上报"
+        },
+        "navigation_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "本次页面访问的触发方式；History、Hash、手动三种模式见 C05-AC-08、C05-AC-09（如 navigate）。取值由 C05 的路由插件定义，新增取值属于兼容变更"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "键名、含义见 event-standard.md 第 6 节 web_pageview 行：load_time_ms",
+      "additionalProperties": false,
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "properties": {
+        "load_time_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "页面加载耗时（毫秒）；SPA 路由切换没有加载耗时，可以不上报"
+        }
+      }
+    },
+    "context": { "$ref": "#/$defs/dimensions" },
+    "truncated": { "$ref": "#/$defs/truncated" },
+    "retry_count": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "replayed": { "type": "boolean", "description": "是否为离线补发" }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "timestamp": { "type": "integer", "minimum": 1577836800000, "maximum": 4102444800000 },
+    "fieldKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+    "sampleRate": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+    "dimensions": {
+      "type": "object",
+      "description": "全局自定义上下文（context），与事件自有 dimensions 分开存放；约束同 batch.schema.json $defs/dimensions",
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "additionalProperties": { "type": "string", "maxLength": 256 }
+    },
+    "truncated": {
+      "type": "array",
+      "description": "被截断的字段路径，如 dimensions.message、attachment（C04-F6）",
+      "items": { "type": "string", "maxLength": 128 },
+      "maxItems": 60,
+      "uniqueItems": true
+    }
+  }
+}

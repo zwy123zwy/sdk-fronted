@@ -18,7 +18,9 @@ SDK 与接收方、SDK 与开发工具（K01、K02、M01）之间只通过本目
 | [reason-codes.md](reason-codes.md) | T05、T17 | 0.2 | 已冻结 |
 | [receiver-requirements.md](receiver-requirements.md) | T05 | 0.2 | 已冻结 |
 | [examples/](examples/) | T05–T07 | 0.2 | 已冻结 |
-| `schemas/builtin-events/` | T06 | — | 未提供，T18 开工前补齐（兼容变更） |
+| [schemas/builtin-events/](schemas/builtin-events/) | T06、T18 | 0.2（兼容追加） | 已提供（2026-10-12，不递增文档版本号） |
+| [examples/builtin-events/](examples/builtin-events/) | T06、T10 | 0.2（兼容追加） | 已提供（2026-10-12） |
+| [examples/compat-pairs/](examples/compat-pairs/) | T06、T10、T22 | 0.2（兼容追加） | 已提供（2026-10-12） |
 
 **草案状态下不得作为实现依据。** 冻结后修改走契约变更请求。
 
@@ -28,7 +30,7 @@ SDK 与接收方、SDK 与开发工具（K01、K02、M01）之间只通过本目
 |---|---|---|---|
 | 2026-10-10 | 0.2 | 上表中所有标为“已冻结”的文件 | wenye.zhang（项目负责人）于 2026-10-09 在对话中授权，代行架构负责人批准；架构负责人可以补签 |
 
-已知未完成项（不阻塞冻结，按兼容变更追加）：`schemas/builtin-events/`；`receiver-requirements.md` 附录 A（T17）；`batch.invalid.json` 中信标通道 `auth` 的非法样例由 T10 补充。
+已知未完成项（不阻塞冻结，按兼容变更追加）：`receiver-requirements.md` 附录 A（T17）；`batch.invalid.json` 中信标通道 `auth` 的非法样例由 T10 补充。`schemas/builtin-events/` 已由 T06 于 2026-10-12 按兼容变更补齐（只细化 `event-standard.md` 第 6 节已列出的字段，不改变该节内容；不递增文档版本号，冻结记录不变）。
 
 ## 约定
 
@@ -36,6 +38,8 @@ SDK 与接收方、SDK 与开发工具（K01、K02、M01）之间只通过本目
 - 时间为 UTC 毫秒时间戳；耗时字段后缀 `_ms`，字节数后缀 `_bytes`。
 - 规则用“必须 / 不得 / 应该 / 可以”表述，含义同 RFC 2119。每条“必须”都对应 `tests/acceptance/` 中的至少一个用例。
 - 每个 Schema 都要有至少一个合法样例（`examples/*.valid.json`）和一个非法样例（`examples/*.invalid.json`），契约测试（T10）用它们做双向校验。
+- 内置事件 Schema（`schemas/builtin-events/`）的 `dimensions` 与 `metrics` 是**封闭集合**：只允许 `event-standard.md` 第 6 节列出的键（`sdk_health` 另见 `reason-codes.md` 第 4 节）。新增键必须走一次兼容追加（新增可选字段属于兼容变更），不能由实现方自行添加。
+- Schema `$id` 的末段是**契约文档版本**（如 `urn:web-report-sdk:contracts:builtin-event:web_js_error:0.2` 中的 `0.2`）；事件的 `schema_version` 是**事件定义版本**（内置事件当前为 `1`）。两者不是一回事。
 - 样例中只使用占位值，不得出现真实的个人信息、令牌或域名。
 
 ## 版本与兼容规则

@@ -1,0 +1,93 @@
+{
+  "$comment": "T06（A01，2026-10-12，兼容追加）产出的内置事件样例索引，供 T10 做双向校验、T18 实现时对照。index.json 自身不是样例：T10 只对 *.valid.json / *.invalid.json 做校验。每个事件至少一个合法样例和一个非法样例；additional_invalid 是收紧取值后补充的非法样例，命名同样以 .invalid.json 结尾。",
+  "index_version": 1,
+  "contract_version": "0.2（未递增文档版本号；本目录是按兼容变更追加的新文件）",
+  "source_contract": [
+    "docs/contracts/event-standard.md 0.2 第 6 节（内置事件清单与字段表）",
+    "docs/contracts/reason-codes.md 0.2 第 4 节（sdk_health 字段）",
+    "docs/decisions/Q3-critical-events.md（内置自动采集事件固定 priority: normal）"
+  ],
+  "consumer": ["T10（双向 Schema 校验）", "T18（内置事件实现依据）"],
+  "sample_layer": "只含事件体，即 batch.schema.json $defs/event 那一层；不含批次公共头，也不使用 common 提升",
+  "events": [
+    {
+      "event_name": "web_js_error",
+      "event_type": "error",
+      "schema_version": 1,
+      "priority": "normal",
+      "schema": "../../schemas/builtin-events/web_js_error.schema.json",
+      "valid": "web_js_error.valid.json",
+      "invalid": "web_js_error.invalid.json",
+      "invalid_expectation": "dimensions 缺少必填键 fingerprint；event-standard.md 第 6 节 web_js_error 行的 dimensions 含 error_type、message、source、fingerprint"
+    },
+    {
+      "event_name": "web_vitals",
+      "event_type": "perf",
+      "schema_version": 1,
+      "priority": "normal",
+      "schema": "../../schemas/builtin-events/web_vitals.schema.json",
+      "valid": "web_vitals.valid.json",
+      "invalid": "web_vitals.invalid.json",
+      "invalid_expectation": "dimensions.metric_name 为 FID，不在 event-standard.md 第 6 节列出的 FCP、LCP、CLS、INP、TTFB 之内",
+      "additional_invalid": [
+        {
+          "file": "web_vitals.rating.invalid.json",
+          "expectation": "dimensions.rating 为 needs_improvement（下划线写法），不在 2026-10-12 架构负责人确认的 good、needs-improvement、poor 之内"
+        }
+      ]
+    },
+    {
+      "event_name": "web_long_task",
+      "event_type": "perf",
+      "schema_version": 1,
+      "priority": "normal",
+      "schema": "../../schemas/builtin-events/web_long_task.schema.json",
+      "valid": "web_long_task.valid.json",
+      "invalid": "web_long_task.invalid.json",
+      "invalid_expectation": "出现表外维度键 dimensions.attribution；event-standard.md 第 6 节 web_long_task 行只列出 metrics：duration_ms、start_time_ms"
+    },
+    {
+      "event_name": "web_pageview",
+      "event_type": "pageview",
+      "schema_version": 1,
+      "priority": "normal",
+      "schema": "../../schemas/builtin-events/web_pageview.schema.json",
+      "valid": "web_pageview.valid.json",
+      "invalid": "web_pageview.invalid.json",
+      "invalid_expectation": "metrics.load_time_ms 为字符串 \"812\"，不是数值（event-standard.md 第 6 节该行为 metrics）"
+    },
+    {
+      "event_name": "web_http",
+      "event_type": "http",
+      "schema_version": 1,
+      "priority": "normal",
+      "schema": "../../schemas/builtin-events/web_http.schema.json",
+      "valid": "web_http.valid.json",
+      "invalid": "web_http.invalid.json",
+      "invalid_expectation": "priority 为 critical；Q3 结论第 4 条要求自动采集的 HTTP 事件固定为 normal"
+    },
+    {
+      "event_name": "sdk_health",
+      "event_type": "sdk_internal",
+      "schema_version": 1,
+      "priority": "normal",
+      "schema": "../../schemas/builtin-events/sdk_health.schema.json",
+      "valid": "sdk_health.valid.json",
+      "invalid": "sdk_health.invalid.json",
+      "invalid_expectation": "metrics.calls_total 为 0；reason-codes.md 第 4 节要求值为 0 的计数不上报，因此计数的 minimum 为 1",
+      "additional_invalid": [
+        {
+          "file": "sdk_health.state.invalid.json",
+          "expectation": "dimensions.state 为 started，不在 2026-10-12 架构负责人确认的 initialized、running、paused、destroyed 之内（reason-codes.md 第 4 节）"
+        }
+      ]
+    }
+  ],
+  "implementation_notes": [
+    "样例中的 UUID、域名、令牌位置全部是占位值，不含真实个人信息、令牌或域名。",
+    "web_long_task 样例的 start_time_ms 取 5230.5；时间基准已由架构负责人于 2026-10-12 确认为相对 time origin（与 PerformanceEntry.startTime 同基准），口径写在 event-standard.md 第 6 节的澄清句与 web_long_task.schema.json。",
+    "sdk_health 样例的 dimensions.state 取 \"running\"；取值集合已由架构负责人于 2026-10-12 确认为 initialized、running、paused、destroyed（reason-codes.md 第 4 节），Schema 中为 enum。",
+    "sdk_health 样例的 dimensions.config_version 取字符串 \"7\"；架构负责人于 2026-10-12 确认以十进制字符串编码（dimensions 的值类型只能是字符串），取值范围与 remote-config.schema.json 的整数 config_version 一致（>=1）。",
+    "web_vitals 样例的 dimensions.rating 取 \"good\"；取值集合已确认为 good、needs-improvement、poor（Schema 中为 enum）。source、failure_reason、navigation_type 仍是开放字符串，新增取值属于兼容变更。"
+  ]
+}

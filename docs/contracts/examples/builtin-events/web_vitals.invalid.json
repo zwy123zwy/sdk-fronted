@@ -1,0 +1,14 @@
+{
+  "event_id": "e0000002-0000-4000-8000-000000000012",
+  "event_name": "web_vitals",
+  "event_type": "perf",
+  "schema_version": 1,
+  "occurred_at": 1793000000901,
+  "priority": "normal",
+  "sample_rate": 1,
+  "page_id": "/list",
+  "view_id": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+  "url": "https://app.example.com/list?page=2",
+  "dimensions": { "metric_name": "FID", "rating": "good" },
+  "metrics": { "value": 96, "delta": 96 }
+}

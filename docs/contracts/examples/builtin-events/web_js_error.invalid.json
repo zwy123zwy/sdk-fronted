@@ -1,0 +1,19 @@
+{
+  "event_id": "e0000001-0000-4000-8000-000000000012",
+  "event_name": "web_js_error",
+  "event_type": "error",
+  "schema_version": 1,
+  "occurred_at": 1793000000201,
+  "priority": "normal",
+  "sample_rate": 1,
+  "page_id": "/task/:id",
+  "view_id": "c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f",
+  "url": "https://app.example.com/task/123?tab=detail",
+  "dimensions": {
+    "error_type": "TypeError",
+    "message": "Cannot read properties of undefined (reading 'id')",
+    "source": "window_error"
+  },
+  "metrics": { "line": 120, "column": 17, "count": 1 },
+  "attachment": "TypeError: Cannot read properties of undefined\n    at render (https://app.example.com/assets/index.js:120:17)"
+}
