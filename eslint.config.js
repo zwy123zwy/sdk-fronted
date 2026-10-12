@@ -50,12 +50,17 @@ export default tseslint.config(
   },
   {
     // 指南第 6 节的「已批准豁免」（2026-10-12，批准人 wenye.zhang）。
-    // 验收用例 C01-AC-12 与 C08-AC-08 要求调试模式向控制台输出原因码，
-    // 与上一段对 packages/*/src/** 的全局 no-console 冲突。
-    // 豁免范围收窄到唯一一个调试输出模块：packages/core/src/api/console-sink.ts。
-    // 其余 SDK 代码仍然禁止 console；若该文件被改名或移动，此处豁免失效，lint 会立刻报错提醒。
+    // 共两个文件，各自都是「必须向控制台输出、且无法复用 core 的 sink」的场景：
+    // 1) packages/core/src/api/console-sink.ts —— 验收用例 C01-AC-12 与 C08-AC-08
+    //    要求调试模式向控制台输出原因码，与上一段对 packages/*/src/** 的全局
+    //    no-console 冲突；
+    // 2) packages/browser/src/loading-stub.ts —— 加载桩按设计是内联到页面头部的
+    //    独立脚本，不 import 任何模块（用不了 core 的 console-sink），但队列溢出时
+    //    需要告警。该文件**曾经**用 root['console'] 间接访问来规避本规则，
+    //    经复核认定为 lint 躲避，已改为直接使用 console 并在本处显式豁免。
+    // 其余 SDK 代码仍然禁止 console；任一文件被改名或移动，该条豁免失效、lint 立刻报错。
     // 该豁免记录在 docs/tasks/board.md 的阻塞与升级记录，以及 docs/reports/wave1-lanes.md。
-    files: ['packages/core/src/api/console-sink.ts'],
+    files: ['packages/core/src/api/console-sink.ts', 'packages/browser/src/loading-stub.ts'],
     rules: {
       'no-console': 'off',
     },

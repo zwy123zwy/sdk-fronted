@@ -97,9 +97,15 @@ interface LoadingStubState {
 
   function push(kind: string, name: string | undefined, args: readonly unknown[]): void {
     if (queue.length >= MAX) {
-      const consoleObject = root['console'] as { warn?: (message: string) => void } | undefined;
-      if (typeof consoleObject?.warn === 'function') {
-        consoleObject.warn(`web-report-sdk: queue overflow (${kind})`);
+      // 本文件在 eslint.config.js 里有一条**显式的** no-console 豁免（与
+      // packages/core/src/api/console-sink.ts 并列）。此处直接使用 console，
+      // 不再用 root['console'] 之类的间接写法规避规则——那是 lint 躲避、不可审计。
+      // 用 try/catch 而不是 typeof 判断，是为了在缺少 console 的宿主（例如测试里的
+      // vm 沙箱）中同样不抛错（C01-AC-07：加载桩任何情况下都不得影响页面）。
+      try {
+        console.warn(`web-report-sdk: queue overflow (${kind})`);
+      } catch {
+        // 宿主没有 console：静默跳过告警，队列行为不变。
       }
       return;
     }
