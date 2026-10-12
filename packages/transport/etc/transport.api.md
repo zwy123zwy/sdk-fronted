@@ -5,6 +5,384 @@
 ```ts
 
 // @public
+export interface BatchAssembler {
+    assemble(events: readonly QueueEvent[]): BatchEnvelope;
+}
+
+// @public
+export interface BatchAssemblerOptions {
+    readonly createId?: (() => string) | undefined;
+    readonly header: BatchHeaderSource;
+    readonly now?: (() => number) | undefined;
+}
+
+// @public
+export interface BatchEnvelope extends BatchHeader {
+    // (undocumented)
+    readonly batch_id: string;
+    readonly common?: CommonFields | undefined;
+    // (undocumented)
+    readonly events: readonly QueueEvent[];
+    // (undocumented)
+    readonly sent_at: number;
+}
+
+// @public
+export interface BatchHeader {
+    // (undocumented)
+    readonly app_id: string;
+    // (undocumented)
+    readonly clock_calibrated?: boolean | undefined;
+    // (undocumented)
+    readonly clock_offset: number;
+    // (undocumented)
+    readonly consent?: 'granted' | 'denied' | 'unknown' | undefined;
+    // (undocumented)
+    readonly device_id: string;
+    // (undocumented)
+    readonly device_id_persistent?: boolean | undefined;
+    // (undocumented)
+    readonly env: string;
+    // (undocumented)
+    readonly protocol_version: 1;
+    // (undocumented)
+    readonly release: string;
+    // (undocumented)
+    readonly sdk_name: string;
+    // (undocumented)
+    readonly sdk_version: string;
+    // (undocumented)
+    readonly session_id: string;
+    // (undocumented)
+    readonly user_id?: string | undefined;
+    // (undocumented)
+    readonly user_id_hashed?: boolean | undefined;
+}
+
+// @public
+export interface BatchHeaderSource {
+    header(): BatchHeader;
+}
+
+// @public
+export interface BatchSubmitPort {
+    // (undocumented)
+    submit(batch: BatchEnvelope, context: SubmitContext): void;
+}
+
+// @public
+export interface CommonFields {
+    // (undocumented)
+    readonly context?: Dimensions | undefined;
+    // (undocumented)
+    readonly page_id?: string | undefined;
+    // (undocumented)
+    readonly sample_rate?: number | undefined;
+    // (undocumented)
+    readonly url?: string | undefined;
+    // (undocumented)
+    readonly view_id?: string | undefined;
+}
+
+// @public
+export interface CountersPort {
+    count(reason: string, delta?: number): void;
+}
+
+// @public
+export function createBatchAssembler(options: BatchAssemblerOptions): BatchAssembler;
+
+// @public
+export function createDomPageLeaveSource(target: PageLifecycleDocument): PageLeaveSource;
+
+// @public
+export function createMemoryQueue(options?: MemoryQueueOptions): MemoryQueue;
+
+// @public
+export function createTransportQueue(options: TransportQueueOptions): TransportQueue;
+
+// @public
+export const DEFAULT_IDLE_FLUSH_MS = 1000;
+
+// @public
+export const DEFAULT_MAX_BATCH_BYTES: number;
+
+// @public
+export const DEFAULT_MAX_BATCH_EVENTS = 20;
+
+// @public
+export const DEFAULT_MAX_WAIT_MS = 5000;
+
+// @public
+export const DEFAULT_REPLAY_BATCHES_PER_SECOND = 1;
+
+// @public
+export const DEFAULT_SLOW_EFFECTIVE_TYPES: readonly string[];
+
+// @public
+export const DEFAULT_WEAK_BATCH_EVENTS_MULTIPLIER = 2;
+
+// @public
+export const DEFAULT_WEAK_IDLE_FLUSH_MS_MULTIPLIER = 2;
+
+// @public
+export const DEFAULT_WEAK_NETWORK_POLICY: WeakNetworkPolicy;
+
+// @public
+export type Dimensions = Readonly<Record<string, string>>;
+
+// @public
+export interface EffectiveLimits {
+    // (undocumented)
+    readonly idleFlushMs: number;
+    // (undocumented)
+    readonly maxBatchBytes: number;
+    // (undocumented)
+    readonly maxBatchEvents: number;
+    // (undocumented)
+    readonly maxWaitMs: number;
+    // (undocumented)
+    readonly replayBatchesPerSecond: number;
+    readonly weakNetwork: boolean;
+}
+
+// @public
+export function estimateEventBytes(event: QueueEvent): number;
+
+// @public
+export type EventPriority = 'normal' | 'critical';
+
+// @public
+export type FlushReason = 'events' | 'bytes' | 'idle' | 'max_wait' | 'manual' | 'page_leave' | 'resume';
+
+// @public
+export interface FlushResult {
+    readonly batch?: BatchEnvelope | undefined;
+    // (undocumented)
+    readonly reason: FlushReason;
+    // (undocumented)
+    readonly status: FlushStatus;
+}
+
+// @public
+export type FlushStatus = 'submitted' | 'empty' | 'in_flight' | 'circuit_open';
+
+// @public
+export const LIMIT_RANGES: {
+    readonly maxBatchEvents: {
+        readonly min: 1;
+        readonly max: 100;
+    };
+    readonly maxBatchBytes: {
+        readonly min: 1024;
+        readonly max: 61440;
+    };
+    readonly idleFlushMs: {
+        readonly min: 200;
+        readonly max: 10000;
+    };
+    readonly maxWaitMs: {
+        readonly min: 1000;
+        readonly max: 60000;
+    };
+};
+
+// @public
+export interface MemoryQueue {
+    // (undocumented)
+    bytes(): number;
+    // (undocumented)
+    clear(): void;
+    drainUpTo(limitEvents: number, limitBytes: number): QueueSlice;
+    push(event: QueueEvent): QueuePushResult;
+    // (undocumented)
+    size(): number;
+}
+
+// @public
+export interface MemoryQueueOptions {
+    readonly counters?: CountersPort | undefined;
+    readonly maxBytes?: number | undefined;
+    readonly maxEvents?: number | undefined;
+    readonly measure?: ((event: QueueEvent) => number) | undefined;
+    readonly offline?: OfflineSpillPort | undefined;
+}
+
+// @public
+export interface NetworkInfoPort {
+    // (undocumented)
+    snapshot(): NetworkSnapshot;
+}
+
+// @public
+export interface NetworkSnapshot {
+    // (undocumented)
+    readonly effectiveType?: string | undefined;
+    // (undocumented)
+    readonly saveData?: boolean | undefined;
+}
+
+// @public
+export interface OfflineSpillPort {
+    // (undocumented)
+    spill(event: QueueEvent, reason: 'queue_overflow'): boolean;
+}
+
+// @public
 export const PACKAGE_NAME = "@web-report-sdk/transport";
+
+// @public
+export type PageLeaveSignal = 'hidden' | 'pagehide';
+
+// @public
+export interface PageLeaveSource {
+    subscribe(handler: (signal: PageLeaveSignal) => void): () => void;
+}
+
+// @public
+export interface PageLifecycleDocument {
+    // (undocumented)
+    addEventListener(type: string, listener: () => void): void;
+    // (undocumented)
+    removeEventListener(type: string, listener: () => void): void;
+    // (undocumented)
+    readonly visibilityState: string;
+}
+
+// @public
+export const QUEUE_MAX_BYTES: number;
+
+// @public
+export const QUEUE_MAX_EVENTS = 500;
+
+// @public
+export interface QueueEvent {
+    // (undocumented)
+    [field: string]: unknown;
+    // (undocumented)
+    readonly event_id: string;
+    // (undocumented)
+    readonly event_name: string;
+    // (undocumented)
+    readonly event_type: string;
+    // (undocumented)
+    readonly occurred_at: number;
+    // (undocumented)
+    readonly priority: EventPriority;
+    // (undocumented)
+    readonly schema_version: number;
+}
+
+// @public
+export interface QueuePushResult {
+    readonly event: QueueEvent;
+    readonly evicted?: readonly QueueEvent[] | undefined;
+    // (undocumented)
+    readonly status: QueuePushStatus;
+}
+
+// @public
+export type QueuePushStatus = 'queued' | 'evicted' | 'rejected' | 'spilled' | 'spill_failed';
+
+// @public
+export interface QueueSlice {
+    // (undocumented)
+    readonly bytes: number;
+    // (undocumented)
+    readonly events: readonly QueueEvent[];
+}
+
+// @public
+export const REASON_CIRCUIT_OPEN = "circuit_open";
+
+// @public
+export const REASON_PROCESSOR_ERROR = "processor_error";
+
+// @public
+export const REASON_QUEUE_EVICTED = "queue_evicted";
+
+// @public
+export const REASON_STORAGE_UNAVAILABLE = "storage_unavailable";
+
+// @public
+export const REPLAY_BATCHES_PER_SECOND_MAX = 2;
+
+// @public
+export function resolveLimits(settings: TransportSettings, network: NetworkSnapshot, policy?: WeakNetworkPolicy): EffectiveLimits;
+
+// @public
+export type SubmitChannel = 'default' | 'page_leave';
+
+// @public
+export interface SubmitContext {
+    // (undocumented)
+    readonly channel: SubmitChannel;
+    // (undocumented)
+    readonly complete: (outcome: SubmitOutcome) => void;
+}
+
+// @public
+export type SubmitOutcome = 'sent' | 'failed' | 'circuit_open';
+
+// @public
+export interface TransportConfigPort {
+    // (undocumented)
+    transport(): TransportSettings;
+}
+
+// @public
+export interface TransportQueue {
+    dispose(): void;
+    enqueue(event: QueueEvent): QueuePushResult;
+    flush(reason?: FlushReason): FlushResult;
+    inFlight(): boolean;
+    isCircuitOpen(): boolean;
+    limits(): EffectiveLimits;
+    // (undocumented)
+    queueBytes(): number;
+    // (undocumented)
+    queueLength(): number;
+    setCircuitOpen(open: boolean): void;
+}
+
+// @public
+export interface TransportQueueOptions {
+    readonly config: TransportConfigPort;
+    readonly counters?: CountersPort | undefined;
+    readonly createId?: (() => string) | undefined;
+    readonly header: BatchHeaderSource;
+    readonly maxQueueBytes?: number | undefined;
+    readonly maxQueueEvents?: number | undefined;
+    readonly measure?: ((event: QueueEvent) => number) | undefined;
+    readonly network?: NetworkInfoPort | undefined;
+    readonly now?: (() => number) | undefined;
+    readonly offline?: OfflineSpillPort | undefined;
+    readonly pageLeave?: PageLeaveSource | undefined;
+    readonly submit: BatchSubmitPort;
+    readonly weakNetwork?: WeakNetworkPolicy | undefined;
+}
+
+// @public
+export interface TransportSettings {
+    // (undocumented)
+    readonly idle_flush_ms?: number | undefined;
+    // (undocumented)
+    readonly max_batch_bytes?: number | undefined;
+    // (undocumented)
+    readonly max_batch_events?: number | undefined;
+    // (undocumented)
+    readonly max_wait_ms?: number | undefined;
+    // (undocumented)
+    readonly replay_batches_per_second?: number | undefined;
+}
+
+// @public
+export interface WeakNetworkPolicy {
+    readonly batchEventsMultiplier?: number | undefined;
+    readonly idleFlushMsMultiplier?: number | undefined;
+    readonly slowEffectiveTypes?: readonly string[] | undefined;
+}
+
+// (No @packageDocumentation comment for this package)
 
 ```
