@@ -16,12 +16,16 @@ import type { Dispose, Kernel, KernelConfig, KernelEvent } from './types';
 
 const NOOP_DISPOSE: Dispose = () => undefined;
 
-/** 创建内核。模块顶层不访问 window；`config.target` 缺省时在首次订阅原生事件时解析。 */
+/**
+ * 创建内核。模块顶层不访问 window；`config.target` 缺省时在首次订阅原生事件时解析。
+ * `config.registry` 可注入共享的全局注册表（C01-AC-10），缺省自建。
+ */
 export function createKernel(config: KernelConfig = {}): Kernel {
   const counters = createCounters();
   const lifecycle = createLifecycle({ counters });
   const pipeline = createPipeline({ counters });
-  const registry = createGlobalRegistry({ counters, target: config.target });
+  // 共享注册表可注入（C01-AC-10）：多个内核共享原生监听，但各自持有独立计数器。
+  const registry = config.registry ?? createGlobalRegistry({ counters, target: config.target });
   const capabilities = createCapabilityRegistry({ counters });
   const plugins = createPluginHost({ counters, pipeline, registry, capabilities });
   const prestartQueue = createPrestartQueue();

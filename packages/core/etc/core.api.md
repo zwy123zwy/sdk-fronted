@@ -5,6 +5,18 @@
 ```ts
 
 // @public
+export const API_REASON_CODES: {
+    readonly invalidArgs: "invalid_args";
+    readonly invalidEventName: "invalid_event_name";
+    readonly nonFiniteMetric: "non_finite_metric";
+    readonly commandQueueOverflow: "command_queue_overflow";
+    readonly truncatedDimension: "truncated_dimension";
+    readonly destroyed: "destroyed";
+    readonly processorError: "processor_error";
+    readonly sinkError: "processor_error";
+};
+
+// @public
 export interface CapabilityRegistry {
     dispose(): void;
     get(name: string): unknown;
@@ -22,6 +34,102 @@ export interface CapabilityRegistryServices {
 }
 
 // @public
+export interface Client<TDictionary extends EventDictionary = PermissiveDictionary> {
+    // (undocumented)
+    captureError(error: unknown, input?: EventInput): undefined;
+    // (undocumented)
+    clearUser(): undefined;
+    // (undocumented)
+    destroy(): undefined;
+    // (undocumented)
+    flush(): undefined;
+    // (undocumented)
+    init(options?: ClientInitOptions): undefined;
+    readonly kernel: Kernel;
+    // (undocumented)
+    log(level: LogLevel, message: string, input?: EventInput): undefined;
+    onDiagnostics(sink: DiagnosticsSink): () => void;
+    onEvent(sink: EventSink): () => void;
+    // (undocumented)
+    removeContext(key: string): undefined;
+    // (undocumented)
+    setConsent(state: ConsentState): undefined;
+    // (undocumented)
+    setContext(key: string, value: string): undefined;
+    // (undocumented)
+    setPage(pageId: string): undefined;
+    // (undocumented)
+    setUser(id: string, options?: {
+        readonly hashed?: boolean | undefined;
+    }): undefined;
+    track<TName extends keyof TDictionary & string>(name: TName, input?: EventRequestOf<TDictionary, TName>): undefined;
+}
+
+// @public
+export interface ClientInitOptions {
+    readonly appId?: string | undefined;
+    readonly consent?: ConsentState | undefined;
+    readonly debug?: boolean | DiagnosticsSink | undefined;
+    readonly dictionary?: EventDictionary | undefined;
+    readonly endpoint?: string | undefined;
+    readonly env?: string | undefined;
+    readonly location?: LocationSource | undefined;
+    readonly onEvent?: EventSink | undefined;
+    readonly pageId?: string | undefined;
+    readonly release?: string | undefined;
+    readonly token?: string | undefined;
+}
+
+// @public
+export interface ClientOptions extends ClientInitOptions {
+    readonly debug?: boolean | DiagnosticsSink | undefined;
+    readonly location?: LocationSource | undefined;
+    readonly onEvent?: EventSink | undefined;
+    readonly registry?: GlobalRegistry | undefined;
+    readonly target?: EventTarget | null | undefined;
+}
+
+// @public
+export interface ClientState {
+    readonly app_id: string | undefined;
+    // (undocumented)
+    readonly consent: ConsentState;
+    // (undocumented)
+    readonly contexts: Readonly<Record<string, string>>;
+    // (undocumented)
+    readonly destroyed: boolean;
+    // (undocumented)
+    readonly initialized: boolean;
+    // (undocumented)
+    readonly pageId: string | undefined;
+    // (undocumented)
+    readonly user: UserInput | undefined;
+}
+
+// @public
+export const COMMAND_QUEUE_CAPACITY = 200;
+
+// @public
+export interface CommandQueue {
+    // (undocumented)
+    capacity(): number;
+    // (undocumented)
+    clear(): void;
+    push(command: QueuedCommand): CommandQueuePushResult;
+    shift(): QueuedCommand | undefined;
+    // (undocumented)
+    size(): number;
+}
+
+// @public
+export interface CommandQueuePushResult {
+    readonly status: 'queued' | 'rejected';
+}
+
+// @public
+export type ConsentState = 'granted' | 'denied' | 'buffer';
+
+// @public
 export interface Counters {
     count(reason: string, delta?: number): void;
     get(reason: string): number;
@@ -31,6 +139,14 @@ export interface Counters {
 
 // @public
 export function createCapabilityRegistry(services: CapabilityRegistryServices): CapabilityRegistry;
+
+// @public
+export function createClient<TDictionary extends EventDictionary = PermissiveDictionary>(options?: ClientOptions): Client<TDictionary>;
+
+// @public
+export function createCommandQueue(options?: {
+    readonly capacity?: number | undefined;
+}): CommandQueue;
 
 // @public
 export function createCounters(): Counters;
@@ -54,13 +170,92 @@ export function createPluginHost(services: PluginHostServices): PluginHost;
 export function createPrestartQueue(options?: PrestartQueueOptions): PrestartQueue;
 
 // @public
+export function createSdk<TDictionary extends EventDictionary = PermissiveDictionary>(): Sdk<TDictionary>;
+
+// @public
+export function createUuid(): string;
+
+// @public
+export function defineEventDictionary<const TDictionary extends EventDictionary>(dictionary: TDictionary): TDictionary;
+
+// @public
 export function definePlugin(plugin: Plugin_2): Plugin_2;
+
+// @public
+export interface DiagnosticsRecord {
+    readonly dropped: 'event' | 'field';
+    // (undocumented)
+    readonly event_name?: string | undefined;
+    readonly field?: string | undefined;
+    readonly kind: string;
+    readonly reason_code: string;
+}
+
+// @public
+export type DiagnosticsSink = (record: DiagnosticsRecord) => void;
+
+// @public
+export type DimensionFields<TDefinition> = ShapeOf<DimensionFieldsOf<TDefinition>>;
+
+// @public
+export type DimensionFieldsOf<TDefinition> = NonNullable<TDefinition> extends {
+    readonly dimensions?: infer TFields | undefined;
+} ? TFields : never;
 
 // @public
 export type Dispose = () => void;
 
 // @public
+export interface EventDefinitionShape {
+    // Warning: (ae-forgotten-export) The symbol "LooseFieldSpec" needs to be exported by the entry point index.d.ts
+    readonly dimensions?: Readonly<Record<string, LooseFieldSpec<unknown>>> | undefined;
+    readonly metrics?: Readonly<Record<string, LooseFieldSpec<unknown>>> | undefined;
+    readonly priority?: 'normal' | 'critical' | undefined;
+    readonly schema_version?: number | undefined;
+}
+
+// @public
+export type EventDictionary = Readonly<Record<string, EventDefinitionShape>>;
+
+// @public
+export interface EventInput<TDimensions extends object = Readonly<Record<string, string>>, TMetrics extends object = Readonly<Record<string, number>>> {
+    readonly attachment?: string | undefined;
+    // (undocumented)
+    readonly dimensions?: TDimensions | undefined;
+    // (undocumented)
+    readonly metrics?: TMetrics | undefined;
+    readonly priority?: 'normal' | 'critical' | undefined;
+}
+
+// @public
 export type EventPriority = 'normal' | 'critical';
+
+// @public
+export interface EventRequest<TDefinition> {
+    readonly attachment?: string | undefined;
+    // (undocumented)
+    readonly dimensions?: DimensionFields<TDefinition> | undefined;
+    // (undocumented)
+    readonly metrics?: MetricFields<TDefinition> | undefined;
+    readonly priority?: 'normal' | 'critical' | undefined;
+}
+
+// @public
+export type EventRequestOf<TDictionary extends EventDictionary, TName extends keyof TDictionary & string> = EventRequest<TDictionary[TName]>;
+
+// @public
+export type EventSink = (event: KernelEvent) => void;
+
+// @public
+export interface FieldSpec<TValue, TRequired extends boolean = boolean> {
+    readonly required: TRequired;
+    readonly type: TValue;
+}
+
+// @public
+export type FieldValue<TField> = TField extends {
+    readonly type: infer TValue;
+} ? TValue : never;
 
 // @public
 export interface GlobalRegistry {
@@ -87,6 +282,21 @@ export interface GlobalRegistryStats {
     readonly nativeListeners: number;
     readonly timers: number;
 }
+
+// @public
+export function hasValidEventName(name: unknown): boolean;
+
+// @public
+export function hasValidFieldKey(key: unknown): key is string;
+
+// @public
+export function isConsentState(value: unknown): value is ConsentState;
+
+// @public
+export function isNonEmptyString(value: unknown): value is string;
+
+// @public
+export function isPlainRecord(value: unknown): value is Record<string, unknown>;
 
 // @public
 export interface Kernel {
@@ -129,6 +339,7 @@ export interface Kernel {
 
 // @public
 export interface KernelConfig {
+    readonly registry?: GlobalRegistry | undefined;
     readonly target?: EventTarget | null | undefined;
 }
 
@@ -174,6 +385,44 @@ export interface ListenerOptions {
     // (undocumented)
     readonly passive?: boolean | undefined;
 }
+
+// @public
+export interface LocationSource {
+    readonly href: string | undefined;
+    readonly pageId: string | undefined;
+}
+
+// @public
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+// @public
+export const MAX_DIMENSION_VALUE_LENGTH = 256;
+
+// @public
+export type MetricFields<TDefinition> = ShapeOf<MetricFieldsOf<TDefinition>>;
+
+// @public
+export type MetricFieldsOf<TDefinition> = NonNullable<TDefinition> extends {
+    readonly metrics?: infer TFields | undefined;
+} ? TFields : never;
+
+// @public
+export type OptionalFieldKeys<TFields> = Exclude<keyof TFields, RequiredFieldKeys<TFields>>;
+
+// @public
+export type OptionalShape<TFields> = {
+    readonly [K in OptionalFieldKeys<TFields>]?: FieldValue<TFields[K]>;
+};
+
+// @public
+export type PermissiveDictionary = {
+    readonly [eventName: string]: {
+        readonly priority?: 'normal' | 'critical' | undefined;
+        readonly schema_version?: number | undefined;
+        readonly dimensions?: Readonly<Record<string, LooseFieldSpec<string | boolean>>> | undefined;
+        readonly metrics?: Readonly<Record<string, LooseFieldSpec<number>>> | undefined;
+    };
+};
 
 // @public
 export interface Pipeline {
@@ -331,6 +580,30 @@ export interface ProcessOutcome {
 }
 
 // @public
+export const PUBLIC_METHODS: readonly ["init", "track", "log", "captureError", "setUser", "clearUser", "setContext", "removeContext", "setPage", "setConsent", "flush", "destroy"];
+
+// @public
+export type PublicMethod = (typeof PUBLIC_METHODS)[number];
+
+// @public
+export interface QueuedCommand {
+    // (undocumented)
+    readonly args?: readonly unknown[] | undefined;
+    readonly eventId: string;
+    // (undocumented)
+    readonly kind: string;
+    // (undocumented)
+    readonly name?: string | undefined;
+    readonly occurredAt: number;
+    readonly pageId?: string | undefined;
+    // (undocumented)
+    readonly url?: string | undefined;
+}
+
+// @public
+export function readLocation(): LocationSource;
+
+// @public
 export const REASON_CODES: {
     readonly processorError: "processor_error";
     readonly prestartQueueOverflow: "prestart_queue_overflow";
@@ -348,14 +621,78 @@ export interface RegisterOptions {
     readonly id?: string | undefined;
 }
 
+// Warning: (ae-forgotten-export) The symbol "FlaggedRequiredFieldKeys" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "QuestionMarkFieldKeys" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type RequiredFieldKeys<TFields> = Exclude<FlaggedRequiredFieldKeys<TFields>, QuestionMarkFieldKeys<TFields>>;
+
+// @public
+export type RequiredShape<TFields> = {
+    readonly [K in RequiredFieldKeys<TFields>]: FieldValue<TFields[K]>;
+};
+
+// @public
+export const RESERVED_EVENT_PREFIXES: readonly ["sdk_", "web_"];
+
+// @public
+export type Sdk<TDictionary extends EventDictionary = PermissiveDictionary> = Client<TDictionary>;
+
 // @public
 export const SDK_VERSION = "0.0.0";
+
+// @public
+export type ShapeOf<TFields> = [TFields] extends [never] ? object : string extends keyof TFields ? {
+    readonly [key: string]: FieldValue<TFields[keyof TFields]>;
+} : RequiredShape<TFields> & OptionalShape<TFields>;
+
+// @public
+export const STATE_CAPABILITY = "sdk.client_state";
 
 // @public
 export type StateChangeListener = (state: LifecycleState, previous: LifecycleState) => void;
 
 // @public
 export function stopPipeline(reason: string): PipelineStop;
+
+// @public
+export const STUB_BRIDGE_CAPABILITY = "sdk.stub_bridge";
+
+// @public
+export interface StubCommand {
+    // (undocumented)
+    readonly args?: readonly unknown[] | undefined;
+    readonly eventId?: string | undefined;
+    // (undocumented)
+    readonly kind: string;
+    // (undocumented)
+    readonly name?: string | undefined;
+    // (undocumented)
+    readonly occurredAt?: number | undefined;
+    // (undocumented)
+    readonly pageId?: string | undefined;
+    // (undocumented)
+    readonly url?: string | undefined;
+}
+
+// @public
+export function truncate(value: string, maxLength: number): string;
+
+// @public
+export interface UserInput {
+    readonly hashed?: boolean | undefined;
+    // (undocumented)
+    readonly id: string;
+}
+
+// @public
+export const WEB_JS_ERROR_LIMITS: {
+    readonly errorType: 128;
+    readonly message: 256;
+    readonly source: 32;
+    readonly fingerprint: 64;
+    readonly attachment: 8192;
+};
 
 // (No @packageDocumentation comment for this package)
 
