@@ -5,6 +5,77 @@
 ```ts
 
 // @public
+export const APM_DUAL_WRITE_PLUGIN_ID = "apm_dual_write";
+
+// @public
+export const APM_DUAL_WRITE_STATS_CAPABILITY = "apm_dual_write.stats";
+
+// @public
+export interface ApmDualWriteContext {
+    // (undocumented)
+    addProcessor(stage: 'before_send', processor: (event: ApmDualWriteEvent) => ApmDualWriteEvent, options?: {
+        readonly id?: string | undefined;
+    }): () => void;
+    // (undocumented)
+    readonly counters: {
+        count(reason: string, delta?: number): void;
+    };
+    // (undocumented)
+    registerCapability(name: string, value: unknown): () => void;
+}
+
+// @public
+export interface ApmDualWriteEvent {
+    // (undocumented)
+    [field: string]: unknown;
+    // (undocumented)
+    readonly event_name: string;
+    // (undocumented)
+    readonly occurred_at: number;
+    // (undocumented)
+    readonly priority: 'normal' | 'critical';
+}
+
+// @public
+export interface ApmDualWriteOptions {
+    readonly constants?: Readonly<Record<string, unknown>> | undefined;
+    readonly eventTypes?: readonly string[] | undefined;
+    readonly fieldMap?: Readonly<Record<string, string>> | undefined;
+    readonly forward?: ApmForward | undefined;
+    readonly resolve?: (() => ApmForward | undefined) | undefined;
+}
+
+// @public
+export interface ApmDualWritePlugin {
+    // (undocumented)
+    readonly id: string;
+    // (undocumented)
+    readonly install: (context: ApmDualWriteContext) => void;
+    stats(): ApmDualWriteStats;
+}
+
+// @public
+export interface ApmDualWriteStats {
+    readonly failed: number;
+    readonly forwarded: number;
+    readonly skipped: number;
+}
+
+// @public
+export type ApmForward = (record: Readonly<Record<string, unknown>>) => void;
+
+// @public
+export function createApmDualWritePlugin(options?: ApmDualWriteOptions): ApmDualWritePlugin;
+
+// @public
+export const DEFAULT_APM_EVENT_TYPES: readonly string[];
+
+// @public
+export const DEFAULT_APM_FIELD_MAP: Readonly<Record<string, string>>;
+
+// @public
 export const PACKAGE_NAME = "@web-report-sdk/plugins";
+
+// (No @packageDocumentation comment for this package)
 
 ```
