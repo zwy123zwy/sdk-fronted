@@ -275,6 +275,18 @@ export interface KernelConfig {
    * 传 `null` 表示没有原生目标（SSR、Node 测试环境），此时原生订阅静默降级。
    */
   readonly target?: EventTarget | null | undefined;
+  /**
+   * 可选的共享全局注册表（C01-AC-10 多实例）。
+   *
+   * 传入后多个内核共享同一份原生监听：同一 `(target, type, capture)` 只 `addEventListener` 一次，
+   * 每个实例的订阅者都收到事件；缺省仍为每个内核自建一个注册表（保持原有行为）。
+   *
+   * 注意：**计数器不共享**。注册表自身的原因码（如 hook/handler 抛错的 `processor_error`）
+   * 记在创建该注册表时传入的 `Counters` 上；各内核仍持有各自的 `counters`，
+   * 两个 `app_id` 的计数不会串。
+   * 当前实现为兼容变更，由 T12 在 A02 扩权下追加。
+   */
+  readonly registry?: GlobalRegistry | undefined;
 }
 
 /** 内核（C02-F1 至 C02-F6）。 */

@@ -4,9 +4,171 @@
 
 ```ts
 
+import { API_REASON_CODES } from '@web-report-sdk/core';
+import { Client } from '@web-report-sdk/core';
+import { ClientInitOptions } from '@web-report-sdk/core';
+import { ClientOptions } from '@web-report-sdk/core';
+import { ClientState } from '@web-report-sdk/core';
+import { COMMAND_QUEUE_CAPACITY } from '@web-report-sdk/core';
+import { CommandQueue } from '@web-report-sdk/core';
+import { CommandQueuePushResult } from '@web-report-sdk/core';
+import { ConsentState } from '@web-report-sdk/core';
+import { createClient } from '@web-report-sdk/core';
+import { createCommandQueue } from '@web-report-sdk/core';
+import { createSdk } from '@web-report-sdk/core';
+import { createUuid } from '@web-report-sdk/core';
+import { defineEventDictionary } from '@web-report-sdk/core';
+import { DiagnosticsRecord } from '@web-report-sdk/core';
+import { DiagnosticsSink } from '@web-report-sdk/core';
+import { DimensionFields } from '@web-report-sdk/core';
+import { DimensionFieldsOf } from '@web-report-sdk/core';
+import { EventDefinitionShape } from '@web-report-sdk/core';
+import { EventDictionary } from '@web-report-sdk/core';
+import { EventInput } from '@web-report-sdk/core';
+import { EventRequest } from '@web-report-sdk/core';
+import { EventRequestOf } from '@web-report-sdk/core';
+import { EventSink } from '@web-report-sdk/core';
+import { FieldSpec } from '@web-report-sdk/core';
+import { FieldValue } from '@web-report-sdk/core';
+import { hasValidEventName } from '@web-report-sdk/core';
+import { hasValidFieldKey } from '@web-report-sdk/core';
+import { isConsentState } from '@web-report-sdk/core';
+import { isNonEmptyString } from '@web-report-sdk/core';
+import { isPlainRecord } from '@web-report-sdk/core';
+import { LocationSource } from '@web-report-sdk/core';
+import { LogLevel } from '@web-report-sdk/core';
+import { MAX_DIMENSION_VALUE_LENGTH } from '@web-report-sdk/core';
+import { MetricFields } from '@web-report-sdk/core';
+import { MetricFieldsOf } from '@web-report-sdk/core';
+import { OptionalFieldKeys } from '@web-report-sdk/core';
+import { OptionalShape } from '@web-report-sdk/core';
+import { PermissiveDictionary } from '@web-report-sdk/core';
+import { PUBLIC_METHODS } from '@web-report-sdk/core';
+import { PublicMethod } from '@web-report-sdk/core';
+import { QueuedCommand } from '@web-report-sdk/core';
+import { readLocation } from '@web-report-sdk/core';
+import { RequiredFieldKeys } from '@web-report-sdk/core';
+import { RequiredShape } from '@web-report-sdk/core';
+import { RESERVED_EVENT_PREFIXES } from '@web-report-sdk/core';
+import { Sdk } from '@web-report-sdk/core';
 import { SDK_VERSION } from '@web-report-sdk/core';
+import { ShapeOf } from '@web-report-sdk/core';
+import { STATE_CAPABILITY } from '@web-report-sdk/core';
+import { STUB_BRIDGE_CAPABILITY } from '@web-report-sdk/core';
+import { StubCommand } from '@web-report-sdk/core';
+import { truncate } from '@web-report-sdk/core';
+import { UserInput } from '@web-report-sdk/core';
+import { WEB_JS_ERROR_LIMITS } from '@web-report-sdk/core';
+
+export { API_REASON_CODES }
+
+export { Client }
+
+export { ClientInitOptions }
+
+export { ClientOptions }
+
+export { ClientState }
+
+export { COMMAND_QUEUE_CAPACITY }
+
+export { CommandQueue }
+
+export { CommandQueuePushResult }
+
+export { ConsentState }
+
+export { createClient }
+
+export { createCommandQueue }
+
+export { createSdk }
+
+export { createUuid }
+
+export { defineEventDictionary }
+
+export { DiagnosticsRecord }
+
+export { DiagnosticsSink }
+
+export { DimensionFields }
+
+export { DimensionFieldsOf }
+
+export { EventDefinitionShape }
+
+export { EventDictionary }
+
+export { EventInput }
+
+export { EventRequest }
+
+export { EventRequestOf }
+
+export { EventSink }
+
+export { FieldSpec }
+
+export { FieldValue }
+
+export { hasValidEventName }
+
+export { hasValidFieldKey }
+
+export { isConsentState }
+
+export { isNonEmptyString }
+
+export { isPlainRecord }
+
+export { LocationSource }
+
+export { LogLevel }
+
+export { MAX_DIMENSION_VALUE_LENGTH }
+
+export { MetricFields }
+
+export { MetricFieldsOf }
+
+export { OptionalFieldKeys }
+
+export { OptionalShape }
+
+export { PermissiveDictionary }
+
+export { PUBLIC_METHODS }
+
+export { PublicMethod }
+
+export { QueuedCommand }
+
+export { readLocation }
+
+export { RequiredFieldKeys }
+
+export { RequiredShape }
+
+export { RESERVED_EVENT_PREFIXES }
+
+export { Sdk }
 
 export { SDK_VERSION }
+
+export { ShapeOf }
+
+export { STATE_CAPABILITY }
+
+export { STUB_BRIDGE_CAPABILITY }
+
+export { StubCommand }
+
+export { truncate }
+
+export { UserInput }
+
+export { WEB_JS_ERROR_LIMITS }
 
 // (No @packageDocumentation comment for this package)
 

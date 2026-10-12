@@ -16,10 +16,13 @@
   },
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "measure:stub": "node scripts/measure-stub.mjs"
   },
   "dependencies": {
     "@web-report-sdk/core": "workspace:*",

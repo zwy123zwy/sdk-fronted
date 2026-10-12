@@ -255,3 +255,197 @@ pnpm exec vitest run --coverage.enabled=false packages/core/src/kernel
 pnpm exec tsc -p packages/core/tsconfig.json
 pnpm exec eslint packages/core/src/kernel packages/core/src/index.ts
 ```
+
+
+---
+
+# C01 公共 API、命令队列与类型化事件（T12 交接产物）
+
+面向 **接入方** 与 **T13–T18**：`packages/core/src/api/` 提供接入方直接调用的公共 API。
+所有公共方法**同步返回 `undefined`、从不抛错**；销毁后调用任何公共方法都计数 `destroyed`
+（真正执行销毁的那次 `destroy()` 不计数，契约原文是「销毁后**仍有**调用」）。
+
+```ts
+import { createClient, createSdk } from '@web-report-sdk/core';
+
+const client = createClient();
+client.init({ appId: 'your-app-id', env: 'production', release: '1.2.3' });
+client.track('task_complete', { dimensions: { task_id: 't-1' }, metrics: { duration_ms: 12 } });
+client.setUser('user-1');
+client.destroy();
+```
+
+## 11. 公共方法一览
+
+| 方法 | 说明 |
+|---|---|
+| `init(options?)` | 初始化；`appId` 必填且非空，非法时计数 `invalid_args` 并忽略 |
+| `track(name, { dimensions, metrics, attachment, priority })` | 自定义事件；事件名需至少两段小写下划线，不得用保留前缀 `sdk_` / `web_` |
+| `log(level, message, { dimensions, metrics, attachment })` | 日志事件（见第 14 节的事件形态） |
+| `captureError(error, { dimensions, metrics, attachment })` | 手动错误（`web_js_error`，见第 15 节） |
+| `setUser(id, { hashed }?)` / `clearUser()` | 设置与清除用户 |
+| `setContext(key, value)` / `removeContext(key)` | 全局自定义上下文；键名需满足 `fieldKey` 格式 |
+| `setPage(pageId)` | 手动路由模式下的页面标识 |
+| `setConsent(state)` | 同意状态（`granted` / `denied` / `buffer`） |
+| `flush()` | 立即回放命令队列 |
+| `destroy()` | 立即销毁并清空命令队列 |
+| `onEvent(sink)` / `onDiagnostics(sink)` | 注册事件出口 / 调试输出，返回注销函数 |
+
+**没有 `getState()`**：AC-01 要求所有公共方法返回 `undefined`，状态快照改由内核能力读取
+（`STATE_CAPABILITY`，见第 19 节）。**没有 `acceptCommand()`**：加载桩交回是集成点，
+通过 `STUB_BRIDGE_CAPABILITY` 完成（见第 18 节）。
+
+`createClient<TDictionary>()` 的 `track` 参数类型来自事件字典（第 13 节）。
+
+## 12. 事件体字段（严格遵守 `batch.schema.json` `$defs/event`）
+
+`$defs/event` 是 `additionalProperties: false`，SDK 只产出下列键：
+
+| 键 | 必填 | 来源 |
+|---|---|---|
+| `event_id` | 是 | **调用当时**生成的 UUID v4（去重依据；补发与重试不变） |
+| `event_name` | 是 | `track` 的事件名 / `sdk_log` / `web_js_error` |
+| `event_type` | 是 | `custom` / `log` / `error` |
+| `schema_version` | 是 | 事件定义声明值；未声明或未登记事件取 **1** |
+| `occurred_at` | 是 | **调用当时**的客户端时钟（UTC 毫秒） |
+| `priority` | 是 | 显式入参 > 事件定义声明 > `normal` |
+| `page_id` / `url` | 否 | **调用当时**的位置快照 |
+| `level` | 否 | 仅 `log` 事件（Schema 要求 `event_type: 'log'` 时必填） |
+| `dimensions` / `metrics` / `attachment` / `truncated` | 否 | 见各事件形态 |
+
+**`app_id` 不是事件体字段**：它属于批次公共头，由 C04/C06/C07 组装批次时提供；
+`page_id` / `view_id` / `url` / `sample_rate` 出现在事件体或批次 `common` 的「至少一处」
+由 C04/C06 负责，C01 不产出 `sample_rate`。
+
+## 13. 类型化事件字典（**给 T22/K01 与 T34 的接口契约**）
+
+K01 生成物应满足下面的形状；`FieldSpec` 的 `required` 是**字面量布尔**，
+可选字段用「属性带 `?`」+「`required: false`」成对表达：
+
+```ts
+type FieldSpec<TValue, TRequired extends boolean> = {
+  readonly type: TValue;            // 维度：string | boolean | 字面量联合；指标：number
+  readonly required: TRequired;
+};
+interface XxxEntry {
+  readonly priority: 'normal' | 'critical';   // 字面量
+  readonly schema_version: number;            // 字面量
+  readonly dimensions: {
+    readonly task_id: FieldSpec<string, true>;            // 必填：属性不可选
+    readonly channel?: FieldSpec<'web' | 'app', false>;   // 可选：属性带 ?
+  };
+  readonly metrics: Readonly<Record<string, FieldSpec<number, boolean>>>;
+}
+type EventDefinitions = Readonly<Record<'<event_name>', XxxEntry>>;
+```
+
+消费侧（本包）的推导规则与**必须遵守的实现约束**：
+
+- `track` 的入参类型由「事件名 → 定义」推导：必填字段是必需属性、可选字段可省、
+  enum 维度只接受字面量联合、`boolean` 维度接受 `boolean`、指标接受 `number`；
+- **判断必填必须用属性类型投影，不要索引 `required`**。在 `noUncheckedIndexedAccess` 下，
+  可选属性被索引时会带上 `| undefined`，`T[K]['required'] extends true` 会失真，
+  最终把字段类型推成 `never`。本包用
+  `{ [K in keyof T]-?: undefined extends T[K] ? K : never }[keyof T]` 取可选键，
+  再用 `NonNullable<T[K]>` 读 `required` 字面量（见 `typed-events.ts` 的注释）；
+- `defineEventDictionary` 用 `const` 类型参数保留字面量（手写便利字典用）；
+  便利写法里**可选字段必须写 `required: false`**（属性无法在值字面量里带 `?`）。
+- `schema_version` 与 `priority` 从**运行期字典**读取：`createClient({ dictionary })` /
+  `init({ dictionary })` 传入 K01 生成物；未登记事件取 `schema_version: 1`、`priority: 'normal'`。
+
+## 14. `log()` 的事件形态
+
+- `event_name: 'sdk_log'`（`sdk_` 是保留前缀，日志属 SDK 生成的内部事件）、
+  `event_type: 'log'`、`level` 为顶层字段；
+- **正文放 `dimensions.message`**（事件体没有顶层 `message` 字段），`attachment` 放较长正文；
+- `schema_version: 1`。
+
+## 15. `captureError()` 的事件形态（`web_js_error`）
+
+满足 `schemas/builtin-events/web_js_error.schema.json`：
+
+- `event_name: 'web_js_error'`、`event_type: 'error'`、`priority: 'normal'`（Schema 为 `const`）、
+  `schema_version: 1`（Schema 为 `const`）；
+- `dimensions` **必填 4 键**且不接受额外键：`error_type`、`message`、`source`（手动上报为
+  `manual`）、`fingerprint`（由 source + 错误类型 + 归一化消息稳定派生，FNV-1a 十六进制）；
+  调用方只能覆盖这 4 个键，其它维度键被丢弃并计数 `invalid_args`；
+- `metrics.count` **必填**，缺省 `1`；`line` / `column` 可选（非负整数）；
+- 超过 Schema `maxLength` 的字符串会被截断并计数 `truncated_dimension`、路径写入 `truncated`
+  （**正式的长度约束与 `truncated` 语义由 C04 接管**，此处为保证产出事件合法先行实现）。
+
+## 16. 命令队列（C01-F2）
+
+`init` 之前的调用进入命令队列：**上限 200 条，保留最早的调用**，多出的每次计数一次
+`command_queue_overflow`；`init` 后按调用顺序回放。`event_id`、`occurred_at`、`url`、`page_id`
+都是**调用当时**的快照。
+
+## 17. 参数非法与调试输出（C01-F6）
+
+| 原因码 | 触发 |
+|---|---|
+| `invalid_event_name` | 事件名不符合命名规则或使用保留前缀（整条丢弃） |
+| `invalid_args` | 非对象维度/指标、非法枚举取值、空字符串用户/页面、非法上下文键名、`captureError` 的越界维度键 |
+| `non_finite_metric` | 指标值为 `NaN` / `Infinity`（该字段丢弃，事件继续） |
+| `truncated_dimension` | 维度值按 Schema 上限被截断 |
+| `command_queue_overflow` | 命令队列溢出 |
+| `destroyed` | 销毁后调用任何公共方法 |
+| `processor_error` | 处理器 / 事件出口 / 调试出口抛错 |
+
+调试输出是**可注入 sink，缺省静默**（C08-AC-09：非白名单用户不因 URL 参数自动开启调试）：
+
+```ts
+createClient();                                  // 缺省：静默
+createClient({ debug: true });                   // 默认 console sink（C01-AC-12）
+createClient({ debug: (r) => panel.push(r) });   // 自定义（C08 调试面板）
+createClient({ debug: false });                  // 显式静默
+```
+
+`packages/core/src/api/console-sink.ts` 是**唯一允许使用 `console` 的文件**
+（根 `eslint.config.js` 的精确豁免）；输出只含原因码、事件去向、事件名与字段路径，**绝不含令牌**。
+C08（T17）解析 URL 参数后，把「是否调试」映射到 `debug` 选项即可。
+
+## 18. 多实例与共享注册表（C01-F5 / C01-AC-10）
+
+```ts
+const registry = createGlobalRegistry({ counters: createCounters(), target: window });
+const main = createClient({ appId: 'main-app', registry, target: window });
+const sub = createClient({ appId: 'sub-app', registry, target: window });
+```
+
+- 传入**同一个** `registry` 时，同一 `(target, event, capture)` 在页面上只安装一次原生监听，
+  两个实例的订阅者都收到事件（C01-AC-10）；
+- **计数器不共享**：每个实例有自己的 `counters`，两个 `app_id` 的计数不会串；
+- 不传 `registry` 时每个实例各自一份，实例间互不影响；
+- `KernelConfig.registry` 是 T12 在 A02 授权下对内核做的**向后兼容扩权**（T11 行为不变）。
+
+## 19. 加载桩交接（C01-F3）
+
+加载桩（`packages/browser/src/loading-stub.ts`）在页面头部缓存调用，主包加载后交接：
+
+```ts
+const stub = window.WebReportSDK;                  // 加载桩的全局对象
+const client = createClient({ appId: 'your-app-id' });
+const bridge = client.kernel.getCapability('sdk.stub_bridge') as (c: StubCommand) => void;
+for (const command of stub.drain()) bridge(command);   // drain 同时移除加载桩的错误监听
+client.flush();
+```
+
+- 交接走内核能力 `STUB_BRIDGE_CAPABILITY`（`'sdk.stub_bridge'`），**不是公共 API 方法**；
+- 加载桩在调用当时生成 `eventId`，主包原样沿用（去重依据不变）；
+- 加载桩注册 `window` 的捕获阶段 `error` 监听，尽早把首屏错误缓存成 `captureError` 命令；
+  `drain()` 会**先移除该监听**再交出队列，避免与主包插件重复采集（T18/C05 需验证）；
+- 状态快照能力名 `STATE_CAPABILITY`（`'sdk.client_state'`），值是返回 `ClientState` 的函数。
+
+## 20. C01 本地自检
+
+```bash
+pnpm exec vitest run --coverage.enabled=false packages/core/src/api packages/core/src/kernel
+pnpm exec tsc -p packages/core/tsconfig.json
+pnpm exec tsc -p packages/browser/tsconfig.json
+pnpm exec eslint packages/core/src/api packages/core/src/index.ts packages/browser/src
+node packages/browser/scripts/measure-stub.mjs
+```
+
+契约自证：`packages/core/src/api/schema-validation.test.ts` 用 Ajv 2020-12 把公共 API 实际
+产出的事件对着 `docs/contracts/schemas/batch.schema.json` 与
+`docs/contracts/schemas/builtin-events/web_js_error.schema.json` 校验。
