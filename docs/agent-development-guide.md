@@ -136,7 +136,9 @@ A03 设计 C05 插件和公共 API 之前，先在 `docs/use-cases.md` 中列出
 
 ## 6. 本地门禁命令
 
-命令名已由 T08 冻结（2026-10-10），定义在根目录 `package.json`。CI 配置为 `.github/workflows/ci.yml`。
+命令名由 T08 冻结（2026-10-10），定义在根目录 `package.json`。CI 配置为 `.github/workflows/ci.yml`。
+
+2026-10-12 修订（第 0.6 版）：全量门禁脚本由 `ci` 改名为 **`gates`**。原因是 pnpm 11 的内置 `clean-install` 会抢占 `pnpm ci` 这个名字——它只做干净安装、不执行任何门禁，却返回退出码 0，会让 Agent 误判门禁已通过。CI 工作流逐条调用门禁命令，不受影响。
 
 | 命令 | 检查内容 |
 |---|---|
@@ -150,7 +152,7 @@ A03 设计 C05 插件和公共 API 之前，先在 `docs/use-cases.md` 中列出
 | `pnpm examples:build`、`pnpm examples:test` | 接入兼容性：Vite 构建、`<script>` 引入 IIFE、Vitest 与 Jest 中直接导入 |
 | `pnpm test:e2e` | Playwright（Chromium、Firefox、WebKit）；在 CI 中运行，本地可选 |
 | `pnpm gates:selftest` | 门禁自检：逐个注入违规样例，确认 lint、typecheck、size、api:check 都会失败 |
-| `pnpm ci` | 按 CI 顺序运行除 E2E 之外的全部门禁 |
+| `pnpm gates` | 按 CI 顺序运行除 E2E 之外的全部门禁。**不得使用 `pnpm ci`**：pnpm 11 的内置 `clean-install` 会抢占该名字，它只做干净安装、不执行任何门禁，却返回退出码 0 |
 
 门禁失败时修复代码，不要通过修改门禁配置、跳过测试、添加 `--no-verify`、`eslint-disable`、`@ts-ignore`、`it.skip` 等方式绕过。如果确实需要豁免，在交付报告中说明，由人类负责人决定。
 
@@ -338,3 +340,4 @@ A00 按此模板在 `docs/tasks/Txx.md` 发布任务卡。缺少带“*”的字
 | 0.3 | 2026-10-09 | 移入 `docs/`；补充目录表中的入口文件、决策、模板、验收用例；前置条件引用 D001 |
 | 0.4 | 2026-10-09 | 按 D001 缩小为只做浏览器 SDK：新增 K01、K02、M01 与 `tools/`；删除服务端角色、约束与切片；Q2 只阻塞 T33 |
 | 0.5 | 2026-10-10 | T08 完成：第 3 节冻结包名、工具链版本与发布渠道；第 6 节冻结门禁命令；第 13 节前置条件全部满足。批准：wenye.zhang 授权代行 |
+| 0.6 | 2026-10-12 | 第 6 节全量门禁脚本由 `ci` 改名为 `gates`：pnpm 11 的内置 `clean-install` 会抢占 `pnpm ci`，使其不执行任何门禁却返回 0。同步修订 AGENTS.md 与 README.md。批准：wenye.zhang（项目负责人） |

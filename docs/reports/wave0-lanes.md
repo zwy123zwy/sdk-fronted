@@ -123,14 +123,14 @@
 
 ## 2. 门禁结果
 
-所有门禁均以 **`pnpm run ci`** 执行（见第 5 节 D-1，`pnpm ci` 不是门禁命令）。
+所有门禁均以 **`pnpm gates`** 执行（见第 5 节 D-1，`pnpm ci` 不是门禁命令）。
 
 | 时点 | 命令 | 结果 |
 |---|---|---|
-| Wave 0 开工前（基线） | `pnpm run ci` | exit 0 |
-| T06 合入后 | `pnpm run ci` | exit 0（12 个契约测试通过） |
-| T11 合入后 | `pnpm run ci` | exit 0（74 个测试通过：12 契约 + 62 内核） |
-| T09 合入后（最终） | `pnpm run ci` | exit 0（**137 个测试通过**：12 契约 + 62 内核 + 63 M01） |
+| Wave 0 开工前（基线） | `pnpm gates` | exit 0 |
+| T06 合入后 | `pnpm gates` | exit 0（12 个契约测试通过） |
+| T11 合入后 | `pnpm gates` | exit 0（74 个测试通过：12 契约 + 62 内核） |
+| T09 合入后（最终） | `pnpm gates` | exit 0（**137 个测试通过**：12 契约 + 62 内核 + 63 M01） |
 
 门禁明细（三个 lane 全部集成后的最终一次，均为实测）：
 
@@ -163,7 +163,7 @@
 
 | 编号 | 偏差 | 原因与处置 |
 |---|---|---|
-| D-1 | `pnpm ci`（AGENTS.md 与指南第 6 节的写法）不执行任何门禁 | pnpm 11 的内置 `clean-install` 抢占该名字，只做干净安装却返回 0。本波全程改用 **`pnpm run ci`**。已记入看板阻塞记录，待负责人批准修订 AGENTS.md 与指南第 6 节 |
+| D-1 | `pnpm ci`（AGENTS.md 与指南第 6 节当时的写法）不执行任何门禁 | pnpm 11 的内置 `clean-install` 抢占该名字，只做干净安装却返回 0。本波全程改用 `pnpm run ci`。**已于 2026-10-12 解决**：经负责人批准，门禁脚本由 `ci` 改名为 `gates`，AGENTS.md / README.md / 指南第 6 节（0.6 版）已同步；现在请使用 **`pnpm gates`** |
 | D-2 | 验收用例由**执行 Agent** 转成可执行测试，而非 A09 | 本会话没有 A09 实体，`tests/acceptance/` 仍是不可执行的规格稿。执行 Agent 只在自己任务卡可写范围内的测试目录新建可执行用例（测试名以用例编号开头），**未修改 `tests/acceptance/` 任何文件**。角色分工上的偏差，需负责人追认 |
 | D-3 | T11 用例放在 `packages/core/src/kernel/` 而非任务卡写的 `packages/core/test/kernel/` | `vitest.config.ts` 的 include 只收 `packages/*/src/**/*.test.ts`，放 `test/` 目录不会被收集，而该配置属门禁配置、不可改。已记入看板 |
 | D-4 | T06 需要三处文件所有权扩展：`docs/contracts/examples/compat-pairs/`、`docs/contracts/examples/builtin-events/`、`docs/review-log.md` | 前两处是契约 README 约定的必然产物，第三处是为了给 6 条裁定建立审计留痕（与 R-001/R-002 同机制）。由编排方授权，需负责人追认。已记入看板 |
@@ -178,7 +178,7 @@
 
 | 事项 | 需要的决定 |
 |---|---|
-| `pnpm ci` 陷阱 | 批准把 AGENTS.md 与指南第 6 节的 `pnpm ci` 改为 `pnpm run ci`（或改脚本名）。**这一条影响所有 Agent 的开工纪律** |
+| `pnpm ci` 陷阱 | **已解决（2026-10-12）**：门禁脚本改名为 `gates`，文档同步修订。此后请使用 `pnpm gates` |
 | T11 预启动队列「内存 ≤256 KB」 | 口径是队列自身结构开销（实测 <8 KB），还是含 500 条事件体（按 C04 每事件上限 16 KB，最坏约 8 MB）？建议前者，并由 T20 实测复核 |
 | T06 的三处所有权扩展（D-4） | 追认或要求回退 |
 | T06/T11 的状态 | 现为「评审中（已合入待复核）」；转为「已验收」后即刻解锁 T10、T12、T13、T14、T15、T22 |

@@ -2,14 +2,14 @@
 
 浏览器端自定义上报 SDK，以及三个配套开发工具：事件注册表与类型生成 CLI（K01）、配置签名 CLI（K02）、本地 mock 接收服务（M01）。接收服务不在本项目内，接收方需要满足 [`docs/contracts/receiver-requirements.md`](docs/contracts/receiver-requirements.md)。
 
-当前阶段：**P1/P2 开发**。契约已冻结为 0.2，仓库与门禁已就绪，SDK 包为空骨架。
+当前阶段：**P1/P2 开发**。契约已冻结为 0.2。已完成：仓库与门禁（T08）、契约与内置事件 Schema（T05–T07、T06）、C02 内核（T11）、M01 mock 接收服务（T09）；C01、C03、C04、C06、C07、C08 与 K01、K02 待实现。
 
 ## 快速开始
 
 ```bash
 nvm use            # Node.js 24
 pnpm install
-pnpm ci            # lint、typecheck、test、build、size、api:check、examples
+pnpm gates         # lint、typecheck、test、build、size、api:check、examples
 ```
 
 ## 目录
@@ -45,7 +45,7 @@ pnpm ci            # lint、typecheck、test、build、size、api:check、exampl
 
 | 类别 | 状态 |
 |---|---|
-| 契约 | 0.2 已冻结（2026-10-10）；`builtin-events/` 待 T06 补充 |
+| 契约 | 0.2 已冻结（2026-10-10）；`builtin-events/` 已于 2026-10-12 由 T06 按兼容变更补齐 |
 | 决策 | D001、D002、Q1、Q3–Q7 已确认；Q2 待确认（只阻塞 T33） |
-| 仓库与门禁 | T08 已验收；CI 首次运行待确认 |
-| 验收用例 | 规格稿，各任务开工前转为可执行测试 |
+| 仓库与门禁 | T08 已验收；全量门禁命令为 `pnpm gates`；CI 首次运行待确认 |
+| 验收用例 | 规格稿；已开工任务（T06、T09、T11）的用例已转为可执行测试 |
