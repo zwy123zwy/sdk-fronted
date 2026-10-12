@@ -1,0 +1,104 @@
+{
+  "scenario": "offline",
+  "description": "断网：context.setOffline(true) 期间入队，恢复网络后补发",
+  "params": {
+    "trials": 1,
+    "perClass": 20,
+    "variants": [
+      "offline-same-page",
+      "offline-reload"
+    ]
+  },
+  "cells": [
+    {
+      "id": "offline-same-page",
+      "reloadWhileOffline": false,
+      "trialsRun": 1,
+      "expected": {
+        "normal": 20,
+        "critical": 20
+      },
+      "offlineMode": "route-abort-endpoint(firefox)",
+      "offlineArrived": {
+        "normal": 0,
+        "critical": 0
+      },
+      "onlineAutoRecoverRuns": 0,
+      "note": "firefox 用「上报端点不可达」代替 navigator.onLine=false，没有 online 事件，补发由脚本显式触发",
+      "final": {
+        "normal": {
+          "total": 20,
+          "stored": 20,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 20,
+          "stored": 20,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 2,
+        "received_events": 40,
+        "stored_batches": 2,
+        "stored_events": 40
+      }
+    },
+    {
+      "id": "offline-reload",
+      "reloadWhileOffline": true,
+      "trialsRun": 1,
+      "expected": {
+        "normal": 20,
+        "critical": 20
+      },
+      "offlineMode": "route-abort-endpoint(firefox)",
+      "offlineArrived": {
+        "normal": 0,
+        "critical": 0
+      },
+      "onlineAutoRecoverRuns": 0,
+      "note": "firefox 用「上报端点不可达」代替 navigator.onLine=false，没有 online 事件，补发由脚本显式触发",
+      "final": {
+        "normal": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        },
+        "critical": {
+          "total": 20,
+          "stored": 20,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 1,
+        "received_events": 20,
+        "stored_batches": 1,
+        "stored_events": 20
+      }
+    }
+  ],
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "1522",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "150.0.2",
+  "durationMs": 5135,
+  "receiverCountersDelta": {
+    "received_batches": 3,
+    "received_events": 60,
+    "stored_batches": 3,
+    "stored_events": 60
+  },
+  "protocolProblems": {}
+}

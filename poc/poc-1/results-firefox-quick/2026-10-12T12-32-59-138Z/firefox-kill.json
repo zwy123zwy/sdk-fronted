@@ -1,0 +1,333 @@
+{
+  "scenario": "kill",
+  "description": "浏览器强杀：不触发任何离开钩子，纯测 critical 预写的落盘存活与重启补发",
+  "params": {
+    "trials": 1,
+    "perClass": 20,
+    "variants": [
+      "page-close",
+      "context-close",
+      "browser-close",
+      "sigkill-immediate",
+      "sigkill-250ms",
+      "sigkill-1000ms",
+      "sigkill-2500ms",
+      "sigkill-4000ms",
+      "sigkill-5000ms"
+    ]
+  },
+  "cells": [
+    {
+      "id": "page-close",
+      "killMode": "page.close()",
+      "delayMs": 0,
+      "trialsRun": 1,
+      "expected": {
+        "normal": 20,
+        "critical": 20
+      },
+      "prewriteSurvival": {
+        "survived": 20,
+        "lost": 0,
+        "total": 20,
+        "lossRate": 0
+      },
+      "final": {
+        "normal": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        },
+        "critical": {
+          "total": 20,
+          "stored": 20,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 1,
+        "received_events": 20,
+        "stored_batches": 1,
+        "stored_events": 20
+      }
+    },
+    {
+      "id": "context-close",
+      "killMode": "context.close()",
+      "delayMs": 0,
+      "trialsRun": 1,
+      "expected": {
+        "normal": 20,
+        "critical": 20
+      },
+      "prewriteSurvival": {
+        "survived": 20,
+        "lost": 0,
+        "total": 20,
+        "lossRate": 0
+      },
+      "final": {
+        "normal": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        },
+        "critical": {
+          "total": 20,
+          "stored": 20,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 1,
+        "received_events": 20,
+        "stored_batches": 1,
+        "stored_events": 20
+      }
+    },
+    {
+      "id": "browser-close",
+      "killMode": "browser.close()",
+      "delayMs": 0,
+      "trialsRun": 1,
+      "expected": {
+        "normal": 20,
+        "critical": 20
+      },
+      "prewriteSurvival": {
+        "survived": 20,
+        "lost": 0,
+        "total": 20,
+        "lossRate": 0
+      },
+      "final": {
+        "normal": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        },
+        "critical": {
+          "total": 20,
+          "stored": 20,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 1,
+        "received_events": 20,
+        "stored_batches": 1,
+        "stored_events": 20
+      }
+    },
+    {
+      "id": "sigkill-immediate",
+      "killMode": "SIGKILL via pgrep pid=19757",
+      "delayMs": 0,
+      "trialsRun": 1,
+      "expected": {
+        "normal": 20,
+        "critical": 20
+      },
+      "prewriteSurvival": {
+        "survived": 0,
+        "lost": 20,
+        "total": 20,
+        "lossRate": 1
+      },
+      "final": {
+        "normal": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        },
+        "critical": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        }
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "sigkill-250ms",
+      "killMode": "SIGKILL via pgrep pid=19862",
+      "delayMs": 250,
+      "trialsRun": 1,
+      "expected": {
+        "normal": 20,
+        "critical": 20
+      },
+      "prewriteSurvival": {
+        "survived": 0,
+        "lost": 20,
+        "total": 20,
+        "lossRate": 1
+      },
+      "final": {
+        "normal": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        },
+        "critical": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        }
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "sigkill-1000ms",
+      "killMode": "SIGKILL via pgrep pid=20087",
+      "delayMs": 1000,
+      "trialsRun": 1,
+      "expected": {
+        "normal": 20,
+        "critical": 20
+      },
+      "prewriteSurvival": {
+        "survived": 0,
+        "lost": 20,
+        "total": 20,
+        "lossRate": 1
+      },
+      "final": {
+        "normal": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        },
+        "critical": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        }
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "sigkill-2500ms",
+      "killMode": "SIGKILL via pgrep pid=20223",
+      "delayMs": 2500,
+      "trialsRun": 1,
+      "expected": {
+        "normal": 20,
+        "critical": 20
+      },
+      "prewriteSurvival": {
+        "survived": 0,
+        "lost": 20,
+        "total": 20,
+        "lossRate": 1
+      },
+      "final": {
+        "normal": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        },
+        "critical": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        }
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "sigkill-4000ms",
+      "killMode": "SIGKILL via pgrep pid=20400",
+      "delayMs": 4000,
+      "trialsRun": 1,
+      "expected": {
+        "normal": 20,
+        "critical": 20
+      },
+      "prewriteSurvival": {
+        "survived": 0,
+        "lost": 20,
+        "total": 20,
+        "lossRate": 1
+      },
+      "final": {
+        "normal": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        },
+        "critical": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        }
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "sigkill-5000ms",
+      "killMode": "SIGKILL via pgrep pid=20585",
+      "delayMs": 5000,
+      "trialsRun": 1,
+      "expected": {
+        "normal": 20,
+        "critical": 20
+      },
+      "prewriteSurvival": {
+        "survived": 0,
+        "lost": 20,
+        "total": 20,
+        "lossRate": 1
+      },
+      "final": {
+        "normal": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        },
+        "critical": {
+          "total": 20,
+          "stored": 0,
+          "lost": 20,
+          "lossRate": 1
+        }
+      },
+      "receiverCountersDelta": {}
+    }
+  ],
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "1522",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "150.0.2",
+  "durationMs": 41630,
+  "receiverCountersDelta": {
+    "received_batches": 3,
+    "received_events": 60,
+    "stored_batches": 3,
+    "stored_events": 60
+  },
+  "protocolProblems": {}
+}

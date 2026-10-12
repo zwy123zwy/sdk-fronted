@@ -1,0 +1,7 @@
+M01 mock 接收端：http://127.0.0.1:51026（只监听 127.0.0.1）
+本地探针页：http://127.0.0.1:51025/probe.html
+[firefox] firefox: driver=npx-cache-playwright-core-1.60.0 + firefox-1522 → /Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox
+[firefox] 注意：优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0
+[firefox] 首次冒烟失败（browserType.launchPersistentContext: Timeout 60000ms exceeded.），清理后重试
+  清理残留浏览器进程 pid=66622
+[firefox] 跳过：浏览器启动/冒烟失败：browserType.launchPersistentContext: Timeout 60000ms exceeded. | Call log: | [2m  - <launching> /Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox -no-remote -headless -profile /Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/results-firefox/2026-10-12T11-41-05-051Z/profiles/firefox-smoke-2 -juggler-pipe about:blank[22m

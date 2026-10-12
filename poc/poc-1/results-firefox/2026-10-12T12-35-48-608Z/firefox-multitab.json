@@ -1,0 +1,1914 @@
+{
+  "scenario": "multitab",
+  "description": "多标签页：3 个标签页共享离线副本，同时补发",
+  "params": {
+    "rounds": 10,
+    "perClass": 50,
+    "tabs": 3,
+    "variants": [
+      "weblocks",
+      "broadcastchannel-150ms",
+      "broadcastchannel-10ms",
+      "broadcastchannel-0ms",
+      "no-election"
+    ]
+  },
+  "cells": [
+    {
+      "id": "weblocks",
+      "leader": "locks",
+      "bcSettleMs": 0,
+      "roundsRun": 10,
+      "expected": {
+        "normal": 1500,
+        "critical": 1500
+      },
+      "wave1": {
+        "duplicateEvents": 0,
+        "storedEvents": 3000
+      },
+      "totalDuplicates": 0,
+      "totalStored": 3000,
+      "duplicateRateWave1": 0,
+      "duplicateRatePerCritical": 0,
+      "leadersWave1": {
+        "leaders": 10,
+        "notLeaders": 20
+      },
+      "duplicateRateTotal": 0,
+      "final": {
+        "normal": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 60,
+        "received_events": 3000,
+        "stored_batches": 60,
+        "stored_events": 3000
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "lvjmua5d",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "s9enu6vh",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "4tfp0ttv",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 1,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "qxvt131r",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "m17tnyqv",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "9fv4dve5",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 2,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "ooiuif8y",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "uzj1hd9q",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "mvn5a7wj",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 3,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "sqkmu4tq",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "s7kl9bxq",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "9vsra3z6",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 4,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "j2dm2i81",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "z7e6g4no",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "posqtmnv",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 5,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "oj7ed3u9",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "jqim27ye",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "yw8mrizz",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 6,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "nlwspnv7",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "w4v88w7m",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "wtip3uob",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 7,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "44c7iq3n",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "779bqzjp",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "64l1ppnr",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 8,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "3wgm5tsu",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "iqn40knm",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "ydrrucy5",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 9,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "tl1qlglq",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ewf2mlus",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "qx4ti556",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        }
+      ]
+    },
+    {
+      "id": "broadcastchannel-150ms",
+      "leader": "bc",
+      "bcSettleMs": 150,
+      "roundsRun": 10,
+      "expected": {
+        "normal": 1500,
+        "critical": 1500
+      },
+      "wave1": {
+        "duplicateEvents": 0,
+        "storedEvents": 3000
+      },
+      "totalDuplicates": 0,
+      "totalStored": 3000,
+      "duplicateRateWave1": 0,
+      "duplicateRatePerCritical": 0,
+      "leadersWave1": {
+        "leaders": 10,
+        "notLeaders": 20
+      },
+      "duplicateRateTotal": 0,
+      "final": {
+        "normal": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 60,
+        "received_events": 3000,
+        "stored_batches": 60,
+        "stored_events": 3000
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "7wf0jl4n",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "vhdpg5vl",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "bm4go3h0",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 1,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "ytz0hptp",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "0o3fayrm",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "63t094fs",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 2,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "l3a4y205",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "rqifrww0",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "wo5vmlwb",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 3,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "12aa8q54",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "2hill3s5",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "i8axyfv2",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 4,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "x6loohze",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "pa0w735z",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "6oqf18pm",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 5,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "wdv2gelj",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "u2m60nhv",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "wq5nm4mr",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 6,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "1ylgddb5",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "hdt8rykv",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "03ywvoic",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 7,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "hoi2xzhc",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "ho5esn6t",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "40w3iccs",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 8,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "esu2zcrg",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "qkonuovs",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "a7z43uuv",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 9,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "c4ubq3hx",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ijg8rz2g",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "wtrwpeuv",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        }
+      ]
+    },
+    {
+      "id": "broadcastchannel-10ms",
+      "leader": "bc",
+      "bcSettleMs": 10,
+      "roundsRun": 10,
+      "expected": {
+        "normal": 1500,
+        "critical": 1500
+      },
+      "wave1": {
+        "duplicateEvents": 0,
+        "storedEvents": 3000
+      },
+      "totalDuplicates": 0,
+      "totalStored": 3000,
+      "duplicateRateWave1": 0,
+      "duplicateRatePerCritical": 0,
+      "leadersWave1": {
+        "leaders": 10,
+        "notLeaders": 20
+      },
+      "duplicateRateTotal": 0,
+      "final": {
+        "normal": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 60,
+        "received_events": 3000,
+        "stored_batches": 60,
+        "stored_events": 3000
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "baes5cv6",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ht67fha0",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "2vbocy23",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 1,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "e9t9bwn8",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "r2o65z7h",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "8wmdbtn4",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 2,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "647ewyqe",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "rhao97lx",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "2gpe3af5",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 3,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "exk1b8se",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "plkvmual",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "nz0zr0c1",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 4,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "ir6p0emb",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "7i3uivzm",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "q7o3y12l",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 5,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "t9j9vppo",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "cpnl7noa",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "etzb2lr0",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 6,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "xtgti2ma",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "btntmmcs",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "ss4czuv1",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 7,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "c3kpo853",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "egx1ctxd",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "p5bpeyhw",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 8,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "1xhzh0sm",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "f6acxnqz",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "04ajh0sj",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 9,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "3910vnwi",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "7m8nweql",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "ft1huf0i",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        }
+      ]
+    },
+    {
+      "id": "broadcastchannel-0ms",
+      "leader": "bc",
+      "bcSettleMs": 0,
+      "roundsRun": 10,
+      "expected": {
+        "normal": 1500,
+        "critical": 1500
+      },
+      "wave1": {
+        "duplicateEvents": 1950,
+        "storedEvents": 3000
+      },
+      "totalDuplicates": 1950,
+      "totalStored": 3000,
+      "duplicateRateWave1": 0.65,
+      "duplicateRatePerCritical": 1.3,
+      "leadersWave1": {
+        "leaders": 23,
+        "notLeaders": 7
+      },
+      "duplicateRateTotal": 0.3939393939393939,
+      "final": {
+        "normal": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 99,
+        "received_events": 4950,
+        "stored_batches": 60,
+        "stored_events": 3000,
+        "duplicate_events": 1950
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "uujdxoko",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "wghh5eyn",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "9cv413tf",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 1,
+          "wave1Duplicates": 150,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "5uku0bbq",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "xcexzwfm",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "b08uol77",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 2,
+          "wave1Duplicates": 150,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "ksam5j5d",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "qero9tq8",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "q5uq83w1",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 3,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "loexplti",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "5yhhauna",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "poz5u7cr",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 4,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "hdv622lc",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "tja53idj",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ny7wzzh4",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 5,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "dbd6uo7y",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "azzdlh34",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ss5mkp0t",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 6,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "f9ab609r",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "fshz06q6",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "xjikhpit",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 7,
+          "wave1Duplicates": 150,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "5wczpv9l",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ta17ax7g",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "aq9arw0i",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 8,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "yezplb65",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "k458vtkv",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "50gvbkx3",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 9,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "pbxq2z5t",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "oi93b74o",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "a4vgbat8",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        }
+      ]
+    },
+    {
+      "id": "no-election",
+      "leader": "none",
+      "bcSettleMs": 0,
+      "roundsRun": 10,
+      "expected": {
+        "normal": 1500,
+        "critical": 1500
+      },
+      "wave1": {
+        "duplicateEvents": 3000,
+        "storedEvents": 3000
+      },
+      "totalDuplicates": 3000,
+      "totalStored": 3000,
+      "duplicateRateWave1": 1,
+      "duplicateRatePerCritical": 2,
+      "leadersWave1": {
+        "leaders": 30,
+        "notLeaders": 0
+      },
+      "duplicateRateTotal": 0.5,
+      "final": {
+        "normal": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 120,
+        "received_events": 6000,
+        "stored_batches": 60,
+        "stored_events": 3000,
+        "duplicate_events": 3000
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "t3tuala4",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "nn4oeyb4",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "wem9gwl9",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 1,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "k332bm4g",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "c6wu1j0e",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "0nryg2np",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 2,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "wyiw6lc3",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "34nlm5iy",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "q6f6ck56",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 3,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "v8m14wcf",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ulqbepee",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "0dyxbwa1",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 4,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "3xgsn8bo",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "vx8qqknx",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "5tnlyndx",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 5,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "ag1p5c5v",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "zg42u8jq",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "hr7rj218",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 6,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "wr64wk1w",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "b3j5frmp",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "pbu9pbcz",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 7,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "fc1hhdis",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "t0fty2yb",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "37xe9to6",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 8,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "j3bsjwlv",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "zsbtff17",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "dgmaylnx",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 9,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "1p522823",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "bq6mc3h5",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "h1mc0kd5",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        }
+      ]
+    }
+  ],
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "1522",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "150.0.2",
+  "durationMs": 48075,
+  "receiverCountersDelta": {
+    "received_batches": 399,
+    "received_events": 19950,
+    "stored_batches": 300,
+    "stored_events": 15000,
+    "duplicate_events": 4950
+  },
+  "protocolProblems": {}
+}

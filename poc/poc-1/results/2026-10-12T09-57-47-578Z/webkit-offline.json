@@ -1,0 +1,104 @@
+{
+  "scenario": "offline",
+  "description": "断网：context.setOffline(true) 期间入队，恢复网络后补发",
+  "params": {
+    "trials": 10,
+    "perClass": 100,
+    "variants": [
+      "offline-same-page",
+      "offline-reload"
+    ]
+  },
+  "cells": [
+    {
+      "id": "offline-same-page",
+      "reloadWhileOffline": false,
+      "trialsRun": 10,
+      "expected": {
+        "normal": 1000,
+        "critical": 1000
+      },
+      "offlineMode": "route-abort-endpoint(webkit)",
+      "offlineArrived": {
+        "normal": 0,
+        "critical": 0
+      },
+      "onlineAutoRecoverRuns": 0,
+      "note": "WebKit 用「上报端点不可达」代替 navigator.onLine=false（Playwright 的 WebKit 在 offline 下无法导航），因此没有 online 事件，补发由脚本显式触发",
+      "final": {
+        "normal": {
+          "total": 1000,
+          "stored": 1000,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1000,
+          "stored": 1000,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 40,
+        "received_events": 2000,
+        "stored_batches": 40,
+        "stored_events": 2000
+      }
+    },
+    {
+      "id": "offline-reload",
+      "reloadWhileOffline": true,
+      "trialsRun": 10,
+      "expected": {
+        "normal": 1000,
+        "critical": 1000
+      },
+      "offlineMode": "route-abort-endpoint(webkit)",
+      "offlineArrived": {
+        "normal": 0,
+        "critical": 0
+      },
+      "onlineAutoRecoverRuns": 0,
+      "note": "WebKit 用「上报端点不可达」代替 navigator.onLine=false（Playwright 的 WebKit 在 offline 下无法导航），因此没有 online 事件，补发由脚本显式触发",
+      "final": {
+        "normal": {
+          "total": 1000,
+          "stored": 0,
+          "lost": 1000,
+          "lossRate": 1
+        },
+        "critical": {
+          "total": 1000,
+          "stored": 1000,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    }
+  ],
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "2287",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/webkit-2287/pw_run.sh",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 webkit-2370，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "26.4",
+  "durationMs": 43239,
+  "receiverCountersDelta": {
+    "received_batches": 60,
+    "received_events": 3000,
+    "stored_batches": 60,
+    "stored_events": 3000
+  },
+  "protocolProblems": {}
+}

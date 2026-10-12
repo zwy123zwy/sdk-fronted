@@ -1,0 +1,78 @@
+M01 mock 接收端：http://127.0.0.1:50689（只监听 127.0.0.1）
+本地探针页：http://127.0.0.1:50688/probe.html
+[firefox] firefox: driver=npx-cache-playwright-core-1.60.0 + firefox-1522 → /Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox
+[firefox] 注意：优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0
+[firefox] 版本 150.0.2；特性 {"sendBeacon":true,"fetchKeepalive":true,"webLocks":true,"broadcastChannel":true,"localStorage":true}
+[leave] cell=pagehide-beacon trials=10 normal/trial=100 critical/trial=100
+  离开时一次到达 normal=1000/1000（丢 0%）；critical=1000/1000（丢 0%）；最终 normal 丢 0/1000，critical 丢 0/1000；重复 1000
+[leave] cell=pagehide-keepalive trials=10 normal/trial=100 critical/trial=100
+  离开时一次到达 normal=1000/1000（丢 0%）；critical=1000/1000（丢 0%）；最终 normal 丢 0/1000，critical 丢 0/1000；重复 1000
+[leave] cell=visibility-beacon trials=10 normal/trial=100 critical/trial=100
+  离开时一次到达 normal=1000/1000（丢 0%）；critical=1000/1000（丢 0%）；最终 normal 丢 0/1000，critical 丢 0/1000；重复 1000
+[leave] cell=visibility-keepalive trials=10 normal/trial=100 critical/trial=100
+  离开时一次到达 normal=1000/1000（丢 0%）；critical=1000/1000（丢 0%）；最终 normal 丢 0/1000，critical 丢 0/1000；重复 1000
+[leave] bulk=bulk-pagehide-beacon trials=3 normal/trial=0 critical/trial=1000
+  排空 pass=0 pending 1000 → 0
+  排空 pass=0 pending 1000 → 0
+  排空 pass=0 pending 1000 → 0
+  离开时一次到达 normal=0/0（丢 0%）；critical=3000/3000（丢 0%）；最终 normal 丢 0/0，critical 丢 0/3000；重复 3000
+[leave] bulk=bulk-pagehide-keepalive trials=3 normal/trial=0 critical/trial=1000
+  排空 pass=0 pending 1000 → 0
+  排空 pass=0 pending 1000 → 0
+  排空 pass=0 pending 1000 → 0
+  离开时一次到达 normal=0/0（丢 0%）；critical=900/3000（丢 70%）；最终 normal 丢 0/0，critical 丢 0/3000；重复 900
+[firefox/leave] 用时 55.3s
+[kill] variant=page-close trials=5 perClass=200
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  预写存活 1000/1000；最终 normal 丢失 1000/1000，critical 丢失 0/1000
+[kill] variant=context-close trials=5 perClass=200
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  预写存活 1000/1000；最终 normal 丢失 1000/1000，critical 丢失 0/1000
+[kill] variant=browser-close trials=5 perClass=200
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  预写存活 1000/1000；最终 normal 丢失 1000/1000，critical 丢失 0/1000
+[kill] variant=sigkill-immediate trials=5 perClass=200
+  预写存活 0/1000；最终 normal 丢失 1000/1000，critical 丢失 1000/1000
+[kill] variant=sigkill-250ms trials=5 perClass=200
+  预写存活 0/1000；最终 normal 丢失 1000/1000，critical 丢失 1000/1000
+[kill] variant=sigkill-1000ms trials=5 perClass=200
+  预写存活 0/1000；最终 normal 丢失 1000/1000，critical 丢失 1000/1000
+[kill] variant=sigkill-2500ms trials=5 perClass=200
+  预写存活 0/1000；最终 normal 丢失 1000/1000，critical 丢失 1000/1000
+[kill] variant=sigkill-4000ms trials=5 perClass=200
+  预写存活 0/1000；最终 normal 丢失 1000/1000，critical 丢失 1000/1000
+[kill] variant=sigkill-5000ms trials=5 perClass=200
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  排空 pass=0 pending 200 → 0
+  预写存活 800/1000；最终 normal 丢失 1000/1000，critical 丢失 200/1000
+[firefox/kill] 用时 187.0s
+[offline] variant=offline-same-page trials=10 perClass=100
+  断网期间到达 normal=0 critical=0（条）；最终 normal 丢失 0/1000，critical 丢失 0/1000
+[offline] variant=offline-reload trials=10 perClass=100
+  断网期间到达 normal=0 critical=0（条）；最终 normal 丢失 1000/1000，critical 丢失 0/1000
+[firefox/offline] 用时 45.1s
+[multitab] variant=weblocks rounds=10 tabs=3 perClass=50
+  首轮并发重复 0 / 入库 3000；critical 丢失 0/1500，normal 丢失 0/1500
+[multitab] variant=broadcastchannel-150ms rounds=10 tabs=3 perClass=50
+  首轮并发重复 0 / 入库 3000；critical 丢失 0/1500，normal 丢失 0/1500
+[multitab] variant=broadcastchannel-10ms rounds=10 tabs=3 perClass=50
+  首轮并发重复 0 / 入库 3000；critical 丢失 0/1500，normal 丢失 0/1500
+[multitab] variant=broadcastchannel-0ms rounds=10 tabs=3 perClass=50
+  首轮并发重复 1950 / 入库 3000；critical 丢失 0/1500，normal 丢失 0/1500
+[multitab] variant=no-election rounds=10 tabs=3 perClass=50
+  首轮并发重复 3000 / 入库 3000；critical 丢失 0/1500，normal 丢失 0/1500
+[firefox/multitab] 用时 48.1s
