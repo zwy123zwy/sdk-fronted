@@ -107,8 +107,29 @@ Wave 0（T06/T11/T09）验收后，看板解锁 T10、T12、T13、T14、T15、T2
 
 ### 1.5 T12 C01 公共 API、命令队列、加载桩（A02）
 
-- 分支 `T12-public-api`
-- 状态：**首轮交付后经编排方复核发现 5 处契约违反，返工中**；详情见第 5 节 D-1
+- 分支 `T12-public-api`；提交 `60ca62d`；合并 `0c55f8c`
+- 需求 C01-F1 至 C01-F6；验收 C01-AC-01 至 C01-AC-12
+
+| 交付物 | 内容 |
+|---|---|
+| `packages/core/src/api/` | 公共 API 与生命周期、命令队列（上限 200，**保留最早 200 次**，溢出计数 `command_queue_overflow`）、类型化事件（按 K01 字典形状做字段级推导）、值工具、`console-sink`（**唯一**使用 `console` 的文件，按已批准的精确 eslint 豁免） |
+| `packages/browser/` | 接入方入口包、**加载桩**（交付形态 gzip **781 B**，预算 1024 B）、类型化事件夹具、体积测量脚本 |
+| `packages/core/README.md` §11–§20 | 事件体字段表、K01 字典形状契约、`log` 形态、共享注册表、加载桩交接语义、调试缺省静默 |
+| `etc/*.api.md` | core **103 条**、browser **55 条**导出，经 `api:update` 登记 |
+
+**返工修复的 5 处契约违反**（首轮交付时其 105 条单测全绿，却违反冻结契约——经编排方逐行复核发现，见 D-1）：
+
+| # | 问题 | 修复 |
+|---|---|---|
+| 1 | 事件体带顶层 `app_id`（`batch.schema.json` 的 event 是 `additionalProperties: false`，`app_id` 只属批次头） | 删除；`app_id` 只留在内部 `ClientState` |
+| 2 | 缺必填 `event_id` | `submit()` 在**调用当时**生成 UUID v4 存入命令队列；加载桩缓存时生成、主包原样沿用（重试与补发不变） |
+| 3 | 缺必填 `schema_version` | 默认 `1`；运行期字典声明则取声明值 |
+| 4 | `log` 把 `message` 放在事件顶层（Schema 无此字段） | 移入 `dimensions.message`，顶层仅保留 `level` |
+| 5 | `captureError` 的 `web_js_error` 缺必填 `source`/`fingerprint` 与 `metrics.count` | `dimensions` 恒含 `error_type`/`message`/`source='manual'`/`fingerprint`（FNV-1a 稳定派生）；`metrics.count` 缺省 `1`；`priority` 强制 `normal` |
+
+**关键自证**：新增 `packages/core/src/api/schema-validation.test.ts`，用 Ajv 2020-12 把**真实产出**对 `docs/contracts/schemas/batch.schema.json` 校验（`web_js_error` 另对内置 Schema），并含**反向用例**（带 `app_id` + 缺 `event_id` 必须判 `false`）证明校验不是空跑——这正是 D-2 那条系统性缺口在单任务内的暂时封堵。
+
+**7 条裁定落实**：`getState`/`acceptCommand` 已从公共 API 与导出面移除（状态走内核能力 `STATE_CAPABILITY`，加载桩交接走 `STUB_BRIDGE_CAPABILITY`）；内核按授权做**最小扩权**（`KernelConfig.registry?` 可选共享全局注册表，**计数器仍按实例独立**），新增用例证明跨实例只装一次原生监听（`nativeListeners === 1`）且两个实例的 `counters` 不同；K01 字典形状与「必填判断用属性类型投影、不索引 `required`」写入 README §13；`log` 形态写入 §14；`destroyed` 计数口径维持；加载桩 `drain()` 先移除错误监听再交接；`debug` 缺省改为静默（满足 C08-AC-09）。
 
 ## 2. 门禁结果
 
@@ -124,7 +145,21 @@ Wave 0（T06/T11/T09）验收后，看板解锁 T10、T12、T13、T14、T15、T2
 
 ### 2.1 最终门禁明细
 
-（待 T12 返工与门禁加固合入后补齐）
+全部 5 个 lane 合入后，在 `main` 上执行 **`pnpm gates` → exit 0**：
+
+| 门禁 | 结果 |
+|---|---|
+| `pnpm lint` | 通过 |
+| `pnpm typecheck` | 通过（根 + 11 个工作区项目） |
+| `pnpm test` | **34 个测试文件 / 451 个测试通过**；覆盖率 exit 0（无阈值 ERROR） |
+| `pnpm build` | 通过 |
+| `pnpm size` | browser **6.14 kB**、core **6.3 kB**、plugins 139 B、transport **3.12 kB**（预算 10 / 10 / 20 / 10 kB） |
+| `pnpm api:check` | browser / core / plugins / transport **四包全 ok** |
+| `pnpm examples:build` / `examples:test` | 通过（IIFE 暴露 `WebReportSDK.SDK_VERSION`；Vitest 与 Jest 均可导入） |
+
+测试构成（451）：契约 169、core 内核 + api 115、transport 52、M01 63、K01 52。
+
+**负载下的稳定性验证**：门禁加固合入后，在其它 lane 并发（有负载）的条件下，`pnpm test` 连续 3 次全绿（398 测试，含之前必现失败的 M01-AC-14）；加固 lane 自身另跑了 9 次全量（6 次常规负载 + 3 次 +20 CPU burner），亦全部全绿。
 
 ## 3. 契约与公共 API
 
@@ -153,16 +188,18 @@ Wave 0（T06/T11/T09）验收后，看板解锁 T10、T12、T13、T14、T15、T2
 
 ## 6. 阻塞与待人工确认
 
-（待 T12 返工与门禁加固合入后补齐；当前已知项：）
+本波所有 lane 均已合入且全量门禁 exit 0；以下 8 项需要人类负责人裁定或追认（均不阻塞已合入的代码）：
 
 | 事项 | 需要的决定 |
 |---|---|
-| 契约样例补充的归属 | `docs/contracts/README.md` 第 33 行把「`batch.invalid.json` 信标 `auth` 非法样例」指派给 T10，但 T10 无权写契约。需决定由 A01 补（编排方可代行）还是授权执行 Agent 写契约文件 |
-| `batch.invalid.json` case[4] 的 `_why` 与数据不符 | T10 复核发现：`_why` 称「维度值超过 256 字符」，实际该值为 1 字符，真实失败原因是键含大写 + 顶层未声明字段。属契约文件，需 A01 修正 |
-| `export-rules` 规则文件的 Schema 未冻结 | K01-F5 导出的运行期校验规则（`schema_id`/`export_version`/`keep_versions`/`retention`）目前由工具自带并自校验，契约未规定。RR-22 是「可以」级且尚无接收方消费，建议暂不固化，等有接收方接入时走兼容追加 |
-| `compat-pairs/index.json` 第 13 行 `verdict_zh` 措辞 | 未含判定表该行的附加说明（追加要求放在 `additional_requirements`）；T10 按 `startsWith` 归一化断言。属契约样例措辞，可由 A01 统一 |
-| `remote-config.valid.json` 的 `_note` 措辞 | 称 `payload` 是「节选」，实为完整合法正文。属契约样例措辞 |
-| T06/T22 的所有权扩展追认 | 见 D-5、D-6 |
+| **公共 API 签名确认（T12）** | `getState`/`acceptCommand` 已移除；新增 10 个导出（`STUB_BRIDGE_CAPABILITY`、`FieldSpec`、`LooseFieldSpec`、`ShapeOf`、`RequiredFieldKeys`、`OptionalFieldKeys`、`createUuid`、`truncate`、`WEB_JS_ERROR_LIMITS`、`MAX_DIMENSION_VALUE_LENGTH`），移除 3 个（`Fields`/`DimensionNames`/`MetricNames`）。`Client` 上仍暴露 `readonly kernel` 作为 C06/C08 的集成句柄——**这是公共面上的一个口子，请确认保留还是收进能力接口** |
+| **截断职责划分（T12 vs T14）** | C01 现对 `web_js_error`/`sdk_log` 的 message/attachment 做 Schema 上限截断并计数 `truncated_dimension`。而 `event-standard.md` §4 把字段约束与截断定为 **C04-F6**。建议：保留 C01 的「Schema 合规兜底 clamp」（否则 C01 无法产出合法事件），C04 仍拥有通用截断语义；因截断幂等，不会双重计数。请 T14 开工时确认 |
+| **契约样例补充的归属** | `docs/contracts/README.md` 第 33 行把「`batch.invalid.json` 信标 `auth` 非法样例」指派给 T10，但 T10 无权写契约。需决定由 A01 补（编排方可代行）还是授权执行 Agent 写契约文件 |
+| **`batch.invalid.json` case[4] 的 `_why` 与数据不符** | T10 复核发现：`_why` 称「维度值超过 256 字符」，实际该值为 1 字符，真实失败原因是键含大写 + 顶层未声明字段。属契约文件，需 A01 修正 |
+| **`export-rules` 规则文件的 Schema 未冻结** | K01-F5 导出的运行期校验规则（`schema_id`/`export_version`/`keep_versions`/`retention`）目前由工具自带并自校验，契约未规定。RR-22 是「可以」级且尚无接收方消费，建议暂不固化，等有接收方接入时走兼容追加 |
+| **契约样例措辞两处** | `compat-pairs/index.json` 第 13 行 `verdict_zh` 未含判定表该行的附加说明（追加要求放在 `additional_requirements`）；`remote-config.valid.json` 的 `_note` 称 `payload` 是「节选」、实为完整合法正文。均可由 A01 统一 |
+| **所有权扩展追认** | T06 三处（Wave 0）、T12 的内核最小扩权（D-6）、T22 两处（D-5）。均已由编排方授权并记录，需负责人追认 |
+| **T20 的权威基准** | 本波把三处「绝对墙钟目标值」从单元门禁移出（T15、M01-AC-14、T11 内核），其规格线（入队 P99 ≤0.01 ms、单批 ≤2 ms、30 秒 ≥500 批/秒、初始化 ≤5 ms、管线 P99 ≤0.05 ms）现在**只由 T20 的受控基准行使**。T20 开工时必须把这些指标纳入 `tests/bench/` |
 
 ## 7. 未执行项
 
