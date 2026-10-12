@@ -5,6 +5,358 @@
 ```ts
 
 // @public
+export interface CapabilityRegistry {
+    dispose(): void;
+    get(name: string): unknown;
+    // (undocumented)
+    has(name: string): boolean;
+    // (undocumented)
+    names(): readonly string[];
+    register(name: string, value: unknown): Dispose;
+}
+
+// @public (undocumented)
+export interface CapabilityRegistryServices {
+    // (undocumented)
+    readonly counters: Counters;
+}
+
+// @public
+export interface Counters {
+    count(reason: string, delta?: number): void;
+    get(reason: string): number;
+    reset(): void;
+    snapshot(): Readonly<Record<string, number>>;
+}
+
+// @public
+export function createCapabilityRegistry(services: CapabilityRegistryServices): CapabilityRegistry;
+
+// @public
+export function createCounters(): Counters;
+
+// @public
+export function createGlobalRegistry(services: GlobalRegistryServices): GlobalRegistry;
+
+// @public
+export function createKernel(config?: KernelConfig): Kernel;
+
+// @public
+export function createLifecycle(services: LifecycleServices): Lifecycle;
+
+// @public
+export function createPipeline(services: PipelineServices): Pipeline;
+
+// @public
+export function createPluginHost(services: PluginHostServices): PluginHost;
+
+// @public
+export function createPrestartQueue(options?: PrestartQueueOptions): PrestartQueue;
+
+// @public
+export function definePlugin(plugin: Plugin_2): Plugin_2;
+
+// @public
+export type Dispose = () => void;
+
+// @public
+export type EventPriority = 'normal' | 'critical';
+
+// @public
+export interface GlobalRegistry {
+    dispose(): void;
+    hook<T extends object, K extends keyof T>(target: T, key: K, wrapper: (original: T[K]) => T[K]): Dispose;
+    listen(target: EventTarget, type: string, handler: (event: Event) => void, options?: ListenerOptions): Dispose;
+    listenGlobal(type: string, handler: (event: Event) => void, options?: ListenerOptions): Dispose;
+    schedule(handler: () => void, delayMs: number): Dispose;
+    scheduleRepeat(handler: () => void, intervalMs: number): Dispose;
+    stats(): GlobalRegistryStats;
+}
+
+// @public (undocumented)
+export interface GlobalRegistryServices {
+    // (undocumented)
+    readonly counters: Counters;
+    readonly target?: EventTarget | null | undefined;
+}
+
+// @public
+export interface GlobalRegistryStats {
+    readonly hooks: number;
+    readonly listeners: number;
+    readonly nativeListeners: number;
+    readonly timers: number;
+}
+
+// @public
+export interface Kernel {
+    // (undocumented)
+    applyPluginConfig(config: Readonly<Record<string, boolean>>): void;
+    // (undocumented)
+    readonly capabilities: CapabilityRegistry;
+    configReady(): boolean;
+    // (undocumented)
+    readonly counters: Counters;
+    // (undocumented)
+    destroy(): void;
+    getCapability(name: string): unknown;
+    init(): void;
+    // (undocumented)
+    readonly lifecycle: Lifecycle;
+    markConfigReady(): void;
+    pause(reason?: string): void;
+    // (undocumented)
+    readonly pipeline: Pipeline;
+    // (undocumented)
+    readonly plugins: PluginHost;
+    // (undocumented)
+    readonly prestartQueue: PrestartQueue;
+    registerCapability(name: string, value: unknown): Dispose;
+    // (undocumented)
+    registerPlugin(plugin: Plugin_2): void;
+    // (undocumented)
+    registerProcessor(stage: PipelineStage, processor: Processor, options?: RegisterOptions): Dispose;
+    // (undocumented)
+    readonly registry: GlobalRegistry;
+    report(event: KernelEvent): void;
+    // (undocumented)
+    resume(): void;
+    setOutput(sink: (event: KernelEvent) => void): Dispose;
+    start(): void;
+    // (undocumented)
+    state(): LifecycleState;
+}
+
+// @public
+export interface KernelConfig {
+    readonly target?: EventTarget | null | undefined;
+}
+
+// @public
+export interface KernelEvent {
+    // (undocumented)
+    [field: string]: unknown;
+    // (undocumented)
+    readonly event_name: string;
+    // (undocumented)
+    readonly occurred_at: number;
+    // (undocumented)
+    readonly priority: EventPriority;
+}
+
+// @public
+export interface Lifecycle {
+    destroy(): boolean;
+    init(): boolean;
+    // (undocumented)
+    isDestroyed(): boolean;
+    onStateChange(listener: StateChangeListener): Dispose;
+    pause(): boolean;
+    resume(): boolean;
+    start(): boolean;
+    // (undocumented)
+    state(): LifecycleState;
+}
+
+// @public (undocumented)
+export interface LifecycleServices {
+    // (undocumented)
+    readonly counters: Counters;
+}
+
+// @public
+export type LifecycleState = 'uninitialized' | 'initialized' | 'running' | 'paused' | 'destroyed';
+
+// @public
+export interface ListenerOptions {
+    // (undocumented)
+    readonly capture?: boolean | undefined;
+    // (undocumented)
+    readonly passive?: boolean | undefined;
+}
+
+// @public
+export interface Pipeline {
+    dispose(): void;
+    process(event: KernelEvent): ProcessOutcome;
+    register(stage: PipelineStage, processor: Processor, options?: RegisterOptions): Dispose;
+    size(stage?: PipelineStage): number;
+}
+
+// @public
+export const PIPELINE_STAGES: readonly ["validate", "enrich", "filter", "sample", "build", "before_send"];
+
+// @public (undocumented)
+export interface PipelineServices {
+    // (undocumented)
+    readonly counters: Counters;
+}
+
+// @public
+export type PipelineStage = (typeof PIPELINE_STAGES)[number];
+
+// @public
+export interface PipelineStop {
+    // (undocumented)
+    readonly reason: string;
+    // (undocumented)
+    readonly stop: true;
+}
+
+// @public
+interface Plugin_2 {
+    readonly dependencies?: readonly string[] | undefined;
+    // (undocumented)
+    readonly id: string;
+    readonly install: (context: PluginContext) => void;
+}
+export { Plugin_2 as Plugin }
+
+// @public
+export interface PluginActionResult {
+    readonly failedDependencies?: readonly string[] | undefined;
+    readonly missingDependencies?: readonly string[] | undefined;
+    // (undocumented)
+    readonly pluginId: string;
+    // (undocumented)
+    readonly status: PluginStatus;
+}
+
+// @public
+export interface PluginContext {
+    addProcessor(stage: PipelineStage, processor: Processor, options?: RegisterOptions): Dispose;
+    // (undocumented)
+    readonly capabilities: CapabilityRegistry;
+    // (undocumented)
+    readonly counters: Counters;
+    hook<T extends object, K extends keyof T>(target: T, key: K, wrapper: (original: T[K]) => T[K]): Dispose;
+    listen(type: string, handler: (event: Event) => void, options?: ListenerOptions): Dispose;
+    onDispose(disposer: Dispose): void;
+    // (undocumented)
+    readonly pipeline: Pipeline;
+    // (undocumented)
+    readonly pluginId: string;
+    registerCapability(name: string, value: unknown): Dispose;
+    // (undocumented)
+    readonly registry: GlobalRegistry;
+    schedule(handler: () => void, delayMs: number): Dispose;
+    scheduleRepeat(handler: () => void, intervalMs: number): Dispose;
+}
+
+// @public
+export interface PluginHost {
+    applyConfig(config: Readonly<Record<string, boolean>>): readonly PluginActionResult[];
+    dispose(): void;
+    // (undocumented)
+    install(id: string): PluginActionResult;
+    // (undocumented)
+    installedIds(): readonly string[];
+    // (undocumented)
+    isInstalled(id: string): boolean;
+    // (undocumented)
+    isRegistered(id: string): boolean;
+    register(plugin: Plugin_2): void;
+    // (undocumented)
+    registeredIds(): readonly string[];
+    // (undocumented)
+    uninstall(id: string): boolean;
+}
+
+// @public (undocumented)
+export interface PluginHostServices {
+    // (undocumented)
+    readonly capabilities: CapabilityRegistry;
+    // (undocumented)
+    readonly counters: Counters;
+    // (undocumented)
+    readonly pipeline: Pipeline;
+    // (undocumented)
+    readonly registry: GlobalRegistry;
+}
+
+// @public
+export type PluginStatus = 'installed' | 'already_installed' | 'uninstalled' | 'not_installed' | 'unknown_plugin' | 'dependency_missing' | 'dependency_failed' | 'install_failed' | 'unavailable';
+
+// @public
+export const PRESTART_QUEUE_CAPACITY = 500;
+
+// @public
+export interface PrestartQueue {
+    // (undocumented)
+    capacity(): number;
+    // (undocumented)
+    clear(): void;
+    drain(): readonly KernelEvent[];
+    // (undocumented)
+    push(event: KernelEvent): PrestartQueuePush;
+    // (undocumented)
+    size(): number;
+}
+
+// @public (undocumented)
+export interface PrestartQueueOptions {
+    readonly capacity?: number | undefined;
+}
+
+// @public
+export interface PrestartQueuePush {
+    readonly event: KernelEvent;
+    readonly evicted?: KernelEvent | undefined;
+    readonly status: 'queued' | 'evicted' | 'rejected';
+}
+
+// @public
+export type Processor = (event: KernelEvent, context: ProcessorContext) => ProcessorResult;
+
+// @public
+export interface ProcessorContext {
+    // (undocumented)
+    readonly counters: Counters;
+    // (undocumented)
+    readonly processorId: string;
+    // (undocumented)
+    readonly stage: PipelineStage;
+}
+
+// @public
+export type ProcessorResult = KernelEvent | PipelineStop;
+
+// @public
+export interface ProcessOutcome {
+    // (undocumented)
+    readonly event: KernelEvent;
+    readonly reason?: string | undefined;
+    // (undocumented)
+    readonly status: 'processed' | 'stopped';
+}
+
+// @public
+export const REASON_CODES: {
+    readonly processorError: "processor_error";
+    readonly prestartQueueOverflow: "prestart_queue_overflow";
+    readonly pluginDependencyMissing: "plugin_dependency_missing";
+    readonly pluginInstallFailed: "plugin_install_failed";
+    readonly filteredByPlugin: "filtered_by_plugin";
+    readonly destroyed: "destroyed";
+};
+
+// @public
+export type ReasonCode = (typeof REASON_CODES)[keyof typeof REASON_CODES];
+
+// @public
+export interface RegisterOptions {
+    readonly id?: string | undefined;
+}
+
+// @public
 export const SDK_VERSION = "0.0.0";
+
+// @public
+export type StateChangeListener = (state: LifecycleState, previous: LifecycleState) => void;
+
+// @public
+export function stopPipeline(reason: string): PipelineStop;
+
+// (No @packageDocumentation comment for this package)
 
 ```
