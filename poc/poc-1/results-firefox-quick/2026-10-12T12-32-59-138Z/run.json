@@ -1,0 +1,1451 @@
+{
+  "runId": "2026-10-12T12-32-59-138Z",
+  "startedAt": "2026-10-12T12:32:59.160Z",
+  "node": "v24.16.0",
+  "platform": "darwin 25.6.0 arm64",
+  "cpuCount": 10,
+  "preset": "quick",
+  "scenarios": [
+    "leave",
+    "kill",
+    "offline",
+    "multitab"
+  ],
+  "staticServer": "http://127.0.0.1:49757",
+  "receiver": "http://127.0.0.1:49758",
+  "browsers": [
+    {
+      "browser": "firefox",
+      "status": "ok",
+      "scenarios": {
+        "leave": {
+          "scenario": "leave",
+          "description": "页面离开：normal 只有离开那一次机会；critical 预写后可在下一次页面加载补发",
+          "params": {
+            "trials": 2,
+            "perClass": 10,
+            "cells": [
+              "pagehide-beacon",
+              "pagehide-keepalive",
+              "visibility-beacon",
+              "visibility-keepalive"
+            ],
+            "bulkPerTrial": 40
+          },
+          "cells": [
+            {
+              "id": "pagehide-beacon",
+              "trigger": "pagehide",
+              "transport": "beacon",
+              "leave": "navigate",
+              "trialsRun": 2,
+              "perTrial": {
+                "normal": 10,
+                "critical": 10
+              },
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "leaveFirstAttempt": {
+                "normal": {
+                  "total": 20,
+                  "arrived": 20,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 20,
+                  "arrived": 20,
+                  "lossRate": 0
+                }
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 6,
+                "received_events": 60,
+                "stored_batches": 4,
+                "stored_events": 40,
+                "duplicate_events": 20
+              },
+              "duplicateEvents": 20,
+              "storedEvents": 40,
+              "pageStats": {
+                "flush_reason_visibility": 0,
+                "flush_reason_pagehide": 2,
+                "beacon_accepted": 4,
+                "beacon_rejected": 0,
+                "batch_202": 2,
+                "batch_other": 0,
+                "batch_network_error": 0,
+                "recover_leader": 2,
+                "recover_not_leader": 0,
+                "recover_runs": 2,
+                "prewrite_ok": 20,
+                "prewrite_failed_quota": 0,
+                "dropped_critical_cap": 0,
+                "acked_events": 20,
+                "pending": 0,
+                "normal_queue": 0,
+                "pages_with_stats": 5
+              },
+              "hooksFired": {
+                "trigger": "pagehide",
+                "flushedVisibility": 0,
+                "flushedPagehide": 2,
+                "expectedOnePerTrial": 2,
+                "firedAllTrials": true
+              },
+              "traceSummary": {
+                "init": 1,
+                "flush": 0,
+                "flushByReason": {},
+                "leader": 0,
+                "leaderGot": 0
+              },
+              "drainPasses": []
+            },
+            {
+              "id": "pagehide-keepalive",
+              "trigger": "pagehide",
+              "transport": "keepalive",
+              "leave": "navigate",
+              "trialsRun": 2,
+              "perTrial": {
+                "normal": 10,
+                "critical": 10
+              },
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "leaveFirstAttempt": {
+                "normal": {
+                  "total": 20,
+                  "arrived": 20,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 20,
+                  "arrived": 20,
+                  "lossRate": 0
+                }
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 6,
+                "received_events": 60,
+                "stored_batches": 4,
+                "stored_events": 40,
+                "duplicate_events": 20
+              },
+              "duplicateEvents": 20,
+              "storedEvents": 40,
+              "pageStats": {
+                "flush_reason_visibility": 0,
+                "flush_reason_pagehide": 2,
+                "beacon_accepted": 0,
+                "beacon_rejected": 0,
+                "batch_202": 2,
+                "batch_other": 0,
+                "batch_network_error": 0,
+                "recover_leader": 2,
+                "recover_not_leader": 0,
+                "recover_runs": 2,
+                "prewrite_ok": 20,
+                "prewrite_failed_quota": 0,
+                "dropped_critical_cap": 0,
+                "acked_events": 20,
+                "pending": 0,
+                "normal_queue": 0,
+                "pages_with_stats": 5
+              },
+              "hooksFired": {
+                "trigger": "pagehide",
+                "flushedVisibility": 0,
+                "flushedPagehide": 2,
+                "expectedOnePerTrial": 2,
+                "firedAllTrials": true
+              },
+              "traceSummary": {
+                "init": 1,
+                "flush": 0,
+                "flushByReason": {},
+                "leader": 0,
+                "leaderGot": 0
+              },
+              "drainPasses": []
+            },
+            {
+              "id": "visibility-beacon",
+              "trigger": "visibilitychange",
+              "transport": "beacon",
+              "leave": "hide",
+              "trialsRun": 2,
+              "perTrial": {
+                "normal": 10,
+                "critical": 10
+              },
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "leaveFirstAttempt": {
+                "normal": {
+                  "total": 20,
+                  "arrived": 20,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 20,
+                  "arrived": 20,
+                  "lossRate": 0
+                }
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 6,
+                "received_events": 60,
+                "stored_batches": 4,
+                "stored_events": 40,
+                "duplicate_events": 20
+              },
+              "duplicateEvents": 20,
+              "storedEvents": 40,
+              "pageStats": {
+                "flush_reason_visibility": 2,
+                "flush_reason_pagehide": 0,
+                "beacon_accepted": 4,
+                "beacon_rejected": 0,
+                "batch_202": 2,
+                "batch_other": 0,
+                "batch_network_error": 0,
+                "recover_leader": 2,
+                "recover_not_leader": 0,
+                "recover_runs": 2,
+                "prewrite_ok": 20,
+                "prewrite_failed_quota": 0,
+                "dropped_critical_cap": 0,
+                "acked_events": 20,
+                "pending": 0,
+                "normal_queue": 0,
+                "pages_with_stats": 5
+              },
+              "hooksFired": {
+                "trigger": "visibilitychange",
+                "flushedVisibility": 2,
+                "flushedPagehide": 0,
+                "expectedOnePerTrial": 2,
+                "firedAllTrials": true
+              },
+              "traceSummary": {
+                "init": 1,
+                "flush": 0,
+                "flushByReason": {},
+                "leader": 0,
+                "leaderGot": 0
+              },
+              "drainPasses": []
+            },
+            {
+              "id": "visibility-keepalive",
+              "trigger": "visibilitychange",
+              "transport": "keepalive",
+              "leave": "hide",
+              "trialsRun": 2,
+              "perTrial": {
+                "normal": 10,
+                "critical": 10
+              },
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "leaveFirstAttempt": {
+                "normal": {
+                  "total": 20,
+                  "arrived": 20,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 20,
+                  "arrived": 20,
+                  "lossRate": 0
+                }
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 6,
+                "received_events": 60,
+                "stored_batches": 4,
+                "stored_events": 40,
+                "duplicate_events": 20
+              },
+              "duplicateEvents": 20,
+              "storedEvents": 40,
+              "pageStats": {
+                "flush_reason_visibility": 2,
+                "flush_reason_pagehide": 0,
+                "beacon_accepted": 0,
+                "beacon_rejected": 0,
+                "batch_202": 2,
+                "batch_other": 0,
+                "batch_network_error": 0,
+                "recover_leader": 2,
+                "recover_not_leader": 0,
+                "recover_runs": 2,
+                "prewrite_ok": 20,
+                "prewrite_failed_quota": 0,
+                "dropped_critical_cap": 0,
+                "acked_events": 20,
+                "pending": 0,
+                "normal_queue": 0,
+                "pages_with_stats": 5
+              },
+              "hooksFired": {
+                "trigger": "visibilitychange",
+                "flushedVisibility": 2,
+                "flushedPagehide": 0,
+                "expectedOnePerTrial": 2,
+                "firedAllTrials": true
+              },
+              "traceSummary": {
+                "init": 1,
+                "flush": 0,
+                "flushByReason": {},
+                "leader": 0,
+                "leaderGot": 0
+              },
+              "drainPasses": []
+            }
+          ],
+          "bulkCells": [
+            {
+              "id": "bulk-pagehide-beacon",
+              "trigger": "pagehide",
+              "transport": "beacon",
+              "leave": "navigate",
+              "trialsRun": 1,
+              "perTrial": {
+                "normal": 0,
+                "critical": 40
+              },
+              "expected": {
+                "normal": 0,
+                "critical": 40
+              },
+              "leaveFirstAttempt": {
+                "normal": {
+                  "total": 0,
+                  "arrived": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 40,
+                  "arrived": 40,
+                  "lossRate": 0
+                }
+              },
+              "final": {
+                "normal": {
+                  "total": 0,
+                  "stored": 0,
+                  "lost": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 40,
+                  "stored": 40,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 2,
+                "received_events": 80,
+                "stored_batches": 1,
+                "stored_events": 40,
+                "duplicate_events": 40
+              },
+              "duplicateEvents": 40,
+              "storedEvents": 40,
+              "pageStats": {
+                "flush_reason_visibility": 0,
+                "flush_reason_pagehide": 1,
+                "beacon_accepted": 1,
+                "beacon_rejected": 0,
+                "batch_202": 1,
+                "batch_other": 0,
+                "batch_network_error": 0,
+                "recover_leader": 1,
+                "recover_not_leader": 0,
+                "recover_runs": 1,
+                "prewrite_ok": 40,
+                "prewrite_failed_quota": 0,
+                "dropped_critical_cap": 0,
+                "acked_events": 40,
+                "pending": 0,
+                "normal_queue": 0,
+                "pages_with_stats": 3
+              },
+              "hooksFired": {
+                "trigger": "pagehide",
+                "flushedVisibility": 0,
+                "flushedPagehide": 1,
+                "expectedOnePerTrial": 1,
+                "firedAllTrials": true
+              },
+              "traceSummary": {
+                "init": 1,
+                "flush": 0,
+                "flushByReason": {},
+                "leader": 0,
+                "leaderGot": 0
+              },
+              "drainPasses": []
+            },
+            {
+              "id": "bulk-pagehide-keepalive",
+              "trigger": "pagehide",
+              "transport": "keepalive",
+              "leave": "navigate",
+              "trialsRun": 1,
+              "perTrial": {
+                "normal": 0,
+                "critical": 40
+              },
+              "expected": {
+                "normal": 0,
+                "critical": 40
+              },
+              "leaveFirstAttempt": {
+                "normal": {
+                  "total": 0,
+                  "arrived": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 40,
+                  "arrived": 40,
+                  "lossRate": 0
+                }
+              },
+              "final": {
+                "normal": {
+                  "total": 0,
+                  "stored": 0,
+                  "lost": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 40,
+                  "stored": 40,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 2,
+                "received_events": 80,
+                "stored_batches": 1,
+                "stored_events": 40,
+                "duplicate_events": 40
+              },
+              "duplicateEvents": 40,
+              "storedEvents": 40,
+              "pageStats": {
+                "flush_reason_visibility": 0,
+                "flush_reason_pagehide": 1,
+                "beacon_accepted": 0,
+                "beacon_rejected": 0,
+                "batch_202": 1,
+                "batch_other": 0,
+                "batch_network_error": 0,
+                "recover_leader": 1,
+                "recover_not_leader": 0,
+                "recover_runs": 1,
+                "prewrite_ok": 40,
+                "prewrite_failed_quota": 0,
+                "dropped_critical_cap": 0,
+                "acked_events": 40,
+                "pending": 0,
+                "normal_queue": 0,
+                "pages_with_stats": 3
+              },
+              "hooksFired": {
+                "trigger": "pagehide",
+                "flushedVisibility": 0,
+                "flushedPagehide": 1,
+                "expectedOnePerTrial": 1,
+                "firedAllTrials": true
+              },
+              "traceSummary": {
+                "init": 1,
+                "flush": 0,
+                "flushByReason": {},
+                "leader": 0,
+                "leaderGot": 0
+              },
+              "drainPasses": []
+            }
+          ],
+          "driver": {
+            "id": "npx-cache-playwright-core-1.60.0",
+            "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+            "revision": "1522",
+            "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox",
+            "notes": [
+              "优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+            ]
+          },
+          "browserVersion": "150.0.2",
+          "durationMs": 19925,
+          "receiverCountersDelta": {
+            "received_batches": 28,
+            "received_events": 400,
+            "stored_batches": 18,
+            "stored_events": 240,
+            "duplicate_events": 160
+          },
+          "protocolProblems": {}
+        },
+        "kill": {
+          "scenario": "kill",
+          "description": "浏览器强杀：不触发任何离开钩子，纯测 critical 预写的落盘存活与重启补发",
+          "params": {
+            "trials": 1,
+            "perClass": 20,
+            "variants": [
+              "page-close",
+              "context-close",
+              "browser-close",
+              "sigkill-immediate",
+              "sigkill-250ms",
+              "sigkill-1000ms",
+              "sigkill-2500ms",
+              "sigkill-4000ms",
+              "sigkill-5000ms"
+            ]
+          },
+          "cells": [
+            {
+              "id": "page-close",
+              "killMode": "page.close()",
+              "delayMs": 0,
+              "trialsRun": 1,
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "prewriteSurvival": {
+                "survived": 20,
+                "lost": 0,
+                "total": 20,
+                "lossRate": 0
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 1,
+                "received_events": 20,
+                "stored_batches": 1,
+                "stored_events": 20
+              }
+            },
+            {
+              "id": "context-close",
+              "killMode": "context.close()",
+              "delayMs": 0,
+              "trialsRun": 1,
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "prewriteSurvival": {
+                "survived": 20,
+                "lost": 0,
+                "total": 20,
+                "lossRate": 0
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 1,
+                "received_events": 20,
+                "stored_batches": 1,
+                "stored_events": 20
+              }
+            },
+            {
+              "id": "browser-close",
+              "killMode": "browser.close()",
+              "delayMs": 0,
+              "trialsRun": 1,
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "prewriteSurvival": {
+                "survived": 20,
+                "lost": 0,
+                "total": 20,
+                "lossRate": 0
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 1,
+                "received_events": 20,
+                "stored_batches": 1,
+                "stored_events": 20
+              }
+            },
+            {
+              "id": "sigkill-immediate",
+              "killMode": "SIGKILL via pgrep pid=19757",
+              "delayMs": 0,
+              "trialsRun": 1,
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "prewriteSurvival": {
+                "survived": 0,
+                "lost": 20,
+                "total": 20,
+                "lossRate": 1
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                }
+              },
+              "receiverCountersDelta": {}
+            },
+            {
+              "id": "sigkill-250ms",
+              "killMode": "SIGKILL via pgrep pid=19862",
+              "delayMs": 250,
+              "trialsRun": 1,
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "prewriteSurvival": {
+                "survived": 0,
+                "lost": 20,
+                "total": 20,
+                "lossRate": 1
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                }
+              },
+              "receiverCountersDelta": {}
+            },
+            {
+              "id": "sigkill-1000ms",
+              "killMode": "SIGKILL via pgrep pid=20087",
+              "delayMs": 1000,
+              "trialsRun": 1,
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "prewriteSurvival": {
+                "survived": 0,
+                "lost": 20,
+                "total": 20,
+                "lossRate": 1
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                }
+              },
+              "receiverCountersDelta": {}
+            },
+            {
+              "id": "sigkill-2500ms",
+              "killMode": "SIGKILL via pgrep pid=20223",
+              "delayMs": 2500,
+              "trialsRun": 1,
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "prewriteSurvival": {
+                "survived": 0,
+                "lost": 20,
+                "total": 20,
+                "lossRate": 1
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                }
+              },
+              "receiverCountersDelta": {}
+            },
+            {
+              "id": "sigkill-4000ms",
+              "killMode": "SIGKILL via pgrep pid=20400",
+              "delayMs": 4000,
+              "trialsRun": 1,
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "prewriteSurvival": {
+                "survived": 0,
+                "lost": 20,
+                "total": 20,
+                "lossRate": 1
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                }
+              },
+              "receiverCountersDelta": {}
+            },
+            {
+              "id": "sigkill-5000ms",
+              "killMode": "SIGKILL via pgrep pid=20585",
+              "delayMs": 5000,
+              "trialsRun": 1,
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "prewriteSurvival": {
+                "survived": 0,
+                "lost": 20,
+                "total": 20,
+                "lossRate": 1
+              },
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                }
+              },
+              "receiverCountersDelta": {}
+            }
+          ],
+          "driver": {
+            "id": "npx-cache-playwright-core-1.60.0",
+            "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+            "revision": "1522",
+            "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox",
+            "notes": [
+              "优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+            ]
+          },
+          "browserVersion": "150.0.2",
+          "durationMs": 41630,
+          "receiverCountersDelta": {
+            "received_batches": 3,
+            "received_events": 60,
+            "stored_batches": 3,
+            "stored_events": 60
+          },
+          "protocolProblems": {}
+        },
+        "offline": {
+          "scenario": "offline",
+          "description": "断网：context.setOffline(true) 期间入队，恢复网络后补发",
+          "params": {
+            "trials": 1,
+            "perClass": 20,
+            "variants": [
+              "offline-same-page",
+              "offline-reload"
+            ]
+          },
+          "cells": [
+            {
+              "id": "offline-same-page",
+              "reloadWhileOffline": false,
+              "trialsRun": 1,
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "offlineMode": "route-abort-endpoint(firefox)",
+              "offlineArrived": {
+                "normal": 0,
+                "critical": 0
+              },
+              "onlineAutoRecoverRuns": 0,
+              "note": "firefox 用「上报端点不可达」代替 navigator.onLine=false，没有 online 事件，补发由脚本显式触发",
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 2,
+                "received_events": 40,
+                "stored_batches": 2,
+                "stored_events": 40
+              }
+            },
+            {
+              "id": "offline-reload",
+              "reloadWhileOffline": true,
+              "trialsRun": 1,
+              "expected": {
+                "normal": 20,
+                "critical": 20
+              },
+              "offlineMode": "route-abort-endpoint(firefox)",
+              "offlineArrived": {
+                "normal": 0,
+                "critical": 0
+              },
+              "onlineAutoRecoverRuns": 0,
+              "note": "firefox 用「上报端点不可达」代替 navigator.onLine=false，没有 online 事件，补发由脚本显式触发",
+              "final": {
+                "normal": {
+                  "total": 20,
+                  "stored": 0,
+                  "lost": 20,
+                  "lossRate": 1
+                },
+                "critical": {
+                  "total": 20,
+                  "stored": 20,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 1,
+                "received_events": 20,
+                "stored_batches": 1,
+                "stored_events": 20
+              }
+            }
+          ],
+          "driver": {
+            "id": "npx-cache-playwright-core-1.60.0",
+            "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+            "revision": "1522",
+            "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox",
+            "notes": [
+              "优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+            ]
+          },
+          "browserVersion": "150.0.2",
+          "durationMs": 5135,
+          "receiverCountersDelta": {
+            "received_batches": 3,
+            "received_events": 60,
+            "stored_batches": 3,
+            "stored_events": 60
+          },
+          "protocolProblems": {}
+        },
+        "multitab": {
+          "scenario": "multitab",
+          "description": "多标签页：3 个标签页共享离线副本，同时补发",
+          "params": {
+            "rounds": 1,
+            "perClass": 10,
+            "tabs": 3,
+            "variants": [
+              "weblocks",
+              "broadcastchannel-150ms",
+              "broadcastchannel-10ms",
+              "broadcastchannel-0ms",
+              "no-election"
+            ]
+          },
+          "cells": [
+            {
+              "id": "weblocks",
+              "leader": "locks",
+              "bcSettleMs": 0,
+              "roundsRun": 1,
+              "expected": {
+                "normal": 30,
+                "critical": 30
+              },
+              "wave1": {
+                "duplicateEvents": 0,
+                "storedEvents": 60
+              },
+              "totalDuplicates": 0,
+              "totalStored": 60,
+              "duplicateRateWave1": 0,
+              "duplicateRatePerCritical": 0,
+              "leadersWave1": {
+                "leaders": 1,
+                "notLeaders": 2
+              },
+              "duplicateRateTotal": 0,
+              "final": {
+                "normal": {
+                  "total": 30,
+                  "stored": 30,
+                  "lost": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 30,
+                  "stored": 30,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 4,
+                "received_events": 60,
+                "stored_batches": 4,
+                "stored_events": 60
+              },
+              "perRound": [
+                {
+                  "round": 0,
+                  "wave1Duplicates": 0,
+                  "wave1Stored": 60,
+                  "expected": {
+                    "normal": 30,
+                    "critical": 30
+                  },
+                  "leaders": [
+                    {
+                      "tabId": "nyeti095",
+                      "runs": 1,
+                      "leader": 0,
+                      "notLeader": 1,
+                      "pending": 0
+                    },
+                    {
+                      "tabId": "53ygqpad",
+                      "runs": 1,
+                      "leader": 0,
+                      "notLeader": 1,
+                      "pending": 0
+                    },
+                    {
+                      "tabId": "isxill8w",
+                      "runs": 1,
+                      "leader": 1,
+                      "notLeader": 0,
+                      "pending": 0
+                    }
+                  ],
+                  "drain": []
+                }
+              ]
+            },
+            {
+              "id": "broadcastchannel-150ms",
+              "leader": "bc",
+              "bcSettleMs": 150,
+              "roundsRun": 1,
+              "expected": {
+                "normal": 30,
+                "critical": 30
+              },
+              "wave1": {
+                "duplicateEvents": 0,
+                "storedEvents": 60
+              },
+              "totalDuplicates": 0,
+              "totalStored": 60,
+              "duplicateRateWave1": 0,
+              "duplicateRatePerCritical": 0,
+              "leadersWave1": {
+                "leaders": 1,
+                "notLeaders": 2
+              },
+              "duplicateRateTotal": 0,
+              "final": {
+                "normal": {
+                  "total": 30,
+                  "stored": 30,
+                  "lost": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 30,
+                  "stored": 30,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 4,
+                "received_events": 60,
+                "stored_batches": 4,
+                "stored_events": 60
+              },
+              "perRound": [
+                {
+                  "round": 0,
+                  "wave1Duplicates": 0,
+                  "wave1Stored": 60,
+                  "expected": {
+                    "normal": 30,
+                    "critical": 30
+                  },
+                  "leaders": [
+                    {
+                      "tabId": "m6wgnsb8",
+                      "runs": 1,
+                      "leader": 0,
+                      "notLeader": 1,
+                      "pending": 0
+                    },
+                    {
+                      "tabId": "xz1t2ozp",
+                      "runs": 1,
+                      "leader": 0,
+                      "notLeader": 1,
+                      "pending": 0
+                    },
+                    {
+                      "tabId": "m0s9w5eg",
+                      "runs": 1,
+                      "leader": 1,
+                      "notLeader": 0,
+                      "pending": 0
+                    }
+                  ],
+                  "drain": []
+                }
+              ]
+            },
+            {
+              "id": "broadcastchannel-10ms",
+              "leader": "bc",
+              "bcSettleMs": 10,
+              "roundsRun": 1,
+              "expected": {
+                "normal": 30,
+                "critical": 30
+              },
+              "wave1": {
+                "duplicateEvents": 0,
+                "storedEvents": 60
+              },
+              "totalDuplicates": 0,
+              "totalStored": 60,
+              "duplicateRateWave1": 0,
+              "duplicateRatePerCritical": 0,
+              "leadersWave1": {
+                "leaders": 1,
+                "notLeaders": 2
+              },
+              "duplicateRateTotal": 0,
+              "final": {
+                "normal": {
+                  "total": 30,
+                  "stored": 30,
+                  "lost": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 30,
+                  "stored": 30,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 4,
+                "received_events": 60,
+                "stored_batches": 4,
+                "stored_events": 60
+              },
+              "perRound": [
+                {
+                  "round": 0,
+                  "wave1Duplicates": 0,
+                  "wave1Stored": 60,
+                  "expected": {
+                    "normal": 30,
+                    "critical": 30
+                  },
+                  "leaders": [
+                    {
+                      "tabId": "wcf9gssm",
+                      "runs": 1,
+                      "leader": 0,
+                      "notLeader": 1,
+                      "pending": 0
+                    },
+                    {
+                      "tabId": "s8cn6rtj",
+                      "runs": 1,
+                      "leader": 1,
+                      "notLeader": 0,
+                      "pending": 0
+                    },
+                    {
+                      "tabId": "r36mjibf",
+                      "runs": 1,
+                      "leader": 0,
+                      "notLeader": 1,
+                      "pending": 0
+                    }
+                  ],
+                  "drain": []
+                }
+              ]
+            },
+            {
+              "id": "broadcastchannel-0ms",
+              "leader": "bc",
+              "bcSettleMs": 0,
+              "roundsRun": 1,
+              "expected": {
+                "normal": 30,
+                "critical": 30
+              },
+              "wave1": {
+                "duplicateEvents": 30,
+                "storedEvents": 60
+              },
+              "totalDuplicates": 30,
+              "totalStored": 60,
+              "duplicateRateWave1": 0.5,
+              "duplicateRatePerCritical": 1,
+              "leadersWave1": {
+                "leaders": 2,
+                "notLeaders": 1
+              },
+              "duplicateRateTotal": 0.3333333333333333,
+              "final": {
+                "normal": {
+                  "total": 30,
+                  "stored": 30,
+                  "lost": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 30,
+                  "stored": 30,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 5,
+                "received_events": 90,
+                "stored_batches": 4,
+                "stored_events": 60,
+                "duplicate_events": 30
+              },
+              "perRound": [
+                {
+                  "round": 0,
+                  "wave1Duplicates": 30,
+                  "wave1Stored": 60,
+                  "expected": {
+                    "normal": 30,
+                    "critical": 30
+                  },
+                  "leaders": [
+                    {
+                      "tabId": "ygs2ncg0",
+                      "runs": 1,
+                      "leader": 1,
+                      "notLeader": 0,
+                      "pending": 0
+                    },
+                    {
+                      "tabId": "q9mk3eo8",
+                      "runs": 1,
+                      "leader": 0,
+                      "notLeader": 1,
+                      "pending": 0
+                    },
+                    {
+                      "tabId": "dmqs1ylw",
+                      "runs": 1,
+                      "leader": 1,
+                      "notLeader": 0,
+                      "pending": 0
+                    }
+                  ],
+                  "drain": []
+                }
+              ]
+            },
+            {
+              "id": "no-election",
+              "leader": "none",
+              "bcSettleMs": 0,
+              "roundsRun": 1,
+              "expected": {
+                "normal": 30,
+                "critical": 30
+              },
+              "wave1": {
+                "duplicateEvents": 60,
+                "storedEvents": 60
+              },
+              "totalDuplicates": 60,
+              "totalStored": 60,
+              "duplicateRateWave1": 1,
+              "duplicateRatePerCritical": 2,
+              "leadersWave1": {
+                "leaders": 3,
+                "notLeaders": 0
+              },
+              "duplicateRateTotal": 0.5,
+              "final": {
+                "normal": {
+                  "total": 30,
+                  "stored": 30,
+                  "lost": 0,
+                  "lossRate": 0
+                },
+                "critical": {
+                  "total": 30,
+                  "stored": 30,
+                  "lost": 0,
+                  "lossRate": 0
+                }
+              },
+              "receiverCountersDelta": {
+                "received_batches": 6,
+                "received_events": 120,
+                "stored_batches": 4,
+                "stored_events": 60,
+                "duplicate_events": 60
+              },
+              "perRound": [
+                {
+                  "round": 0,
+                  "wave1Duplicates": 60,
+                  "wave1Stored": 60,
+                  "expected": {
+                    "normal": 30,
+                    "critical": 30
+                  },
+                  "leaders": [
+                    {
+                      "tabId": "tr0pi8ge",
+                      "runs": 1,
+                      "leader": 1,
+                      "notLeader": 0,
+                      "pending": 0
+                    },
+                    {
+                      "tabId": "diu7ibqe",
+                      "runs": 1,
+                      "leader": 1,
+                      "notLeader": 0,
+                      "pending": 0
+                    },
+                    {
+                      "tabId": "vj96uos3",
+                      "runs": 1,
+                      "leader": 1,
+                      "notLeader": 0,
+                      "pending": 0
+                    }
+                  ],
+                  "drain": []
+                }
+              ]
+            }
+          ],
+          "driver": {
+            "id": "npx-cache-playwright-core-1.60.0",
+            "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+            "revision": "1522",
+            "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox",
+            "notes": [
+              "优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+            ]
+          },
+          "browserVersion": "150.0.2",
+          "durationMs": 10607,
+          "receiverCountersDelta": {
+            "received_batches": 23,
+            "received_events": 390,
+            "stored_batches": 20,
+            "stored_events": 300,
+            "duplicate_events": 90
+          },
+          "protocolProblems": {}
+        }
+      },
+      "driver": {
+        "id": "npx-cache-playwright-core-1.60.0",
+        "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+        "revision": "1522",
+        "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox",
+        "notes": [
+          "优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+        ]
+      },
+      "browserVersion": "150.0.2",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:150.0) Gecko/20100101 Firefox/150.0",
+      "features": {
+        "sendBeacon": true,
+        "fetchKeepalive": true,
+        "webLocks": true,
+        "broadcastChannel": true,
+        "localStorage": true
+      }
+    }
+  ],
+  "finishedAt": "2026-10-12T12:34:19.086Z"
+}

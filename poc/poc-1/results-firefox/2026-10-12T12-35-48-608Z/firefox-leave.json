@@ -1,0 +1,542 @@
+{
+  "scenario": "leave",
+  "description": "页面离开：normal 只有离开那一次机会；critical 预写后可在下一次页面加载补发",
+  "params": {
+    "trials": 10,
+    "perClass": 100,
+    "cells": [
+      "pagehide-beacon",
+      "pagehide-keepalive",
+      "visibility-beacon",
+      "visibility-keepalive"
+    ],
+    "bulkPerTrial": 1000
+  },
+  "cells": [
+    {
+      "id": "pagehide-beacon",
+      "trigger": "pagehide",
+      "transport": "beacon",
+      "leave": "navigate",
+      "trialsRun": 10,
+      "perTrial": {
+        "normal": 100,
+        "critical": 100
+      },
+      "expected": {
+        "normal": 1000,
+        "critical": 1000
+      },
+      "leaveFirstAttempt": {
+        "normal": {
+          "total": 1000,
+          "arrived": 1000,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1000,
+          "arrived": 1000,
+          "lossRate": 0
+        }
+      },
+      "final": {
+        "normal": {
+          "total": 1000,
+          "stored": 1000,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1000,
+          "stored": 1000,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 60,
+        "received_events": 3000,
+        "stored_batches": 40,
+        "stored_events": 2000,
+        "duplicate_events": 1000
+      },
+      "duplicateEvents": 1000,
+      "storedEvents": 2000,
+      "pageStats": {
+        "flush_reason_visibility": 0,
+        "flush_reason_pagehide": 10,
+        "beacon_accepted": 40,
+        "beacon_rejected": 0,
+        "batch_202": 20,
+        "batch_other": 0,
+        "batch_network_error": 0,
+        "recover_leader": 10,
+        "recover_not_leader": 0,
+        "recover_runs": 10,
+        "prewrite_ok": 1000,
+        "prewrite_failed_quota": 0,
+        "dropped_critical_cap": 0,
+        "acked_events": 1000,
+        "pending": 0,
+        "normal_queue": 0,
+        "pages_with_stats": 21
+      },
+      "hooksFired": {
+        "trigger": "pagehide",
+        "flushedVisibility": 0,
+        "flushedPagehide": 10,
+        "expectedOnePerTrial": 10,
+        "firedAllTrials": true
+      },
+      "traceSummary": {
+        "init": 1,
+        "flush": 0,
+        "flushByReason": {},
+        "leader": 0,
+        "leaderGot": 0
+      },
+      "drainPasses": []
+    },
+    {
+      "id": "pagehide-keepalive",
+      "trigger": "pagehide",
+      "transport": "keepalive",
+      "leave": "navigate",
+      "trialsRun": 10,
+      "perTrial": {
+        "normal": 100,
+        "critical": 100
+      },
+      "expected": {
+        "normal": 1000,
+        "critical": 1000
+      },
+      "leaveFirstAttempt": {
+        "normal": {
+          "total": 1000,
+          "arrived": 1000,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1000,
+          "arrived": 1000,
+          "lossRate": 0
+        }
+      },
+      "final": {
+        "normal": {
+          "total": 1000,
+          "stored": 1000,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1000,
+          "stored": 1000,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 60,
+        "received_events": 3000,
+        "stored_batches": 40,
+        "stored_events": 2000,
+        "duplicate_events": 1000
+      },
+      "duplicateEvents": 1000,
+      "storedEvents": 2000,
+      "pageStats": {
+        "flush_reason_visibility": 0,
+        "flush_reason_pagehide": 10,
+        "beacon_accepted": 0,
+        "beacon_rejected": 0,
+        "batch_202": 20,
+        "batch_other": 0,
+        "batch_network_error": 0,
+        "recover_leader": 10,
+        "recover_not_leader": 0,
+        "recover_runs": 10,
+        "prewrite_ok": 1000,
+        "prewrite_failed_quota": 0,
+        "dropped_critical_cap": 0,
+        "acked_events": 1000,
+        "pending": 0,
+        "normal_queue": 0,
+        "pages_with_stats": 21
+      },
+      "hooksFired": {
+        "trigger": "pagehide",
+        "flushedVisibility": 0,
+        "flushedPagehide": 10,
+        "expectedOnePerTrial": 10,
+        "firedAllTrials": true
+      },
+      "traceSummary": {
+        "init": 1,
+        "flush": 0,
+        "flushByReason": {},
+        "leader": 0,
+        "leaderGot": 0
+      },
+      "drainPasses": []
+    },
+    {
+      "id": "visibility-beacon",
+      "trigger": "visibilitychange",
+      "transport": "beacon",
+      "leave": "hide",
+      "trialsRun": 10,
+      "perTrial": {
+        "normal": 100,
+        "critical": 100
+      },
+      "expected": {
+        "normal": 1000,
+        "critical": 1000
+      },
+      "leaveFirstAttempt": {
+        "normal": {
+          "total": 1000,
+          "arrived": 1000,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1000,
+          "arrived": 1000,
+          "lossRate": 0
+        }
+      },
+      "final": {
+        "normal": {
+          "total": 1000,
+          "stored": 1000,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1000,
+          "stored": 1000,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 60,
+        "received_events": 3000,
+        "stored_batches": 40,
+        "stored_events": 2000,
+        "duplicate_events": 1000
+      },
+      "duplicateEvents": 1000,
+      "storedEvents": 2000,
+      "pageStats": {
+        "flush_reason_visibility": 10,
+        "flush_reason_pagehide": 0,
+        "beacon_accepted": 40,
+        "beacon_rejected": 0,
+        "batch_202": 20,
+        "batch_other": 0,
+        "batch_network_error": 0,
+        "recover_leader": 10,
+        "recover_not_leader": 0,
+        "recover_runs": 10,
+        "prewrite_ok": 1000,
+        "prewrite_failed_quota": 0,
+        "dropped_critical_cap": 0,
+        "acked_events": 1000,
+        "pending": 0,
+        "normal_queue": 0,
+        "pages_with_stats": 21
+      },
+      "hooksFired": {
+        "trigger": "visibilitychange",
+        "flushedVisibility": 10,
+        "flushedPagehide": 0,
+        "expectedOnePerTrial": 10,
+        "firedAllTrials": true
+      },
+      "traceSummary": {
+        "init": 1,
+        "flush": 0,
+        "flushByReason": {},
+        "leader": 0,
+        "leaderGot": 0
+      },
+      "drainPasses": []
+    },
+    {
+      "id": "visibility-keepalive",
+      "trigger": "visibilitychange",
+      "transport": "keepalive",
+      "leave": "hide",
+      "trialsRun": 10,
+      "perTrial": {
+        "normal": 100,
+        "critical": 100
+      },
+      "expected": {
+        "normal": 1000,
+        "critical": 1000
+      },
+      "leaveFirstAttempt": {
+        "normal": {
+          "total": 1000,
+          "arrived": 1000,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1000,
+          "arrived": 1000,
+          "lossRate": 0
+        }
+      },
+      "final": {
+        "normal": {
+          "total": 1000,
+          "stored": 1000,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1000,
+          "stored": 1000,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 60,
+        "received_events": 3000,
+        "stored_batches": 40,
+        "stored_events": 2000,
+        "duplicate_events": 1000
+      },
+      "duplicateEvents": 1000,
+      "storedEvents": 2000,
+      "pageStats": {
+        "flush_reason_visibility": 10,
+        "flush_reason_pagehide": 0,
+        "beacon_accepted": 0,
+        "beacon_rejected": 0,
+        "batch_202": 20,
+        "batch_other": 0,
+        "batch_network_error": 0,
+        "recover_leader": 10,
+        "recover_not_leader": 0,
+        "recover_runs": 10,
+        "prewrite_ok": 1000,
+        "prewrite_failed_quota": 0,
+        "dropped_critical_cap": 0,
+        "acked_events": 1000,
+        "pending": 0,
+        "normal_queue": 0,
+        "pages_with_stats": 21
+      },
+      "hooksFired": {
+        "trigger": "visibilitychange",
+        "flushedVisibility": 10,
+        "flushedPagehide": 0,
+        "expectedOnePerTrial": 10,
+        "firedAllTrials": true
+      },
+      "traceSummary": {
+        "init": 1,
+        "flush": 0,
+        "flushByReason": {},
+        "leader": 0,
+        "leaderGot": 0
+      },
+      "drainPasses": []
+    }
+  ],
+  "bulkCells": [
+    {
+      "id": "bulk-pagehide-beacon",
+      "trigger": "pagehide",
+      "transport": "beacon",
+      "leave": "navigate",
+      "trialsRun": 3,
+      "perTrial": {
+        "normal": 0,
+        "critical": 1000
+      },
+      "expected": {
+        "normal": 0,
+        "critical": 3000
+      },
+      "leaveFirstAttempt": {
+        "normal": {
+          "total": 0,
+          "arrived": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 3000,
+          "arrived": 3000,
+          "lossRate": 0
+        }
+      },
+      "final": {
+        "normal": {
+          "total": 0,
+          "stored": 0,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 3000,
+          "stored": 3000,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 120,
+        "received_events": 6000,
+        "stored_batches": 60,
+        "stored_events": 3000,
+        "duplicate_events": 3000
+      },
+      "duplicateEvents": 3000,
+      "storedEvents": 3000,
+      "pageStats": {
+        "flush_reason_visibility": 0,
+        "flush_reason_pagehide": 3,
+        "beacon_accepted": 60,
+        "beacon_rejected": 0,
+        "batch_202": 60,
+        "batch_other": 0,
+        "batch_network_error": 0,
+        "recover_leader": 3,
+        "recover_not_leader": 0,
+        "recover_runs": 3,
+        "prewrite_ok": 3000,
+        "prewrite_failed_quota": 0,
+        "dropped_critical_cap": 0,
+        "acked_events": 3000,
+        "pending": 0,
+        "normal_queue": 0,
+        "pages_with_stats": 7
+      },
+      "hooksFired": {
+        "trigger": "pagehide",
+        "flushedVisibility": 0,
+        "flushedPagehide": 3,
+        "expectedOnePerTrial": 3,
+        "firedAllTrials": true
+      },
+      "traceSummary": {
+        "init": 1,
+        "flush": 0,
+        "flushByReason": {},
+        "leader": 0,
+        "leaderGot": 0
+      },
+      "drainPasses": []
+    },
+    {
+      "id": "bulk-pagehide-keepalive",
+      "trigger": "pagehide",
+      "transport": "keepalive",
+      "leave": "navigate",
+      "trialsRun": 3,
+      "perTrial": {
+        "normal": 0,
+        "critical": 1000
+      },
+      "expected": {
+        "normal": 0,
+        "critical": 3000
+      },
+      "leaveFirstAttempt": {
+        "normal": {
+          "total": 0,
+          "arrived": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 3000,
+          "arrived": 900,
+          "lossRate": 0.7
+        }
+      },
+      "final": {
+        "normal": {
+          "total": 0,
+          "stored": 0,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 3000,
+          "stored": 3000,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 78,
+        "received_events": 3900,
+        "stored_batches": 60,
+        "stored_events": 3000,
+        "duplicate_events": 900
+      },
+      "duplicateEvents": 900,
+      "storedEvents": 3000,
+      "pageStats": {
+        "flush_reason_visibility": 0,
+        "flush_reason_pagehide": 3,
+        "beacon_accepted": 0,
+        "beacon_rejected": 0,
+        "batch_202": 60,
+        "batch_other": 0,
+        "batch_network_error": 42,
+        "recover_leader": 3,
+        "recover_not_leader": 0,
+        "recover_runs": 3,
+        "prewrite_ok": 3000,
+        "prewrite_failed_quota": 0,
+        "dropped_critical_cap": 0,
+        "acked_events": 3000,
+        "pending": 0,
+        "normal_queue": 0,
+        "pages_with_stats": 7
+      },
+      "hooksFired": {
+        "trigger": "pagehide",
+        "flushedVisibility": 0,
+        "flushedPagehide": 3,
+        "expectedOnePerTrial": 3,
+        "firedAllTrials": true
+      },
+      "traceSummary": {
+        "init": 1,
+        "flush": 0,
+        "flushByReason": {},
+        "leader": 0,
+        "leaderGot": 0
+      },
+      "drainPasses": []
+    }
+  ],
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "1522",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "150.0.2",
+  "durationMs": 55270,
+  "receiverCountersDelta": {
+    "received_batches": 438,
+    "received_events": 21900,
+    "stored_batches": 280,
+    "stored_events": 14000,
+    "duplicate_events": 7900
+  },
+  "protocolProblems": {}
+}

@@ -1,0 +1,34 @@
+{
+  "runId": "2026-10-12T11-41-05-051Z",
+  "startedAt": "2026-10-12T11:41:05.060Z",
+  "node": "v24.16.0",
+  "platform": "darwin 25.6.0 arm64",
+  "cpuCount": 10,
+  "preset": "full",
+  "scenarios": [
+    "leave",
+    "kill",
+    "offline",
+    "multitab"
+  ],
+  "staticServer": "http://127.0.0.1:51025",
+  "receiver": "http://127.0.0.1:51026",
+  "browsers": [
+    {
+      "browser": "firefox",
+      "status": "failed",
+      "scenarios": {},
+      "driver": {
+        "id": "npx-cache-playwright-core-1.60.0",
+        "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+        "revision": "1522",
+        "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox",
+        "notes": [
+          "优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+        ]
+      },
+      "error": "浏览器启动/冒烟失败：browserType.launchPersistentContext: Timeout 60000ms exceeded. | Call log: | \u001b[2m  - <launching> /Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox -no-remote -headless -profile /Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/results-firefox/2026-10-12T11-41-05-051Z/profiles/firefox-smoke-2 -juggler-pipe about:blank\u001b[22m"
+    }
+  ],
+  "finishedAt": "2026-10-12T11:43:06.925Z"
+}

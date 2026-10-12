@@ -1,0 +1,4 @@
+# 浏览器 profile 是运行中间产物（每个 run 可达数百 MB），只保留 JSON 结果与日志；
+# 无论结果目录叫什么名字（results / results-firefox / results-firefox-quick / 自定义 --out），
+# 都把任意层级的 profiles/ 排除掉。
+**/profiles/

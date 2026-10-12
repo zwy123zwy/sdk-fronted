@@ -1,0 +1,1914 @@
+{
+  "scenario": "multitab",
+  "description": "多标签页：3 个标签页共享离线副本，同时补发",
+  "params": {
+    "rounds": 10,
+    "perClass": 50,
+    "tabs": 3,
+    "variants": [
+      "weblocks",
+      "broadcastchannel-150ms",
+      "broadcastchannel-10ms",
+      "broadcastchannel-0ms",
+      "no-election"
+    ]
+  },
+  "cells": [
+    {
+      "id": "weblocks",
+      "leader": "locks",
+      "bcSettleMs": 0,
+      "roundsRun": 10,
+      "expected": {
+        "normal": 1500,
+        "critical": 1500
+      },
+      "wave1": {
+        "duplicateEvents": 0,
+        "storedEvents": 3000
+      },
+      "totalDuplicates": 0,
+      "totalStored": 3000,
+      "duplicateRateWave1": 0,
+      "duplicateRatePerCritical": 0,
+      "leadersWave1": {
+        "leaders": 10,
+        "notLeaders": 20
+      },
+      "duplicateRateTotal": 0,
+      "final": {
+        "normal": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 60,
+        "received_events": 3000,
+        "stored_batches": 60,
+        "stored_events": 3000
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "xvzc2yk7",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "oj6bhine",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "hg4z3f0d",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 1,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "lrxefds9",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "3n6gld72",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "j6uzcw1v",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 2,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "3ljgqa4n",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "99dmrpwb",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "lnn10er9",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 3,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "10likzal",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "3q7wsvoq",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "0zdwc2xy",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 4,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "s88ll2bb",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "nlbjizrj",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "bz8igx73",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 5,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "79wd2h70",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "sx43zd5y",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "mq9t6p5j",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 6,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "qz0g6ufl",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "stuz56fv",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "gumyr3m7",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 7,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "2iljhyos",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "7fadkad5",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "yikgnu9w",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 8,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "00kau0b1",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ltdh1xv1",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "1vrs4szk",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 9,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "ez3a7nel",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "4sxf658s",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "tbf48xen",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        }
+      ]
+    },
+    {
+      "id": "broadcastchannel-150ms",
+      "leader": "bc",
+      "bcSettleMs": 150,
+      "roundsRun": 10,
+      "expected": {
+        "normal": 1500,
+        "critical": 1500
+      },
+      "wave1": {
+        "duplicateEvents": 0,
+        "storedEvents": 3000
+      },
+      "totalDuplicates": 0,
+      "totalStored": 3000,
+      "duplicateRateWave1": 0,
+      "duplicateRatePerCritical": 0,
+      "leadersWave1": {
+        "leaders": 10,
+        "notLeaders": 20
+      },
+      "duplicateRateTotal": 0,
+      "final": {
+        "normal": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 60,
+        "received_events": 3000,
+        "stored_batches": 60,
+        "stored_events": 3000
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "en3p5tt5",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ux11p0xr",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "kadykspl",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 1,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "cc5b92cn",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "iry48ki7",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "2izr9ric",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 2,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "cluxemwn",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "uj1cty8p",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "r345vrf0",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 3,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "04t5oxmi",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "bpc49i0o",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "x8tybt4s",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 4,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "qwpw3b4n",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "faeanwyg",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "6qod5uus",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 5,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "0jnjri91",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "yq6nj1ta",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "wnw83tj6",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 6,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "67zkuodb",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "qlakdwxr",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "ibr9mwd9",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 7,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "hsy2nfdi",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "uczdbk2v",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "96rgf8yh",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 8,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "wv8pvuoc",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "ennjuyd8",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "a0ngnuhp",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 9,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "8bpvrp8y",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "c8b4u9lk",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "r75zuobk",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        }
+      ]
+    },
+    {
+      "id": "broadcastchannel-10ms",
+      "leader": "bc",
+      "bcSettleMs": 10,
+      "roundsRun": 10,
+      "expected": {
+        "normal": 1500,
+        "critical": 1500
+      },
+      "wave1": {
+        "duplicateEvents": 0,
+        "storedEvents": 3000
+      },
+      "totalDuplicates": 0,
+      "totalStored": 3000,
+      "duplicateRateWave1": 0,
+      "duplicateRatePerCritical": 0,
+      "leadersWave1": {
+        "leaders": 10,
+        "notLeaders": 20
+      },
+      "duplicateRateTotal": 0,
+      "final": {
+        "normal": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 60,
+        "received_events": 3000,
+        "stored_batches": 60,
+        "stored_events": 3000
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "pt132tcs",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "z5gzqygt",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "nbb8er7z",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 1,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "lojfpj56",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "0intqfzi",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "m404s377",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 2,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "y43ioia7",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "be1ddr6y",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "kxvn0i0u",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 3,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "9n0zresm",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ju235bs3",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "xdjx6ybw",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 4,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "on1gzpjc",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "17ehstba",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "rdcwg2gs",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 5,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "8bm1ccv5",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "f33r2g71",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "uny9j948",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 6,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "7oysdbpx",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "tvx610j8",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "l8wonrab",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 7,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "hd79bmuo",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "umup2kyi",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "lseu9g37",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 8,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "ljtbhyck",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "eqlext4i",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ugze3rit",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 9,
+          "wave1Duplicates": 0,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "wu63vfnx",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "m8fvayfi",
+              "runs": 1,
+              "leader": 0,
+              "notLeader": 1,
+              "pending": 0
+            },
+            {
+              "tabId": "hmnvtmjd",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        }
+      ]
+    },
+    {
+      "id": "broadcastchannel-0ms",
+      "leader": "bc",
+      "bcSettleMs": 0,
+      "roundsRun": 10,
+      "expected": {
+        "normal": 1500,
+        "critical": 1500
+      },
+      "wave1": {
+        "duplicateEvents": 3000,
+        "storedEvents": 3000
+      },
+      "totalDuplicates": 3000,
+      "totalStored": 3000,
+      "duplicateRateWave1": 1,
+      "duplicateRatePerCritical": 2,
+      "leadersWave1": {
+        "leaders": 30,
+        "notLeaders": 0
+      },
+      "duplicateRateTotal": 0.5,
+      "final": {
+        "normal": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 120,
+        "received_events": 6000,
+        "stored_batches": 60,
+        "stored_events": 3000,
+        "duplicate_events": 3000
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "b3g9xc9l",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "idamjq0e",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "63ust7is",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 1,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "2aunm066",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "zi9cda08",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "5b0481s6",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 2,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "5q7p3vgs",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "1gt3uiuz",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "3po6h5l6",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 3,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "827ypbqz",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "r1ftia4j",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "n3olovq2",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 4,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "jre1cin4",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "hncsie03",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "5qa37a8j",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 5,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "040tehfm",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "8ksui4lb",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "cwnsjazc",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 6,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "yff72o6j",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "t65255x7",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "al5ybsqg",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 7,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "o9xyc2jx",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "nhxsc1jp",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "h60kcl8v",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 8,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "0f9uva5s",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "s3v1cem6",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "5wn1lb4i",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 9,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "6sdc49dx",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "7h8rsfj2",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "etwwzz3y",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        }
+      ]
+    },
+    {
+      "id": "no-election",
+      "leader": "none",
+      "bcSettleMs": 0,
+      "roundsRun": 10,
+      "expected": {
+        "normal": 1500,
+        "critical": 1500
+      },
+      "wave1": {
+        "duplicateEvents": 3000,
+        "storedEvents": 3000
+      },
+      "totalDuplicates": 3000,
+      "totalStored": 3000,
+      "duplicateRateWave1": 1,
+      "duplicateRatePerCritical": 2,
+      "leadersWave1": {
+        "leaders": 30,
+        "notLeaders": 0
+      },
+      "duplicateRateTotal": 0.5,
+      "final": {
+        "normal": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        },
+        "critical": {
+          "total": 1500,
+          "stored": 1500,
+          "lost": 0,
+          "lossRate": 0
+        }
+      },
+      "receiverCountersDelta": {
+        "received_batches": 120,
+        "received_events": 6000,
+        "stored_batches": 60,
+        "stored_events": 3000,
+        "duplicate_events": 3000
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "c9wrl8m4",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ab7q9he0",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "d6yy7j2z",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 1,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "f93wazyw",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "astezk2o",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "phye384j",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 2,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "xwknpm4s",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "x9fx0f8r",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "2597w5s5",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 3,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "z6i7w3is",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "idagffck",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "3knf9zcr",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 4,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "otnf3vxd",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "qzewekp4",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "6rso1tv8",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 5,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "uagxevz9",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "6ifre0js",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "530oyxo8",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 6,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "w00c0vq3",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "2guu5bf9",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "3idc4yt2",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 7,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "uhvzkadf",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "0692pr4r",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "r39j9fh0",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 8,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "9be08i5q",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "u276ssls",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "v0i3fdxs",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        },
+        {
+          "round": 9,
+          "wave1Duplicates": 300,
+          "wave1Stored": 300,
+          "expected": {
+            "normal": 150,
+            "critical": 150
+          },
+          "leaders": [
+            {
+              "tabId": "4fxcdom6",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "ez1ic7fa",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            },
+            {
+              "tabId": "zrp80ud8",
+              "runs": 1,
+              "leader": 1,
+              "notLeader": 0,
+              "pending": 0
+            }
+          ],
+          "drain": []
+        }
+      ]
+    }
+  ],
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "1223",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 chromium-1248，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "148.0.7778.96",
+  "durationMs": 45362,
+  "receiverCountersDelta": {
+    "received_batches": 420,
+    "received_events": 21000,
+    "stored_batches": 300,
+    "stored_events": 15000,
+    "duplicate_events": 6000
+  },
+  "protocolProblems": {}
+}
