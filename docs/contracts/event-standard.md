@@ -89,6 +89,8 @@ SDK 按 UTF-16 码元计算长度（与 JavaScript `String.length` 一致），�
 
 这些定义的完整 Schema 由 T06 补充到 `schemas/builtin-events/`，T18 实现时以其为准。补充时只能细化本表已列出的字段（新增可选字段属于兼容变更），不得改变本表内容；T18 开工前必须完成。
 
+澄清（2026-10-12 经架构负责人确认；只补充说明，不改动本节其他表述与字段）：`web_long_task` 的 `start_time_ms` 与 `PerformanceEntry.startTime` 同基准，即相对 time origin 的毫秒数。
+
 ## 7. 示例
 
 见 `examples/batch.valid.json`、`examples/batch-promoted.valid.json`、`examples/batch.invalid.json`。

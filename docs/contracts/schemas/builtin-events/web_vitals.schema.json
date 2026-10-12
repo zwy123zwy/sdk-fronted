@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:web-report-sdk:contracts:builtin-event:web_vitals:0.2",
   "title": "内置事件 web_vitals（event_type: perf）",
-  "description": "契约文档版本 0.2（2026-10-12 按兼容变更追加，不递增文档版本号）。校验对象是单个事件体，即 batch.schema.json $defs/event 那一层。dimensions、metrics 的键名与含义逐项对齐 event-standard.md 第 6 节的 web_vitals 行；metric_name 的取值集合来自该行明确列出的 FCP、LCP、CLS、INP、TTFB。Q3 结论第 4 条要求自动采集的性能事件固定 priority: normal。",
+  "description": "契约文档版本 0.2（2026-10-12 按兼容变更追加，不递增文档版本号）。校验对象是单个事件体，即 batch.schema.json $defs/event 那一层。dimensions、metrics 的键名与含义逐项对齐 event-standard.md 第 6 节的 web_vitals 行；metric_name 的取值集合来自该行明确列出的 FCP、LCP、CLS、INP、TTFB，rating 的取值集合于 2026-10-12 由架构负责人确认为 good、needs-improvement、poor。Q3 结论第 4 条要求自动采集的性能事件固定 priority: normal。",
   "type": "object",
   "required": [
     "event_id",
@@ -49,10 +49,8 @@
           "description": "Web Vitals 指标名；取值集合来自 event-standard.md 第 6 节 web_vitals 行，新增指标属于兼容变更"
         },
         "rating": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 32,
-          "description": "该指标的评级，按 Web Vitals 阈值分级（如 good、needs-improvement、poor）；新增取值属于兼容变更"
+          "enum": ["good", "needs-improvement", "poor"],
+          "description": "该指标的评级，按 Web Vitals 阈值分级。取值集合由架构负责人于 2026-10-12 确认；新增取值属于兼容变更"
         }
       }
     },

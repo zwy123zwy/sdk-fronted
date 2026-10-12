@@ -38,6 +38,8 @@ SDK 与接收方、SDK 与开发工具（K01、K02、M01）之间只通过本目
 - 时间为 UTC 毫秒时间戳；耗时字段后缀 `_ms`，字节数后缀 `_bytes`。
 - 规则用“必须 / 不得 / 应该 / 可以”表述，含义同 RFC 2119。每条“必须”都对应 `tests/acceptance/` 中的至少一个用例。
 - 每个 Schema 都要有至少一个合法样例（`examples/*.valid.json`）和一个非法样例（`examples/*.invalid.json`），契约测试（T10）用它们做双向校验。
+- 内置事件 Schema（`schemas/builtin-events/`）的 `dimensions` 与 `metrics` 是**封闭集合**：只允许 `event-standard.md` 第 6 节列出的键（`sdk_health` 另见 `reason-codes.md` 第 4 节）。新增键必须走一次兼容追加（新增可选字段属于兼容变更），不能由实现方自行添加。
+- Schema `$id` 的末段是**契约文档版本**（如 `urn:web-report-sdk:contracts:builtin-event:web_js_error:0.2` 中的 `0.2`）；事件的 `schema_version` 是**事件定义版本**（内置事件当前为 `1`）。两者不是一回事。
 - 样例中只使用占位值，不得出现真实的个人信息、令牌或域名。
 
 ## 版本与兼容规则

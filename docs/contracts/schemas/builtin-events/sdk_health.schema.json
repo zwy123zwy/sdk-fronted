@@ -49,10 +49,8 @@
           "description": "产生本窗口数据的 SDK 版本（semver），与批次头 sdk_version 同源"
         },
         "state": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 32,
-          "description": "上报时的生命周期状态（C02-F1：已初始化、运行中、暂停、已销毁）。具体字符串取值由 C02/T14 冻结，本 Schema 不枚举"
+          "enum": ["initialized", "running", "paused", "destroyed"],
+          "description": "上报时的生命周期状态（C02-F1）：initialized（已初始化）、running（运行中）、paused（暂停）、destroyed（已销毁）。取值集合由架构负责人于 2026-10-12 确认，口径见 reason-codes.md 第 4 节"
         },
         "config_version": {
           "type": "string",

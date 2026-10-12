@@ -59,7 +59,7 @@
         "start_time_ms": {
           "type": "number",
           "minimum": 0,
-          "description": "长任务开始时间（毫秒）；时间基准由 C05 的实现冻结，本 Schema 不约束"
+          "description": "长任务开始时间（毫秒），与 PerformanceEntry.startTime 同基准，即相对 time origin 的毫秒数；口径见 event-standard.md 第 6 节的澄清（2026-10-12 架构负责人确认）"
         }
       }
     },

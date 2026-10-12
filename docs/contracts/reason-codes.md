@@ -85,6 +85,12 @@ C08 每 60 秒聚合一次，作为 `sdk_health` 事件上报（C08-F3），且�
 
 值为 0 的计数不上报，以控制体积。字段键必须满足 `fieldKey` 格式（不超过 64 字符；最长的 `count_config_signature_unavailable` 为 34 字符）。一个窗口内非零指标超过 50 个时，拆成多条 `sdk_health` 事件，每条带相同的 `window_ms` 和 `dimensions`。
 
+`dimensions` 取值的口径（2026-10-12 经架构负责人确认；本节其余内容不变）：
+
+- `config_version` 以**十进制字符串**编码（批次 Schema 的 `dimensions` 值类型只能是字符串），取值范围与 `remote-config.schema.json` 的整数 `config_version` 一致（不小于 1）；没有生效配置时不上报。
+- `state` 取 `initialized`、`running`、`paused`、`destroyed`，依次对应 C02 生命周期状态的已初始化、运行中、暂停、已销毁。
+- 以上取值的机器可读定义见 `schemas/builtin-events/sdk_health.schema.json`。
+
 ## 5. 变更记录
 
 | 版本 | 日期 | 说明 |
