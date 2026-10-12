@@ -1,15 +1,15 @@
 # 事件数据标准
 
-- 版本：0.1（草案，未冻结）
-- 对应任务：T06；需求：C04-F1、C04-F6、C06-F3、S03-F1、S03-F2、S04-F1
-- 机器可读定义：`schemas/batch.schema.json`（上报格式）、`schemas/event-definition.schema.json`（埋点字典中的事件定义）
+- 版本：0.2（已冻结，2026-10-10；批准见 `README.md`“冻结记录”）
+- 对应任务：T06；需求：C04-F1、C04-F6、C06-F3、K01-F1、K01-F4；接收方要求 RR-06、RR-21
+- 机器可读定义：`schemas/batch.schema.json`（上报格式）、`schemas/event-definition.schema.json`（事件注册表中的事件定义）
 
 ## 1. 批次公共头
 
 | 字段 | 必填 | 说明 |
 |---|---|---|
 | `protocol_version` | 是 | 固定为 `1` |
-| `app_id` | 是 | 应用标识，控制台创建应用时生成 |
+| `app_id` | 是 | 应用标识，由接收方分配，通过初始化参数传入 |
 | `env` | 是 | 环境，如 `production`、`staging`；小写字母开头，不超过 32 字符 |
 | `release` | 是 | 接入方应用版本 |
 | `sdk_name` / `sdk_version` | 是 | SDK 包名与 semver 版本 |
@@ -19,7 +19,7 @@
 | `consent` | 否 | 发送时的同意状态，见 Q5 |
 | `batch_id` | 是 | 随机 UUID v4；重试时不变，拆分时重新生成 |
 | `sent_at` | 是 | 本次发送时间（客户端时钟） |
-| `clock_offset` | 是 | 服务端时间减客户端时间（毫秒），未校准时为 `0` 且 `clock_calibrated: false` |
+| `clock_offset` | 是 | 接收方时间减客户端时间（毫秒），未校准时为 `0` 且 `clock_calibrated: false` |
 | `common` | 否 | 批次内取值相同的事件字段，见第 3 节 |
 | `auth` | 否 | 仅信标通道使用 |
 
@@ -28,11 +28,11 @@
 | 字段 | 必填 | 说明 |
 |---|---|---|
 | `event_id` | 是 | 客户端生成的 UUID v4，去重的唯一依据；补发和重试时不变 |
-| `event_name` | 是 | 业务域前缀加小写下划线，至少两段，如 `video_load_complete`；必须在埋点字典中登记（未登记的入库时打标签，见 S04-F1） |
+| `event_name` | 是 | 业务域前缀加小写下划线，至少两段，如 `video_load_complete`；应该在事件注册表（K01）中登记；未登记的事件 SDK 照常发送，由接收方决定如何处理，K01 可以出具未登记事件报告（K01-F6） |
 | `event_type` | 是 | `custom`、`log`、`error`、`perf`、`pageview`、`http`、`sdk_internal` |
-| `schema_version` | 是 | 事件定义的版本，取自字典；自动采集的事件由 SDK 内置 |
+| `schema_version` | 是 | 事件定义的版本，取自 K01 生成的类型包；自动采集的事件由 SDK 内置 |
 | `occurred_at` | 是 | 事件发生时间（客户端时钟，UTC 毫秒），补发时不变 |
-| `priority` | 是 | `normal` 或 `critical`，以字典声明为准（Q3） |
+| `priority` | 是 | `normal` 或 `critical`，以事件注册表声明为准（Q3）；未声明的按 normal |
 | `sample_rate` | 是* | 生效采样率，取值 (0, 1] |
 | `page_id` | 是* | 路由模板，如 `/task/:id` |
 | `view_id` | 是* | 页面访问标识；路由变化时重新生成，入队时绑定（C04-F2） |
@@ -45,15 +45,15 @@
 | `truncated` | 否 | 被截断的字段路径列表 |
 | `retry_count` / `replayed` | 否 | 投递诊断信息 |
 
-带 `*` 的字段必须出现在事件体或批次 `common` 中的至少一处。服务端拆批时，事件体中的值优先于 `common`。
+带 `*` 的字段必须出现在事件体或批次 `common` 中的至少一处。接收方还原批次时，事件体中的值优先于 `common`（RR-06）。
 
 ## 3. 字段提升规则（C06-F3）
 
 C06 组装批次时，如果批次内所有事件的 `page_id`、`view_id`、`url`、`sample_rate`、`context` 中某个字段取值完全相同，可以把它移到 `common` 中，并从事件体删除。这是可选的体积优化：
 
-- 服务端必须同时支持提升和未提升两种写法；
+- 接收方必须同时支持提升和未提升两种写法（RR-06）；
 - 契约测试必须覆盖“全部提升”“部分提升”“不提升”三种样例；
-- 提升不得改变语义：S04 还原后的每条事件，必须与未提升时完全一致。
+- 提升不得改变语义：还原后的每条事件，必须与未提升时完全一致。
 
 ## 4. 字段约束与截断（C04-F6）
 
@@ -76,7 +76,7 @@ SDK 按 UTF-16 码元计算长度（与 JavaScript `String.length` 一致），�
 
 ## 6. 自动采集事件的内置定义
 
-自动采集的事件由 SDK 内置定义，事件名使用保留前缀 `sdk_`、`web_`，接入方不得在字典中登记这两个前缀的事件。
+自动采集的事件由 SDK 内置定义，事件名使用保留前缀 `sdk_`、`web_`，接入方不得在事件注册表中登记这两个前缀的事件（K01 校验时拒绝）。
 
 | 事件名 | `event_type` | 主要字段 |
 |---|---|---|
@@ -87,8 +87,15 @@ SDK 按 UTF-16 码元计算长度（与 JavaScript `String.length` 一致），�
 | `web_http` | `http` | dimensions：`method`、`url_template`、`status_class`、`failure_reason`；metrics：`status`、`duration_ms`、`request_bytes`、`response_bytes` |
 | `sdk_health` | `sdk_internal` | 计数与耗时，见 `reason-codes.md` 第 4 节 |
 
-这些定义的完整 Schema 由 T06 补充到 `schemas/builtin-events/`，T18 实现时以其为准。
+这些定义的完整 Schema 由 T06 补充到 `schemas/builtin-events/`，T18 实现时以其为准。补充时只能细化本表已列出的字段（新增可选字段属于兼容变更），不得改变本表内容；T18 开工前必须完成。
 
 ## 7. 示例
 
 见 `examples/batch.valid.json`、`examples/batch-promoted.valid.json`、`examples/batch.invalid.json`。
+
+## 8. 变更记录
+
+| 版本 | 日期 | 说明 |
+|---|---|---|
+| 0.1 | 2026-10-09 | 草案 |
+| 0.2 | 2026-10-10 | 按 D001 把字典、S03、S04、控制台、服务端改为 K01 与接收方；冻结。`schemas/builtin-events/` 仍待 T06 补充 |

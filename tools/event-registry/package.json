@@ -1,0 +1,21 @@
+{
+  "name": "@web-report-sdk/event-registry",
+  "version": "0.0.0",
+  "description": "K01 事件注册表与类型生成 CLI",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": { "web-report-event-registry": "./dist/cli.js" },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts src/cli.ts --format esm --target node24 --platform node --dts --clean",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>web-report-sdk script 标签示例</title>
+    <script src="./node_modules/@web-report-sdk/browser/dist/web-report-sdk.iife.js"></script>
+  </head>
+  <body>
+    <p id="version"></p>
+    <script>
+      document.getElementById('version').textContent = 'web-report-sdk ' + window.WebReportSDK.SDK_VERSION;
+    </script>
+  </body>
+</html>

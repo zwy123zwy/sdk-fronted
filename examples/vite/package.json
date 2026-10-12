@@ -1,0 +1,17 @@
+{
+  "name": "@web-report-sdk/example-vite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node -e \"process.exit(0)\""
+  },
+  "dependencies": {
+    "@web-report-sdk/browser": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "8.3.4"
+  }
+}

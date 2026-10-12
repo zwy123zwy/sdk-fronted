@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:web-report-sdk:contracts:remote-config:0.1",
+  "$id": "urn:web-report-sdk:contracts:remote-config:0.2",
   "title": "远程配置（I-02）",
-  "description": "草案 0.1，未冻结。$defs/envelope 为签名发布物，根对象为 payload 解码后的配置正文。SDK 必须忽略不认识的字段，因此正文允许额外字段。",
+  "description": "版本 0.2，已冻结（2026-10-10）。$defs/envelope 为签名发布物，根对象为 payload 解码后的配置正文。SDK 必须忽略不认识的字段，因此正文允许额外字段。",
   "type": "object",
   "required": ["format_version", "app_id", "env", "config_version", "published_at"],
   "properties": {
@@ -24,7 +24,10 @@
     "privacy": {
       "type": "object",
       "properties": {
-        "consent_mode": { "enum": ["essential_only", "buffer", "full"], "default": "essential_only" },
+        "consent_mode": {
+          "enum": ["essential_only", "buffer"],
+          "description": "full 只能在初始化参数中设置，远程配置不接受（D002）；未设置时取初始化参数，再取 essential_only"
+        },
         "url_query_allowlist": {
           "type": "array",
           "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,64}$" },

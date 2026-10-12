@@ -1,0 +1,10 @@
+packages:
+  - packages/*
+  - tools/*
+  - examples/*
+
+# 只允许构建工具链必需的安装脚本（指南第 7 节：新增依赖需确认）
+allowBuilds:
+  esbuild: true
+  '@parcel/watcher': false
+  unrs-resolver: false

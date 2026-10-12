@@ -1,0 +1,21 @@
+{
+  "name": "@web-report-sdk/mock-receiver",
+  "version": "0.0.0",
+  "description": "M01 本地 mock 接收服务（只用于测试，不得用于生产）",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": { "web-report-mock-receiver": "./dist/cli.js" },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts src/cli.ts --format esm --target node24 --platform node --dts --clean",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

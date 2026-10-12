@@ -1,21 +1,34 @@
 # 契约
 
-客户端与服务端、服务端各模块之间只通过本目录的契约协作（指南第 1 节）。契约冻结后，修改走契约变更请求：A01 起草，架构负责人批准，并按“版本与兼容规则”递增版本。
+SDK 与接收方、SDK 与开发工具（K01、K02、M01）之间只通过本目录的契约协作（指南第 1 节）。接收方不在本项目内（D001），对它的要求见 `receiver-requirements.md`。契约冻结后，修改走契约变更请求：A01 起草，架构负责人批准，并按“版本与兼容规则”递增版本。
+
+文档版本号（0.2）与线上协议版本（URL `/v1/`、`protocol_version: 1`、`format_version: 1`）是两回事；前者记录文档修订，后者决定兼容性。
 
 ## 状态
 
 | 文件 | 对应任务 | 版本 | 状态 |
 |---|---|---|---|
-| [ingest-protocol.md](ingest-protocol.md) | T05 | 0.1 | 草案 |
-| [schemas/batch.schema.json](schemas/batch.schema.json) | T05、T06 | 0.1 | 草案 |
-| [event-standard.md](event-standard.md) | T06 | 0.1 | 草案 |
-| [schemas/event-definition.schema.json](schemas/event-definition.schema.json) | T06 | 0.1 | 草案 |
-| [remote-config.md](remote-config.md) | T07 | 0.1 | 草案 |
-| [schemas/remote-config.schema.json](schemas/remote-config.schema.json) | T07 | 0.1 | 草案 |
-| [reason-codes.md](reason-codes.md) | T05、T17 | 0.1 | 草案 |
-| [examples/](examples/) | T05–T07 | 0.1 | 草案 |
+| [ingest-protocol.md](ingest-protocol.md) | T05 | 0.2 | 已冻结 |
+| [schemas/batch.schema.json](schemas/batch.schema.json) | T05、T06 | 0.2 | 已冻结 |
+| [event-standard.md](event-standard.md) | T06 | 0.2 | 已冻结 |
+| [schemas/event-definition.schema.json](schemas/event-definition.schema.json) | T06 | 0.2 | 已冻结 |
+| [dictionary-compat.md](dictionary-compat.md) | T06、T22 | 0.2 | 已冻结 |
+| [remote-config.md](remote-config.md) | T07 | 0.2 | 已冻结 |
+| [schemas/remote-config.schema.json](schemas/remote-config.schema.json) | T07 | 0.2 | 已冻结 |
+| [reason-codes.md](reason-codes.md) | T05、T17 | 0.2 | 已冻结 |
+| [receiver-requirements.md](receiver-requirements.md) | T05 | 0.2 | 已冻结 |
+| [examples/](examples/) | T05–T07 | 0.2 | 已冻结 |
+| `schemas/builtin-events/` | T06 | — | 未提供，T18 开工前补齐（兼容变更） |
 
-**草案状态下不得作为实现依据。** 评审通过后，把状态改为“已冻结”并写上冻结日期和批准人。
+**草案状态下不得作为实现依据。** 冻结后修改走契约变更请求。
+
+## 冻结记录
+
+| 日期 | 版本 | 范围 | 批准 |
+|---|---|---|---|
+| 2026-10-10 | 0.2 | 上表中所有标为“已冻结”的文件 | wenye.zhang（项目负责人）于 2026-10-09 在对话中授权，代行架构负责人批准；架构负责人可以补签 |
+
+已知未完成项（不阻塞冻结，按兼容变更追加）：`schemas/builtin-events/`；`receiver-requirements.md` 附录 A（T17）；`batch.invalid.json` 中信标通道 `auth` 的非法样例由 T10 补充。
 
 ## 约定
 
@@ -29,7 +42,7 @@
 
 | 对象 | 版本位置 | 兼容变更 | 破坏性变更 |
 |---|---|---|---|
-| 上报协议 | URL 路径 `/v1/` 与 `protocol_version` | 新增可选字段、新增响应头 | 删除或改名字段、改变响应码语义；服务端至少同时兼容当前与前一个主版本，下线前提前 6 个月公告 |
+| 上报协议 | URL 路径 `/v1/` 与 `protocol_version` | 新增可选字段、新增响应头 | 删除或改名字段、改变响应码语义；新主版本发布后，SDK 至少保留一个兼容前一主版本的发布线，提前 6 个月通知已知接收方 |
 | 事件 Schema | 每个事件的 `schema_version` | 新增可选字段 | 删除字段、改类型或语义，必须递增 `schema_version` |
 | 远程配置 | `format_version` | 新增字段（SDK 必须忽略不认识的字段） | 删除或改语义；SDK 遇到不认识的主版本时使用本地缓存或保守默认 |
 | 原因码 | `reason-codes.md` | 新增原因码 | 删除或改语义 |

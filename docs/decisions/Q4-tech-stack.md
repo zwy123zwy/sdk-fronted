@@ -21,7 +21,7 @@
 | API 审计 | API Extractor | |
 | Lint | ESLint（typescript-eslint，type-aware 规则） | |
 | JSON Schema 校验 | Ajv（2020-12） | 只用于开发与测试，不进入 SDK 运行时 |
-| 开发工具 K01、K02、M01 | Node.js 20+，TypeScript，放在本仓库 `tools/` 下 | 不引入服务端框架；M01 只用 Node 内置 `http` 模块，加上一个可选的 gzip 解压 |
+| 开发工具 K01、K02、M01 | Node.js 24（T08 修订：Vitest 5 要求 Node ≥ 22.12），TypeScript，放在本仓库 `tools/` 下 | 不引入服务端框架；M01 只用 Node 内置 `http` 模块，加上一个可选的 gzip 解压 |
 | CI | 由 T08 根据代码托管平台决定 | |
 | 发布渠道 | 由 T08 决定（私有 npm 源优先） | 首次发布由人工执行 |
 

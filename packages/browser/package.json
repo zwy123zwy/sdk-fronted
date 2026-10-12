@@ -1,0 +1,29 @@
+{
+  "name": "@web-report-sdk/browser",
+  "version": "0.0.0",
+  "description": "接入方安装的汇总入口包",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./iife": "./dist/web-report-sdk.iife.js"
+  },
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@web-report-sdk/core": "workspace:*",
+    "@web-report-sdk/plugins": "workspace:*",
+    "@web-report-sdk/transport": "workspace:*"
+  }
+}

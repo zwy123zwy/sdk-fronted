@@ -1,0 +1,26 @@
+[
+  {
+    "name": "browser（核心 + 默认插件，指南第 6 节预算）",
+    "path": "packages/browser/dist/index.js",
+    "import": "*",
+    "limit": "10 KB"
+  },
+  {
+    "name": "core",
+    "path": "packages/core/dist/index.js",
+    "import": "*",
+    "limit": "10 KB"
+  },
+  {
+    "name": "plugins（全量，T18 预算）",
+    "path": "packages/plugins/dist/index.js",
+    "import": "*",
+    "limit": "20 KB"
+  },
+  {
+    "name": "transport",
+    "path": "packages/transport/dist/index.js",
+    "import": "*",
+    "limit": "10 KB"
+  }
+]

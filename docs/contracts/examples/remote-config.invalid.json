@@ -25,6 +25,11 @@
       "format_version": 1, "app_id": "demo-app", "env": "staging", "config_version": 46, "published_at": 1793000000000,
       "plugins": { "replay": { "enabled": true } },
       "privacy": { "consent_mode": "always" }
+    },
+    {
+      "_why": "远程配置不接受 consent_mode: full（D002）",
+      "format_version": 1, "app_id": "demo-app", "env": "staging", "config_version": 47, "published_at": 1793000000000,
+      "privacy": { "consent_mode": "full" }
     }
   ]
 }

@@ -1,8 +1,30 @@
 # Web 自定义上报 SDK
 
-浏览器端自定义上报 SDK，以及配套的接入网关、数据处理管道、存储与查询、配置中心、埋点字典和管理控制台。本仓库存放客户端 SDK（C01–C08）、跨端契约、任务卡和测试；服务端代码的存放位置由 T08 决定。
+浏览器端自定义上报 SDK，以及三个配套开发工具：事件注册表与类型生成 CLI（K01）、配置签名 CLI（K02）、本地 mock 接收服务（M01）。接收服务不在本项目内，接收方需要满足 [`docs/contracts/receiver-requirements.md`](docs/contracts/receiver-requirements.md)。
 
-当前阶段：**P0 方案定稿**。代码仓库尚未初始化，契约为草案，待确认事项未关闭。
+当前阶段：**P1/P2 开发**。契约已冻结为 0.2，仓库与门禁已就绪，SDK 包为空骨架。
+
+## 快速开始
+
+```bash
+nvm use            # Node.js 24
+pnpm install
+pnpm ci            # lint、typecheck、test、build、size、api:check、examples
+```
+
+## 目录
+
+| 路径 | 内容 |
+|---|---|
+| `packages/core` | 内核、公共 API、配置与采样、上下文与隐私（C01–C04） |
+| `packages/transport` | 队列与调度、传输与可靠投递、自监控（C06–C08） |
+| `packages/plugins` | 采集插件、第三方 APM 双写适配器（C05） |
+| `packages/browser` | 接入方安装的入口包，另产出 `<script>` 用的 IIFE |
+| `tools/event-registry` | K01 |
+| `tools/config-signer` | K02 |
+| `tools/mock-receiver` | M01（只用于测试） |
+| `examples/` | Vite、`<script>`、Vitest/Jest 接入示例 |
+| `tests/` | 契约测试、E2E、验收用例规格 |
 
 ## 文档导航
 
@@ -10,20 +32,20 @@
 |---|---|
 | [AGENTS.md](AGENTS.md) | AI Agent 进入仓库后的第一份必读材料 |
 | [docs/agent-development-guide.md](docs/agent-development-guide.md) | Agent 开发指南：流程、门禁、升级规则、角色、编码约束 |
-| [docs/contracts/](docs/contracts/README.md) | 上报协议、事件 Schema、配置格式、埋点字典元模型 |
-| [docs/decisions/](docs/decisions/README.md) | 范围决定与待确认事项 Q1–Q7 |
+| [docs/contracts/](docs/contracts/README.md) | 上报协议、事件标准、远程配置、原因码、接收方要求 |
+| [docs/decisions/](docs/decisions/README.md) | 范围决定 D001、D002 与 Q1–Q7 |
 | [docs/tasks/board.md](docs/tasks/board.md) | 任务看板；任务卡见 `docs/tasks/Txx.md` |
 | [docs/use-cases.md](docs/use-cases.md) | 公共 API 设计用例 |
 | [tests/acceptance/](tests/acceptance/README.md) | 按需求编号编写的验收用例规格 |
 | [docs/templates/](docs/templates/) | ADR、POC 报告、实施计划模板 |
 
-总体设计方案（飞书）：<https://nwd4iy9rd2s.feishu.cn/docx/D9wXdUn8xooIu8x9RVDchSeanDg>
+总体设计方案（飞书）：<https://nwd4iy9rd2s.feishu.cn/docx/D9wXdUn8xooIu8x9RVDchSeanDg>。仓库内的契约与决策优先于飞书方案。
 
 ## 文档状态
 
-| 类别 | 状态 | 关闭条件 |
-|---|---|---|
-| 契约 | 草案 v0.1 | T05–T07 评审通过，架构负责人批准后标记为“已冻结” |
-| 待确认事项 | 已给出建议，未确认 | 确认人在对应决策文件中签署结论 |
-| 任务卡 | 已发布 | 依赖验收后由 A00 把状态改为“可领取” |
-| 验收用例 | 规格稿 | T08 完成后由 A09 转为可执行测试 |
+| 类别 | 状态 |
+|---|---|
+| 契约 | 0.2 已冻结（2026-10-10）；`builtin-events/` 待 T06 补充 |
+| 决策 | D001、D002、Q1、Q3–Q7 已确认；Q2 待确认（只阻塞 T33） |
+| 仓库与门禁 | T08 已验收；CI 首次运行待确认 |
+| 验收用例 | 规格稿，各任务开工前转为可执行测试 |

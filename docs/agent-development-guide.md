@@ -4,12 +4,16 @@
 
 总体设计见飞书文档《Web 自定义上报 SDK 系统设计方案》：
 https://nwd4iy9rd2s.feishu.cn/docx/D9wXdUn8xooIu8x9RVDchSeanDg
-文中的模块编号（C01–C08、S01–S07）、需求编号（如 C07-F3）、任务编号（T01–T37）、角色编号（A00–A14）与本指南一致。
+文中的模块编号（C01–C08）、需求编号（如 C07-F3）、任务编号（T01–T37）、角色编号（A00–A14）与本指南一致。总体方案中的 S01–S07 不在本项目范围（D001），只作为接收方要求的来源。
 
 ## 0. 仓库定位
 
 - SDK 是独立项目，使用 TypeScript 编写，编译产物为 JavaScript 包。接入方以 npm 依赖的方式引用它，不复制源码。
-- 本仓库包含客户端模块 C01–C08、契约文件、任务卡和测试。服务端模块 S01–S07 不在本仓库，存放位置由 T08 决定；第 11 节的服务端约束对它们同样适用。项目是否包含服务端，以 `docs/decisions/D001-scope.md` 的结论为准。
+- 范围以 `docs/decisions/D001-scope.md` 为准：**只做浏览器 SDK**（C01–C08），另加三个开发与测试工具，都放在本仓库 `tools/` 下：
+  - K01 事件注册表与类型生成 CLI（T22）
+  - K02 配置签名 CLI（T25）
+  - M01 本地 mock 接收服务（T09），只用于测试，不得用于生产
+- 接收服务、处理管道、存储、看板、控制台不在本项目内。生产接收方需要满足 `docs/contracts/receiver-requirements.md`。
 - Agent 只在本仓库写代码，不修改任何接入方的仓库。
 
 ## 1. 信息优先级
@@ -53,11 +57,11 @@ https://nwd4iy9rd2s.feishu.cn/docx/D9wXdUn8xooIu8x9RVDchSeanDg
 | `AGENTS.md`、`CLAUDE.md`、`README.md` | 仓库入口与导航 | A01 |
 | `docs/` | 本指南、`use-cases.md`、`review-log.md` | A01、A03（use-cases）、A14 |
 | `docs/decisions/` | 范围决定 D001 与待确认事项 Q1–Q7；结论只能由确认人填写 | A01 起草 |
-| `docs/contracts/` | 上报协议、事件标准、配置格式、原因码（JSON Schema 2020-12 + 样例） | A01，架构负责人批准 |
+| `docs/contracts/` | 上报协议、事件标准、配置格式、原因码、接收方要求（JSON Schema 2020-12 + 样例） | A01，架构负责人批准 |
 | `docs/tasks/` | 任务卡 `T01.md`–`T37.md` 与看板 `board.md` | A00 |
 | `docs/templates/` | 实施计划、ADR、POC 报告模板 | A01 |
 | `docs/poc/`、`docs/reports/` | POC 报告、测试与运行报告 | 对应任务的执行 Agent |
-| `poc/` | POC 原型代码，不进入正式包 | T02–T04 的执行 Agent |
+| `poc/` | POC 原型代码，不进入正式包 | T02 的执行 Agent |
 | `tests/acceptance/` | 验收用例规格（按需求编号） | A09 |
 | `packages/core/` | C01–C04 | A02 |
 | `packages/plugins/` | C05 采集插件、第三方 APM 双写适配器 | A03 |
@@ -65,10 +69,28 @@ https://nwd4iy9rd2s.feishu.cn/docx/D9wXdUn8xooIu8x9RVDchSeanDg
 | `packages/vue/` 等 | 框架集成（可选，T18 决定需要哪些） | A03 |
 | `packages/browser/` | 汇总导出的入口包，即接入方实际安装的包 | A02 |
 | `tests/` | 契约、集成、E2E、兼容性、基准测试 | A09、A10 |
+| `tools/event-registry/` | K01 | A06 |
+| `tools/config-signer/` | K02 | A08 |
+| `tools/mock-receiver/` | M01 | A13 |
 | `examples/` | 最小接入示例，用于 E2E 测试 | A09 |
 | `.github/` 或其他 CI 配置、`scripts/` | 流水线、体积预算、API 审计、发布脚本 | A13 |
 
-包名、作用域和发布渠道（私有 npm 源、Git 依赖或 tarball）由 T08 决定。目录规划冻结之前，不要在上述路径之外新建包。
+T08 已冻结目录与包名（2026-10-10）：
+
+| 包 | 目录 | 用途 |
+|---|---|---|
+| `@web-report-sdk/core` | `packages/core/` | C01–C04 |
+| `@web-report-sdk/transport` | `packages/transport/` | C06–C08 |
+| `@web-report-sdk/plugins` | `packages/plugins/` | C05 |
+| `@web-report-sdk/browser` | `packages/browser/` | 接入方安装的入口包；另产出 IIFE（`@web-report-sdk/browser/iife`，全局变量 `WebReportSDK`） |
+| `@web-report-sdk/event-registry` | `tools/event-registry/` | K01 |
+| `@web-report-sdk/config-signer` | `tools/config-signer/` | K02 |
+| `@web-report-sdk/mock-receiver` | `tools/mock-receiver/` | M01 |
+
+- 所有包目前为 `private: true`。发布渠道定为私有 npm 源，源地址由人工在发布时配置；首次发布前把要发布的包改为非 private，由人执行发布（指南第 7 节）。
+- 工具链版本：Node.js 24（`.nvmrc`）、pnpm 11.18.0、TypeScript 5.9.3、tsup 8.5.1、Vitest 5.0.3、ESLint 10.12.0 + typescript-eslint 8.71.1、size-limit 14.2.0、API Extractor 7.59.4、Playwright 1.64.0。版本锁定在根 `package.json`，不使用范围版本。
+- 工作区包之间通过 `source` 导出条件引用源码，类型检查不依赖先构建。
+- 不要在上述路径之外新建包。
 
 ## 4. 接入方式与兼容要求
 
@@ -104,7 +126,7 @@ A03 设计 C05 插件和公共 API 之前，先在 `docs/use-cases.md` 中列出
 1. **领取**：只领取 A00 已发布、依赖全部验收的任务卡。任务卡缺任何必填字段（见第 10 节）时退回 A00。
 2. **准备工作区**：在独立分支上开发，分支名为 `Txx-简短描述`；同一时间一个分支只做一个任务。
 3. **阅读**：按第 2 节读取上下文。
-4. **提交实施计划**：包括已读清单、要改的文件、实现要点、风险、对契约的疑问。高风险任务（C07、S01、S04、所有安全相关任务）和存在契约疑问的任务，必须等对接负责人确认计划后才能动手。
+4. **提交实施计划**：包括已读清单、要改的文件、实现要点、风险、对契约的疑问。高风险任务（C07、K02、所有安全相关任务）和存在契约疑问的任务，必须等对接负责人确认计划后才能动手。
 5. **先跑验收用例**：确认 A09 编写的验收用例存在，并且在当前状态下失败。执行 Agent 不得修改验收用例，觉得用例有误时按第 7 节升级。
 6. **实现**：只改文件所有权范围内的文件。可以补充自己的单元测试。
 7. **本地自检**：运行第 6 节的全部门禁，全部通过后才提交。
@@ -114,18 +136,21 @@ A03 设计 C05 插件和公共 API 之前，先在 `docs/use-cases.md` 中列出
 
 ## 6. 本地门禁命令
 
-T08 在根目录的 `package.json` 中定义以下脚本。命令名一旦冻结，就写回本节。
+命令名已由 T08 冻结（2026-10-10），定义在根目录 `package.json`。CI 配置为 `.github/workflows/ci.yml`。
 
 | 命令 | 检查内容 |
 |---|---|
-| `pnpm lint` | ESLint，禁止 `any` 和未处理的 Promise |
-| `pnpm typecheck` | `tsc --noEmit`，所有包都开启 strict |
-| `pnpm test` | Vitest 单元测试；覆盖率按包统计，核心包不低于 90%，其余包不低于 80% |
-| `pnpm build` | 构建所有包，产出 ESM 和类型声明 |
-| `pnpm size` | 体积预算；gzip 后核心加默认插件不超过 10 KB，超出时阻断 |
-| `pnpm api:check` | 公共 API 审计（如 API Extractor）；有未登记的 API 变更时阻断 |
-| `pnpm test:contract` | 用 `docs/contracts/` 中的 Schema 和样例校验 SDK 输出 |
-| `pnpm test:e2e` | 用 Playwright 跑 `examples/` 的 E2E 与兼容性测试；在 CI 中运行，本地可选 |
+| `pnpm lint` | ESLint（typescript-eslint strict type-checked）；禁止 `any`、未处理的 Promise、`class`、`@ts-ignore`、`.skip`、`.only`；`noInlineConfig` 使 `eslint-disable` 注释无效 |
+| `pnpm typecheck` | `tsc`，所有包开启 strict、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes` |
+| `pnpm test` | Vitest 单元测试（happy-dom）与覆盖率；`packages/core`、`packages/transport` 行覆盖率不低于 90%，`packages/plugins` 与 `tools/` 不低于 80% |
+| `pnpm build` | 构建所有包，产出 ESM、类型声明，以及 browser 包的 IIFE |
+| `pnpm size` | 体积预算（brotli）；browser 入口与 core 不超过 10 KB，plugins 全量不超过 20 KB，超出时阻断 |
+| `pnpm api:check` | API Extractor 公共 API 审计，与各包 `etc/*.api.md` 比对；有未登记的变更时阻断。有意变更时运行 `pnpm api:update` 并在合入请求中说明 |
+| `pnpm test:contract` | 契约测试；T10 之前只检查 Schema 版本和样例合法性，T10 补齐双向校验 |
+| `pnpm examples:build`、`pnpm examples:test` | 接入兼容性：Vite 构建、`<script>` 引入 IIFE、Vitest 与 Jest 中直接导入 |
+| `pnpm test:e2e` | Playwright（Chromium、Firefox、WebKit）；在 CI 中运行，本地可选 |
+| `pnpm gates:selftest` | 门禁自检：逐个注入违规样例，确认 lint、typecheck、size、api:check 都会失败 |
+| `pnpm ci` | 按 CI 顺序运行除 E2E 之外的全部门禁 |
 
 门禁失败时修复代码，不要通过修改门禁配置、跳过测试、添加 `--no-verify`、`eslint-disable`、`@ts-ignore`、`it.skip` 等方式绕过。如果确实需要豁免，在交付报告中说明，由人类负责人决定。
 
@@ -183,7 +208,7 @@ Txx：<任务名>；对接负责人：<角色>
 
 所有 Agent 都没有以下权限：批准合入、修改门禁配置、发布包、持有生产凭据、在生产环境执行变更、修改接入方仓库。
 
-客户端角色在本仓库工作；服务端角色的可写范围以 T08 确定的服务端仓库为准，下表只列出职责。
+所有角色都在本仓库工作。A05、A07 随 D001 取消。
 
 | 角色 | 负责任务 | 可写范围 | 额外禁止 | 对接人 |
 |---|---|---|---|---|
@@ -191,16 +216,14 @@ Txx：<任务名>；对接负责人：<角色>
 | A01 架构与契约 | T01、T05–T07 | `docs/`（契约需批准） | 不写代码 | 架构负责人 |
 | A02 SDK 内核 | T11–T14 | `packages/core/`、`packages/browser/` | — | 前端负责人 |
 | A03 采集插件 | T18、T19、T33 | `packages/plugins/`、框架集成包、`docs/use-cases.md` | 不修改接入方仓库 | 前端负责人 |
-| A04 投递 | T02、T15–T17 | `packages/transport/` | — | 前端负责人（结对） |
-| A05 网关 | T03、T21 | 服务端仓库的 S01 目录 | — | 服务端负责人（结对） |
-| A06 管道 | T22、T23 | 服务端仓库的 S03、S04 目录 | — | 服务端负责人（结对） |
-| A07 存储与分析 | T04、T24、T28 | 服务端仓库的 S05、S06 目录 | 不在任何共享环境执行删除 | 服务端负责人 |
-| A08 控制台 | T25、T27 | S02、S07 所在仓库 | — | 产品负责人、服务端负责人 |
+| A04 投递 | T02、T15–T17 | `packages/transport/`、`poc/poc-1/` | — | 前端负责人（结对） |
+| A06 注册表工具 | T22 | `tools/event-registry/` | 不改 `packages/` | 前端负责人、产品负责人 |
+| A08 签名工具 | T25 | `tools/config-signer/` | 不提交私钥 | 前端负责人、安全负责人 |
 | A09 测试 | T10、T29–T30 + 所有验收用例 | `tests/`、`examples/`、各包的测试目录 | 不改实现代码 | 质量负责人 |
-| A10 性能 | T20、T26、T32 | `tests/bench/`、压测脚本、报告 | 只在测试与预发布环境运行 | 质量负责人 |
+| A10 性能 | T20、T32 | `tests/bench/`、`tests/reliability/`、报告 | 只在本地与测试环境运行 | 质量负责人 |
 | A11 安全 | T31 + 安全扫描 | 评审意见、报告 | 只读代码；只在测试环境测试 | 安全负责人 |
-| A12 代码评审 | 所有代码任务的 AI 评审 | 评审意见 | 只读；不能批准 | 前端 / 服务端负责人 |
-| A13 DevOps | T08、T09、T35 | CI 配置、`scripts/`、发布流程 | 发布与生产变更必须人工审批后由人执行 | 架构负责人 |
+| A12 代码评审 | 所有代码任务的 AI 评审 | 评审意见 | 只读；不能批准 | 前端负责人 |
+| A13 DevOps | T08、T09、T35 | CI 配置、`scripts/`、`tools/mock-receiver/`、发布流程 | 发布与生产变更必须人工审批后由人执行 | 架构负责人 |
 | A14 文档 | T34、T37 | `docs/` 中的指南、接入文档与 `CHANGELOG.md` | 不改契约 | 产品负责人 |
 
 ## 10. 任务卡模板
@@ -260,13 +283,14 @@ A00 按此模板在 `docs/tasks/Txx.md` 发布任务卡。缺少带“*”的字
 - 模块顶层不产生副作用（不注册监听、不访问 `window`），保证 tree-shaking 生效，并且可以在 SSR 和 Vitest 环境中导入；包的 `package.json` 声明 `"sideEffects": false`。
 - 公共类型和导出只从各包的 `src/index.ts` 暴露；内部模块不对外导出。
 
-服务端：
+开发工具（`tools/`）：
 
-- 网关只有在消息写入队列成功之后才返回 2xx；任何失败都不能返回成功。
-- 管道处理幂等，按 event_id 去重；Schema 不符的数据进入死信，不静默丢弃。
-- 令牌只存哈希值；日志中不输出令牌、原始 IP、未脱敏的用户字段。
-- 数据库访问使用参数化查询；对外接口校验请求体大小、批次条数和字段长度。
-- 管理操作、配置发布、导出、重放、删除都要写审计日志。
+- 只用 Node 内置模块，确需第三方依赖时按第 7 节升级（Q4）。
+- M01 只监听 `127.0.0.1`，令牌只做占位值比对；它实现 `receiver-requirements.md` 的“必须”条目，但不得作为生产接收方的参考实现对外提供。
+- K02 不得读取、打印或提交私钥内容；测试密钥在测试运行时生成。
+- CLI 失败时返回非零退出码，输出可读的错误信息，便于在接入方 CI 中使用。
+
+接收方的约束（只在 202 前持久化、去重、日志不含令牌等）写在 `docs/contracts/receiver-requirements.md`，不在本项目内实现。
 
 通用：
 
@@ -280,29 +304,30 @@ A00 按此模板在 `docs/tasks/Txx.md` 发布任务卡。缺少带“*”的字
 
 | 任务 | 方案章节 |
 |---|---|
-| T01–T04 | 概述、关键技术选型、性能指标汇总、对应模块章节、附录 |
-| T05–T07 | 接口定义与数据交换标准（全部）、C03、C07、S01、S02、S03 |
-| T08–T09 | 部署与环境、关键技术选型、质量门禁汇总；本指南第 3、4、6 节 |
+| T01–T02 | 概述、关键技术选型、性能指标汇总、对应模块章节、附录 |
+| T05–T07 | 接口定义与数据交换标准（全部）、C03、C07；S01–S03 只作为接收方要求的来源 |
+| T08 | 部署与环境、关键技术选型、质量门禁汇总；本指南第 3、4、6 节 |
+| T09 | 接口定义与数据交换标准中的上报协议与响应码；`receiver-requirements.md` |
 | T10 | 接口定义与数据交换标准、功能测试中的契约测试 |
 | T11–T14 | SDK 生命周期、C01–C04、C08 中的计数接口 |
 | T15–T17 | SDK 生命周期、C06–C08、POC-1 报告 |
 | T18–T19 | C02 插件宿主、C04 字段约束、C05；本指南第 4 节 |
-| T20、T26、T32 | 性能指标汇总、性能测试 |
-| T21 | S01、接口定义与数据交换标准中的上报协议与响应码、安全要求汇总、POC-2 报告 |
-| T22–T23 | S03、S04、事件数据标准、版本与兼容规则 |
-| T24、T28 | S05、S06、POC-3 报告 |
-| T25、T27 | S02、S07、安全要求汇总中的身份与鉴权、审计 |
+| T20、T32 | 性能指标汇总、性能测试 |
+| T22 | 事件数据标准、版本与兼容规则 |
+| T25 | C03、安全要求汇总中的配置安全 |
 | T29–T31 | 质量验收体系（全部） |
 | T33–T35 | 本指南第 4 节、项目阶段计划中的 P5–P6、风险评估与应对 |
 
 ## 13. 开工前置条件
 
-以下事项完成之前，只能开展 P0 任务（T01–T04）：
+以下事项完成之前，只能开展 P0 任务（T01、T02），以及 T05–T08 的起草：
 
-- D001 与 Q1–Q7 已由确认人签署（`docs/decisions/`）
-- T05–T07 契约已冻结，并存放在 `docs/contracts/`
-- T08 已完成：确认第 3 节的目录和包名，第 6 节的门禁可以运行，`examples/` 中的示例能导入空包，并且确定了发布渠道
-- A09 已为当前阶段任务提交验收用例
+- [x] D001、D002 与 Q1、Q3–Q7 已由确认人签署（`docs/decisions/`）。Q2 只阻塞 T33，必须在 T33 开工前确认
+- [x] T05–T07 契约已冻结（0.2，2026-10-10），存放在 `docs/contracts/`。T06 的 `schemas/builtin-events/` 与兼容样例对按兼容变更补充，阻塞 T18、T22
+- [x] T08 已完成：目录和包名见第 3 节，第 6 节的门禁可以运行，`examples/` 能导入空包，发布渠道已确定
+- [x] A09 已为当前阶段任务提交验收用例规格（`tests/acceptance/`）；转为可执行测试在各任务开工前完成
+
+以上条件已于 2026-10-10 满足，P1、P2 任务按看板依赖开工。
 
 本指南随项目推进修订。修订由 A01 起草、架构负责人批准，并在下方记录。
 
@@ -311,3 +336,5 @@ A00 按此模板在 `docs/tasks/Txx.md` 发布任务卡。缺少带“*”的字
 | 0.1 | 2026-10-09 | 初稿，待评审 |
 | 0.2 | 2026-10-09 | 改为独立 TypeScript 项目，补充分发方式与兼容要求 |
 | 0.3 | 2026-10-09 | 移入 `docs/`；补充目录表中的入口文件、决策、模板、验收用例；前置条件引用 D001 |
+| 0.4 | 2026-10-09 | 按 D001 缩小为只做浏览器 SDK：新增 K01、K02、M01 与 `tools/`；删除服务端角色、约束与切片；Q2 只阻塞 T33 |
+| 0.5 | 2026-10-10 | T08 完成：第 3 节冻结包名、工具链版本与发布渠道；第 6 节冻结门禁命令；第 13 节前置条件全部满足。批准：wenye.zhang 授权代行 |

@@ -1,0 +1,22 @@
+{
+  "name": "@web-report-sdk/example-node-import",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node -e \"process.exit(0)\"",
+    "test": "vitest run --root . --config vitest.config.mjs && node --experimental-vm-modules node_modules/jest/bin/jest.js"
+  },
+  "dependencies": {
+    "@web-report-sdk/browser": "workspace:*"
+  },
+  "devDependencies": {
+    "jest": "30.5.2",
+    "vitest": "5.0.3"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/jest.test.mjs"],
+    "transform": {}
+  }
+}

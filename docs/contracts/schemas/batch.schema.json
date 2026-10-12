@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:web-report-sdk:contracts:batch:0.1",
+  "$id": "urn:web-report-sdk:contracts:batch:0.2",
   "title": "上报批次（I-01 请求体）",
-  "description": "草案 0.1，未冻结。字段语义见 event-standard.md。",
+  "description": "版本 0.2，已冻结（2026-10-10）。字段语义见 event-standard.md。",
   "type": "object",
   "required": [
     "protocol_version",
@@ -39,7 +39,7 @@
     "sent_at": { "$ref": "#/$defs/timestamp" },
     "clock_offset": {
       "type": "integer",
-      "description": "服务端时间减客户端时间，毫秒；未校准时为 0",
+      "description": "接收方时间减客户端时间，毫秒；未校准时为 0",
       "minimum": -86400000,
       "maximum": 86400000
     },

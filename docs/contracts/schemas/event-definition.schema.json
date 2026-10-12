@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:web-report-sdk:contracts:event-definition:0.1",
-  "title": "埋点字典中的事件定义（S03 元模型）",
-  "description": "草案 0.1，未冻结。S03 存储、S04 校验、类型包生成（S03-F4）都以本 Schema 为准。",
+  "$id": "urn:web-report-sdk:contracts:event-definition:0.2",
+  "title": "事件注册表中的事件定义（K01 元模型）",
+  "description": "版本 0.2，已冻结（2026-10-10）。K01 校验与类型生成（K01-F1、K01-F4）、接收方运行期校验（RR-22）都以本 Schema 为准。",
   "type": "object",
   "required": [
     "event_name",
@@ -90,7 +90,7 @@
         },
         "sensitivity": {
           "enum": ["none", "mask", "hash", "drop"],
-          "description": "S04 二次脱敏时的处理方式（S03 安全要求、S04-F4）"
+          "description": "接收方二次脱敏时的处理方式，由 K01 导出到校验规则（K01-F5）"
         }
       },
       "allOf": [

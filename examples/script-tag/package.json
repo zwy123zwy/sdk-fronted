@@ -1,0 +1,13 @@
+{
+  "name": "@web-report-sdk/example-script-tag",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node -e \"process.exit(0)\"",
+    "test": "node check.mjs"
+  },
+  "dependencies": {
+    "@web-report-sdk/browser": "workspace:*"
+  }
+}
