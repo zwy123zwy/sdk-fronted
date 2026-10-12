@@ -1,5 +1,5 @@
 {
-  "_note": "envelope 展示发布物的结构，payload 为节选；decoded_payload 是一份完整的配置正文，用于正文 Schema 校验。签名为占位值，签名校验用例由 T10 用测试密钥现场生成。",
+  "_note": "envelope 展示发布物的结构；envelope.payload 是一份最小但完整合法的配置正文（只含 5 个必填字段），与 decoded_payload（含全部可选字段组的完整正文）不是同一份——两者都各自通过正文 Schema 校验。签名为占位值，签名校验用例由 T10 用测试密钥现场生成。",
   "envelope": {
     "format_version": 1,
     "key_id": "test-key-2026a",

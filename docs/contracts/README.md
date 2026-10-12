@@ -30,7 +30,13 @@ SDK 与接收方、SDK 与开发工具（K01、K02、M01）之间只通过本目
 |---|---|---|---|
 | 2026-10-10 | 0.2 | 上表中所有标为“已冻结”的文件 | wenye.zhang（项目负责人）于 2026-10-09 在对话中授权，代行架构负责人批准；架构负责人可以补签 |
 
-已知未完成项（不阻塞冻结，按兼容变更追加）：`receiver-requirements.md` 附录 A（T17）；`batch.invalid.json` 中信标通道 `auth` 的非法样例由 T10 补充。`schemas/builtin-events/` 已由 T06 于 2026-10-12 按兼容变更补齐（只细化 `event-standard.md` 第 6 节已列出的字段，不改变该节内容；不递增文档版本号，冻结记录不变）。
+已知未完成项（不阻塞冻结，按兼容变更追加）：`receiver-requirements.md` 附录 A（T17）。
+
+2026-10-12 的兼容澄清（均不递增文档版本号，冻结记录不变；详见 `docs/review-log.md` R-010 至 R-012）：
+- `schemas/builtin-events/` 由 T06 按兼容变更补齐（只细化 `event-standard.md` 第 6 节已列出的字段，不改变该节内容）。
+- `batch.invalid.json`：补入信标通道 `auth` 的非法样例（原先在本文档里被指派给 T10，但 T10 无权写契约，实际未做）；并修正 case[4] 的 `_why` —— 原说明称「维度值超过 256 字符」，而该样例中该值仅 1 字符，真实失败原因是维度键含大写与顶层出现未声明字段。
+- `remote-config.valid.json` 的 `_note`：写明 `envelope.payload` 是一份最小但完整合法的正文、与 `decoded_payload` 不是同一份。
+- `compat-pairs/index.json`：写明 `verdict_zh` 只放短判定、判定表单元格的附加要求统一放在 `expected.additional_requirements`（对全部行统一，非缺失）。
 
 ## 约定
 

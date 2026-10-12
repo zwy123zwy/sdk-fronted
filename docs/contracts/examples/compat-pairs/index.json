@@ -1,5 +1,5 @@
 {
-  "$comment": "T06（A01，2026-10-12，兼容追加）产出的兼容性规则样例对索引。每对 = 一份基线（旧）定义 + 一份新定义，两份都是合法的 K01 事件定义（符合 docs/contracts/schemas/event-definition.schema.json 0.2），并且只在本行描述的方面有差异。T10 按 pairs[].expected 断言判定结果。",
+  "$comment": "T06（A01，2026-10-12，兼容追加）产出的兼容性规则样例对索引。每对 = 一份基线（旧）定义 + 一份新定义，两份都是合法的 K01 事件定义（符合 docs/contracts/schemas/event-definition.schema.json 0.2），并且只在本行描述的方面有差异。T10 按 pairs[].expected 断言判定结果。口径约定（对全部行统一，非缺失）：`verdict_zh` 只放判定表判定列的**短判定**（兼容 / 破坏性 / 不递增版本，与 verdict_vocabulary 的三个键一一对应）；判定表单元格里除短判定之外的**附加要求**统一放在 `expected.additional_requirements`（例如第 13 行的「另需接入方安全负责人批准」、第 14 行的「需满足 Q3 判定标准与 K01-F3 配额检查」）。因此 `verdict_zh` 不应与判定表单元格全文做相等比较，应按短判定比较。",
   "index_version": 1,
   "contract_version": "0.2（未递增字典文档版本号；本目录是按兼容变更追加的新文件）",
   "source_contract": "docs/contracts/dictionary-compat.md 0.2 判定表（16 行）",
