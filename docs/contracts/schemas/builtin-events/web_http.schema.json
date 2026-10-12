@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:web-report-sdk:contracts:builtin-event:web_http:0.2",
+  "title": "内置事件 web_http（event_type: http）",
+  "description": "契约文档版本 0.2（2026-10-12 按兼容变更追加，不递增文档版本号）。校验对象是单个事件体，即 batch.schema.json $defs/event 那一层。dimensions、metrics 的键名与含义逐项对齐 event-standard.md 第 6 节的 web_http 行：method、url_template、status_class、failure_reason、status、duration_ms、request_bytes、response_bytes。Q3 结论第 4 条要求自动采集的 HTTP 事件固定 priority: normal。",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_name",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "priority",
+    "dimensions",
+    "metrics"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "#/$defs/uuid" },
+    "event_name": { "const": "web_http" },
+    "event_type": { "const": "http" },
+    "schema_version": {
+      "const": 1,
+      "description": "内置事件定义的版本。修改内置定义时递增，规则见 README.md 的版本与兼容规则"
+    },
+    "occurred_at": { "$ref": "#/$defs/timestamp" },
+    "priority": {
+      "const": "normal",
+      "description": "Q3 结论第 4 条：自动采集的错误、性能、页面浏览、HTTP 与 SDK 自监控事件一律为 normal"
+    },
+    "sample_rate": { "$ref": "#/$defs/sampleRate" },
+    "page_id": { "type": "string", "maxLength": 256, "description": "路由模板，如 /task/:id" },
+    "view_id": { "$ref": "#/$defs/uuid" },
+    "url": { "type": "string", "maxLength": 2048, "description": "脱敏后的完整 URL" },
+    "level": {
+      "enum": ["debug", "info", "warn", "error"],
+      "description": "event-standard.md 第 2 节：仅 event_type 为 log 时必填。本事件不使用本字段，保留它以与 batch.schema.json $defs/event 的字段集合保持一致"
+    },
+    "dimensions": {
+      "type": "object",
+      "description": "键名、含义见 event-standard.md 第 6 节 web_http 行：method、url_template、status_class、failure_reason。SDK 自己的上报请求不被采集（C05-AC-10）",
+      "required": ["method", "url_template"],
+      "additionalProperties": false,
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "properties": {
+        "method": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16,
+          "description": "HTTP 方法名（大写），如 GET、POST；事件只记方法名，不记请求体"
+        },
+        "url_template": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "脱敏后的 URL 模板，如 /api/task/:id；不得包含查询参数值（C05-AC-11）"
+        },
+        "status_class": {
+          "enum": ["1xx", "2xx", "3xx", "4xx", "5xx"],
+          "description": "HTTP 状态码分类；请求没有响应（超时、网络错误、被中止）时不上报"
+        },
+        "failure_reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "请求失败原因（超时、网络错误、被中止等）；成功请求不出现。取值由 C05 的 HTTP 插件定义，新增取值属于兼容变更"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "键名、含义见 event-standard.md 第 6 节 web_http 行：status、duration_ms、request_bytes、response_bytes",
+      "required": ["duration_ms"],
+      "additionalProperties": false,
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "properties": {
+        "status": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599,
+          "description": "HTTP 状态码；请求没有响应时不上报"
+        },
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "请求耗时（毫秒），从发出到响应结束；失败请求也上报已耗时"
+        },
+        "request_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "请求体字节数；无法测量（如流式请求体、跨域）时不上报"
+        },
+        "response_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "响应体字节数；无法测量（如 opaque 响应、CORS 限制）时不上报"
+        }
+      }
+    },
+    "context": { "$ref": "#/$defs/dimensions" },
+    "truncated": { "$ref": "#/$defs/truncated" },
+    "retry_count": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "replayed": { "type": "boolean", "description": "是否为离线补发" }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "timestamp": { "type": "integer", "minimum": 1577836800000, "maximum": 4102444800000 },
+    "fieldKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+    "sampleRate": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+    "dimensions": {
+      "type": "object",
+      "description": "全局自定义上下文（context），与事件自有 dimensions 分开存放；约束同 batch.schema.json $defs/dimensions",
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "additionalProperties": { "type": "string", "maxLength": 256 }
+    },
+    "truncated": {
+      "type": "array",
+      "description": "被截断的字段路径，如 dimensions.message、attachment（C04-F6）",
+      "items": { "type": "string", "maxLength": 128 },
+      "maxItems": 60,
+      "uniqueItems": true
+    }
+  }
+}

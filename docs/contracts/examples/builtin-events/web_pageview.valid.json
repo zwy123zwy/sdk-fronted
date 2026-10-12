@@ -1,0 +1,14 @@
+{
+  "event_id": "e0000004-0000-4000-8000-000000000001",
+  "event_name": "web_pageview",
+  "event_type": "pageview",
+  "schema_version": 1,
+  "occurred_at": 1793000000600,
+  "priority": "normal",
+  "sample_rate": 1,
+  "page_id": "/task/:id",
+  "view_id": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+  "url": "https://app.example.com/task/123",
+  "dimensions": { "referrer_page_id": "/list", "navigation_type": "navigate" },
+  "metrics": { "load_time_ms": 812 }
+}

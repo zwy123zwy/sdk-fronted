@@ -1,0 +1,13 @@
+{
+  "event_id": "e0000003-0000-4000-8000-000000000001",
+  "event_name": "web_long_task",
+  "event_type": "perf",
+  "schema_version": 1,
+  "occurred_at": 1793000001200,
+  "priority": "normal",
+  "sample_rate": 1,
+  "page_id": "/task/:id",
+  "view_id": "c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f",
+  "url": "https://app.example.com/task/123",
+  "metrics": { "duration_ms": 118.4, "start_time_ms": 5230.5 }
+}

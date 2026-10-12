@@ -1,0 +1,80 @@
+{
+  "$comment": "T06（A01，2026-10-12，兼容追加）产出的内置事件样例索引，供 T10 做双向校验、T18 实现时对照。index.json 自身不是样例：T10 只对 <event>.valid.json / <event>.invalid.json 做校验。",
+  "index_version": 1,
+  "contract_version": "0.2（未递增文档版本号；本目录是按兼容变更追加的新文件）",
+  "source_contract": [
+    "docs/contracts/event-standard.md 0.2 第 6 节（内置事件清单与字段表）",
+    "docs/contracts/reason-codes.md 0.2 第 4 节（sdk_health 字段）",
+    "docs/decisions/Q3-critical-events.md（内置自动采集事件固定 priority: normal）"
+  ],
+  "consumer": ["T10（双向 Schema 校验）", "T18（内置事件实现依据）"],
+  "sample_layer": "只含事件体，即 batch.schema.json $defs/event 那一层；不含批次公共头，也不使用 common 提升",
+  "events": [
+    {
+      "event_name": "web_js_error",
+      "event_type": "error",
+      "schema_version": 1,
+      "priority": "normal",
+      "schema": "../../schemas/builtin-events/web_js_error.schema.json",
+      "valid": "web_js_error.valid.json",
+      "invalid": "web_js_error.invalid.json",
+      "invalid_expectation": "dimensions 缺少必填键 fingerprint；event-standard.md 第 6 节 web_js_error 行的 dimensions 含 error_type、message、source、fingerprint"
+    },
+    {
+      "event_name": "web_vitals",
+      "event_type": "perf",
+      "schema_version": 1,
+      "priority": "normal",
+      "schema": "../../schemas/builtin-events/web_vitals.schema.json",
+      "valid": "web_vitals.valid.json",
+      "invalid": "web_vitals.invalid.json",
+      "invalid_expectation": "dimensions.metric_name 为 FID，不在 event-standard.md 第 6 节列出的 FCP、LCP、CLS、INP、TTFB 之内"
+    },
+    {
+      "event_name": "web_long_task",
+      "event_type": "perf",
+      "schema_version": 1,
+      "priority": "normal",
+      "schema": "../../schemas/builtin-events/web_long_task.schema.json",
+      "valid": "web_long_task.valid.json",
+      "invalid": "web_long_task.invalid.json",
+      "invalid_expectation": "出现表外维度键 dimensions.attribution；event-standard.md 第 6 节 web_long_task 行只列出 metrics：duration_ms、start_time_ms"
+    },
+    {
+      "event_name": "web_pageview",
+      "event_type": "pageview",
+      "schema_version": 1,
+      "priority": "normal",
+      "schema": "../../schemas/builtin-events/web_pageview.schema.json",
+      "valid": "web_pageview.valid.json",
+      "invalid": "web_pageview.invalid.json",
+      "invalid_expectation": "metrics.load_time_ms 为字符串 \"812\"，不是数值（event-standard.md 第 6 节该行为 metrics）"
+    },
+    {
+      "event_name": "web_http",
+      "event_type": "http",
+      "schema_version": 1,
+      "priority": "normal",
+      "schema": "../../schemas/builtin-events/web_http.schema.json",
+      "valid": "web_http.valid.json",
+      "invalid": "web_http.invalid.json",
+      "invalid_expectation": "priority 为 critical；Q3 结论第 4 条要求自动采集的 HTTP 事件固定为 normal"
+    },
+    {
+      "event_name": "sdk_health",
+      "event_type": "sdk_internal",
+      "schema_version": 1,
+      "priority": "normal",
+      "schema": "../../schemas/builtin-events/sdk_health.schema.json",
+      "valid": "sdk_health.valid.json",
+      "invalid": "sdk_health.invalid.json",
+      "invalid_expectation": "metrics.calls_total 为 0；reason-codes.md 第 4 节要求值为 0 的计数不上报，因此计数的 minimum 为 1"
+    }
+  ],
+  "implementation_notes": [
+    "样例中的 UUID、域名、令牌位置全部是占位值，不含真实个人信息、令牌或域名。",
+    "web_long_task 样例的 start_time_ms 取 5230.5，按 PerformanceEntry.startTime（相对时间原点）理解；event-standard.md 未冻结该字段的时间基准，本 Schema 也不约束，见 T06 交付报告的问题清单。",
+    "sdk_health 样例的 dimensions.state 取 \"running\"；该字符串取值集合由 C02/T14 冻结，本 Schema 只约束为不超过 32 字符的字符串。",
+    "sdk_health 样例的 dimensions.config_version 取字符串 \"7\"；remote-config.schema.json 中 config_version 是整数，但 dimensions 的值必须是字符串（event-standard.md 第 5 节、batch.schema.json $defs/dimensions）。"
+  ]
+}

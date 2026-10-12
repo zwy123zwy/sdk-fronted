@@ -1,0 +1,81 @@
+{
+  "event_name": "task_submit_complete",
+  "schema_version": 2,
+  "event_type": "custom",
+  "description": "标注任务提交成功",
+  "owner": "team-annotation",
+  "trigger": "提交接口返回成功、界面显示提交成功提示时上报一次",
+  "priority": "normal",
+  "status": "active",
+  "fields": [
+    {
+      "name": "task_type",
+      "kind": "dimension",
+      "type": "enum",
+      "required": true,
+      "description": "任务类型",
+      "enum_values": ["label", "review", "qa"],
+      "sensitivity": "none"
+    },
+    {
+      "name": "result",
+      "kind": "dimension",
+      "type": "string",
+      "required": false,
+      "description": "审核结论",
+      "max_length": 64,
+      "sensitivity": "none"
+    },
+    {
+      "name": "duration_ms",
+      "kind": "metric",
+      "type": "integer",
+      "required": true,
+      "description": "从打开任务到提交的耗时",
+      "minimum": 0,
+      "maximum": 3600000,
+      "unit": "ms",
+      "sensitivity": "none"
+    },
+    {
+      "name": "item_count",
+      "kind": "metric",
+      "type": "integer",
+      "required": false,
+      "description": "本次提交的标注条数",
+      "minimum": 0,
+      "maximum": 100000,
+      "unit": "count",
+      "sensitivity": "none"
+    },
+    {
+      "name": "offset_ms",
+      "kind": "metric",
+      "type": "integer",
+      "required": false,
+      "description": "与预期时刻的偏差，允许为负",
+      "minimum": -1000,
+      "maximum": 1000,
+      "unit": "ms",
+      "sensitivity": "none"
+    },
+    {
+      "name": "is_retry",
+      "kind": "metric",
+      "type": "boolean",
+      "required": false,
+      "description": "是否为重试提交",
+      "unit": "none",
+      "sensitivity": "none"
+    },
+    {
+      "name": "result_code",
+      "kind": "dimension",
+      "type": "string",
+      "required": false,
+      "description": "审核结论代码",
+      "max_length": 16,
+      "sensitivity": "none"
+    }
+  ]
+}

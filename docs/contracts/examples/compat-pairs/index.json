@@ -1,0 +1,374 @@
+{
+  "$comment": "T06（A01，2026-10-12，兼容追加）产出的兼容性规则样例对索引。每对 = 一份基线（旧）定义 + 一份新定义，两份都是合法的 K01 事件定义（符合 docs/contracts/schemas/event-definition.schema.json 0.2），并且只在本行描述的方面有差异。T10 按 pairs[].expected 断言判定结果。",
+  "index_version": 1,
+  "contract_version": "0.2（未递增字典文档版本号；本目录是按兼容变更追加的新文件）",
+  "source_contract": "docs/contracts/dictionary-compat.md 0.2 判定表（16 行）",
+  "definition_schema": "../../schemas/event-definition.schema.json（0.2）",
+  "consumer": ["T10（双向 Schema 校验）", "T22（K01-AC-03、K01-AC-04、K01-AC-05）"],
+  "verdict_vocabulary": {
+    "compatible": "兼容：允许变更，但按 dictionary-compat.md 与 README.md 的版本规则仍必须递增 schema_version",
+    "breaking": "破坏性：必须递增 schema_version 并由接入方数据负责人在代码评审中批准；K01 默认返回非零退出码（K01-AC-05，--allow-breaking 可放行）",
+    "no_version_bump": "不递增版本：判定表第 16 行，只改 description、trigger、owner，不需要递增 schema_version"
+  },
+  "version_rule": "dictionary-compat.md：破坏性变更必须递增 schema_version；兼容变更也要递增 schema_version；只修改 description、trigger、owner 不递增版本。因此除第 16 行与补充样例 99 外，本目录所有 .new.json 的 schema_version 都是 2（旧版本为 1）。",
+  "fixture_notes": [
+    "每对样例各自是一份单事件定义，T10 需要按对比器要求组装成「基线 / 新版本」两份注册表快照（同名事件、版本分别为 1 与 2）。",
+    "第 14 行的样例用于兼容性判定：单事件注册表中 1 个 critical 占 100%，会触发 K01-F3 的 10% 配额失败；单独验证兼容性时可以只跑兼容性检查，跑完整 K01 时需要在夹具里补齐事件总数（如 10 个事件中 1 个 critical）。"
+  ],
+  "pairs": [
+    {
+      "id": "01-add-optional-field",
+      "table_row": 1,
+      "table_change": "新增可选字段",
+      "verdict": "compatible",
+      "verdict_zh": "兼容",
+      "old": "01-add-optional-field.old.json",
+      "new": "01-add-optional-field.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "zero",
+        "additional_requirements": []
+      },
+      "change_summary": "新增可选 dimension result_code"
+    },
+    {
+      "id": "02-add-required-field",
+      "table_row": 2,
+      "table_change": "新增必填字段",
+      "verdict": "breaking",
+      "verdict_zh": "破坏性",
+      "old": "02-add-required-field.old.json",
+      "new": "02-add-required-field.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "non_zero（除非 --allow-breaking）",
+        "additional_requirements": ["破坏性变更必须递增 schema_version，并由接入方数据负责人在代码评审中批准"]
+      },
+      "change_summary": "新增必填 dimension task_status"
+    },
+    {
+      "id": "03-delete-field",
+      "table_row": 3,
+      "table_change": "删除字段",
+      "verdict": "breaking",
+      "verdict_zh": "破坏性",
+      "old": "03-delete-field.old.json",
+      "new": "03-delete-field.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "non_zero（除非 --allow-breaking）",
+        "additional_requirements": ["破坏性变更必须递增 schema_version，并由接入方数据负责人在代码评审中批准"]
+      },
+      "change_summary": "删除可选 dimension result（删除可选字段同样是破坏性）"
+    },
+    {
+      "id": "04a-change-field-type",
+      "table_row": 4,
+      "table_change": "修改字段 type 或 kind",
+      "verdict": "breaking",
+      "verdict_zh": "破坏性",
+      "old": "04a-change-field-type.old.json",
+      "new": "04a-change-field-type.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "non_zero（除非 --allow-breaking）",
+        "additional_requirements": ["破坏性变更必须递增 schema_version，并由接入方数据负责人在代码评审中批准"]
+      },
+      "change_summary": "item_count 的 type 由 integer 改为 number"
+    },
+    {
+      "id": "04b-change-field-kind",
+      "table_row": 4,
+      "table_change": "修改字段 type 或 kind",
+      "verdict": "breaking",
+      "verdict_zh": "破坏性",
+      "old": "04b-change-field-kind.old.json",
+      "new": "04b-change-field-kind.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "non_zero（除非 --allow-breaking）",
+        "additional_requirements": ["破坏性变更必须递增 schema_version，并由接入方数据负责人在代码评审中批准"]
+      },
+      "change_summary": "is_retry 的 kind 由 metric 改为 dimension（boolean 在两种 kind 下都合法），同步移除 unit（metric 必填 unit，dimension 不适用）"
+    },
+    {
+      "id": "05-optional-to-required",
+      "table_row": 5,
+      "table_change": "可选改为必填",
+      "verdict": "breaking",
+      "verdict_zh": "破坏性",
+      "old": "05-optional-to-required.old.json",
+      "new": "05-optional-to-required.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "non_zero（除非 --allow-breaking）",
+        "additional_requirements": ["破坏性变更必须递增 schema_version，并由接入方数据负责人在代码评审中批准"]
+      },
+      "change_summary": "result.required 由 false 改为 true"
+    },
+    {
+      "id": "06-required-to-optional",
+      "table_row": 6,
+      "table_change": "必填改为可选",
+      "verdict": "compatible",
+      "verdict_zh": "兼容",
+      "old": "06-required-to-optional.old.json",
+      "new": "06-required-to-optional.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "zero",
+        "additional_requirements": []
+      },
+      "change_summary": "task_type.required 由 true 改为 false"
+    },
+    {
+      "id": "07-enum-add-value",
+      "table_row": 7,
+      "table_change": "enum_values 增加取值",
+      "verdict": "compatible",
+      "verdict_zh": "兼容",
+      "old": "07-enum-add-value.old.json",
+      "new": "07-enum-add-value.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "zero",
+        "additional_requirements": []
+      },
+      "change_summary": "task_type.enum_values 增加 spot_check"
+    },
+    {
+      "id": "08-enum-remove-value",
+      "table_row": 8,
+      "table_change": "enum_values 删除取值",
+      "verdict": "breaking",
+      "verdict_zh": "破坏性",
+      "old": "08-enum-remove-value.old.json",
+      "new": "08-enum-remove-value.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "non_zero（除非 --allow-breaking）",
+        "additional_requirements": ["破坏性变更必须递增 schema_version，并由接入方数据负责人在代码评审中批准"]
+      },
+      "change_summary": "task_type.enum_values 删除 qa"
+    },
+    {
+      "id": "09a-widen-max-length",
+      "table_row": 9,
+      "table_change": "放宽 max_length、minimum、maximum",
+      "verdict": "compatible",
+      "verdict_zh": "兼容",
+      "old": "09a-widen-max-length.old.json",
+      "new": "09a-widen-max-length.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "zero",
+        "additional_requirements": []
+      },
+      "change_summary": "result.max_length 由 64 放宽到 128"
+    },
+    {
+      "id": "09b-widen-minimum",
+      "table_row": 9,
+      "table_change": "放宽 max_length、minimum、maximum",
+      "verdict": "compatible",
+      "verdict_zh": "兼容",
+      "old": "09b-widen-minimum.old.json",
+      "new": "09b-widen-minimum.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "zero",
+        "additional_requirements": []
+      },
+      "change_summary": "offset_ms.minimum 由 -1000 放宽到 -2000"
+    },
+    {
+      "id": "09c-widen-maximum",
+      "table_row": 9,
+      "table_change": "放宽 max_length、minimum、maximum",
+      "verdict": "compatible",
+      "verdict_zh": "兼容",
+      "old": "09c-widen-maximum.old.json",
+      "new": "09c-widen-maximum.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "zero",
+        "additional_requirements": []
+      },
+      "change_summary": "offset_ms.maximum 由 1000 放宽到 2000"
+    },
+    {
+      "id": "10a-tighten-max-length",
+      "table_row": 10,
+      "table_change": "收紧 max_length、minimum、maximum",
+      "verdict": "breaking",
+      "verdict_zh": "破坏性",
+      "old": "10a-tighten-max-length.old.json",
+      "new": "10a-tighten-max-length.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "non_zero（除非 --allow-breaking）",
+        "additional_requirements": ["破坏性变更必须递增 schema_version，并由接入方数据负责人在代码评审中批准"]
+      },
+      "change_summary": "result.max_length 由 64 收紧到 32"
+    },
+    {
+      "id": "10b-tighten-minimum",
+      "table_row": 10,
+      "table_change": "收紧 max_length、minimum、maximum",
+      "verdict": "breaking",
+      "verdict_zh": "破坏性",
+      "old": "10b-tighten-minimum.old.json",
+      "new": "10b-tighten-minimum.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "non_zero（除非 --allow-breaking）",
+        "additional_requirements": ["破坏性变更必须递增 schema_version，并由接入方数据负责人在代码评审中批准"]
+      },
+      "change_summary": "offset_ms.minimum 由 -1000 收紧到 -500"
+    },
+    {
+      "id": "10c-tighten-maximum",
+      "table_row": 10,
+      "table_change": "收紧 max_length、minimum、maximum",
+      "verdict": "breaking",
+      "verdict_zh": "破坏性",
+      "old": "10c-tighten-maximum.old.json",
+      "new": "10c-tighten-maximum.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "non_zero（除非 --allow-breaking）",
+        "additional_requirements": ["破坏性变更必须递增 schema_version，并由接入方数据负责人在代码评审中批准"]
+      },
+      "change_summary": "offset_ms.maximum 由 1000 收紧到 500"
+    },
+    {
+      "id": "11-change-unit",
+      "table_row": 11,
+      "table_change": "修改 unit",
+      "verdict": "breaking",
+      "verdict_zh": "破坏性",
+      "old": "11-change-unit.old.json",
+      "new": "11-change-unit.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "non_zero（除非 --allow-breaking）",
+        "additional_requirements": ["破坏性变更必须递增 schema_version，并由接入方数据负责人在代码评审中批准"]
+      },
+      "change_summary": "item_count.unit 由 count 改为 none"
+    },
+    {
+      "id": "12-sensitivity-stricter",
+      "table_row": 12,
+      "table_change": "修改 sensitivity 为更严格的值（none → mask → hash → drop）",
+      "verdict": "compatible",
+      "verdict_zh": "兼容",
+      "old": "12-sensitivity-stricter.old.json",
+      "new": "12-sensitivity-stricter.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "zero",
+        "additional_requirements": []
+      },
+      "change_summary": "result.sensitivity 由 none 改为 mask（更严格）"
+    },
+    {
+      "id": "13-sensitivity-looser",
+      "table_row": 13,
+      "table_change": "修改 sensitivity 为更宽松的值",
+      "verdict": "breaking",
+      "verdict_zh": "破坏性",
+      "old": "13-sensitivity-looser.old.json",
+      "new": "13-sensitivity-looser.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "non_zero（除非 --allow-breaking）",
+        "additional_requirements": ["破坏性变更必须递增 schema_version，并由接入方数据负责人在代码评审中批准", "另需接入方安全负责人批准"]
+      },
+      "change_summary": "result.sensitivity 由 mask 改为 none（更宽松）"
+    },
+    {
+      "id": "14-priority-normal-to-critical",
+      "table_row": 14,
+      "table_change": "priority 由 normal 改为 critical",
+      "verdict": "compatible",
+      "verdict_zh": "兼容",
+      "old": "14-priority-normal-to-critical.old.json",
+      "new": "14-priority-normal-to-critical.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "zero",
+        "additional_requirements": ["必须满足 Q3 的判定标准", "K01-F3 critical 配额检查：critical 事件数不超过注册表事件总数的 10%"]
+      },
+      "change_summary": "priority 由 normal 改为 critical，并补 critical_reason（event-definition.schema.json 的 allOf 要求）"
+    },
+    {
+      "id": "15-priority-critical-to-normal",
+      "table_row": 15,
+      "table_change": "priority 由 critical 改为 normal",
+      "verdict": "compatible",
+      "verdict_zh": "兼容",
+      "old": "15-priority-critical-to-normal.old.json",
+      "new": "15-priority-critical-to-normal.new.json",
+      "expected": {
+        "schema_version_delta": 1,
+        "version_incremented": true,
+        "k01_exit_code": "zero",
+        "additional_requirements": []
+      },
+      "change_summary": "priority 由 critical 改为 normal，并去掉只对 critical 生效的 critical_reason"
+    },
+    {
+      "id": "16-metadata-only",
+      "table_row": 16,
+      "table_change": "只修改 description、trigger、owner",
+      "verdict": "no_version_bump",
+      "verdict_zh": "不递增版本",
+      "old": "16-metadata-only.old.json",
+      "new": "16-metadata-only.new.json",
+      "expected": {
+        "schema_version_delta": 0,
+        "version_incremented": false,
+        "k01_exit_code": "zero",
+        "additional_requirements": []
+      },
+      "change_summary": "只改 description、trigger、owner，schema_version 保持 1 不变"
+    }
+  ],
+  "supplementary": [
+    {
+      "id": "99-breaking-without-version-bump",
+      "relates_to": "dictionary-compat.md 正文：修改了字段而没有递增 schema_version 时，K01 返回非零退出码（K01-AC-04）",
+      "verdict": "no_version_bump",
+      "verdict_zh": "不递增版本（违规用法，K01 必须报错）",
+      "distinct_from_row_16": "第 16 行只改 description/trigger/owner，K01 返回 0；本样例在未递增版本的同时删除了字段，K01 必须返回非零退出码（K01-AC-04）。",
+      "old": "99-breaking-without-version-bump.old.json",
+      "new": "99-breaking-without-version-bump.new.json",
+      "expected": {
+        "schema_version_delta": 0,
+        "version_incremented": false,
+        "k01_exit_code": "non_zero",
+        "additional_requirements": ["K01 返回非零退出码（K01-AC-04）"]
+      },
+      "change_summary": "删除字段 result 但 schema_version 保持 1 不变；期望 K01 返回非零退出码并提示需要递增版本"
+    }
+  ]
+}

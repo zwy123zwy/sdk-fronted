@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:web-report-sdk:contracts:builtin-event:sdk_health:0.2",
+  "title": "内置事件 sdk_health（event_type: sdk_internal）",
+  "description": "契约文档版本 0.2（2026-10-12 按兼容变更追加，不递增文档版本号）。校验对象是单个事件体，即 batch.schema.json $defs/event 那一层。字段依据 event-standard.md 第 6 节 sdk_health 行与 reason-codes.md 第 4 节：metrics 为固定计数与耗时、第 1 节每个原因码一个 drop_<原因码>、第 2 节每个原因码一个 count_<原因码>，1% 会话另带三个 p99 耗时；dimensions 为 sdk_version、state、config_version。已写入 reason-codes.md 第 4 节的两条约束：（1）值为 0 的计数不上报，因此除耗时类指标外 minimum 为 1；（2）一个窗口内非零指标超过 50 个时拆成多条事件，因此 metrics 的 maxProperties 为 50（与 batch.schema.json 一致），拆出的每条带相同的 window_ms 与 dimensions。Q3 结论第 4 条要求 SDK 自监控事件固定 priority: normal。新增原因码（兼容变更）需要同步扩充本 Schema 的两个 patternProperties。",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_name",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "priority",
+    "dimensions",
+    "metrics"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "#/$defs/uuid" },
+    "event_name": { "const": "sdk_health" },
+    "event_type": { "const": "sdk_internal" },
+    "schema_version": {
+      "const": 1,
+      "description": "内置事件定义的版本。修改内置定义时递增，规则见 README.md 的版本与兼容规则"
+    },
+    "occurred_at": { "$ref": "#/$defs/timestamp" },
+    "priority": {
+      "const": "normal",
+      "description": "Q3 结论第 4 条：自动采集的错误、性能、页面浏览、HTTP 与 SDK 自监控事件一律为 normal"
+    },
+    "sample_rate": { "$ref": "#/$defs/sampleRate" },
+    "page_id": { "type": "string", "maxLength": 256, "description": "路由模板，如 /task/:id" },
+    "view_id": { "$ref": "#/$defs/uuid" },
+    "url": { "type": "string", "maxLength": 2048, "description": "脱敏后的完整 URL" },
+    "level": {
+      "enum": ["debug", "info", "warn", "error"],
+      "description": "event-standard.md 第 2 节：仅 event_type 为 log 时必填。本事件不使用本字段，保留它以与 batch.schema.json $defs/event 的字段集合保持一致"
+    },
+    "dimensions": {
+      "type": "object",
+      "description": "键名、含义见 reason-codes.md 第 4 节：sdk_version、state（生命周期状态）、config_version。拆成多条 sdk_health 时每条带相同的 dimensions",
+      "required": ["sdk_version", "state"],
+      "additionalProperties": false,
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "properties": {
+        "sdk_version": {
+          "$ref": "#/$defs/semver",
+          "description": "产生本窗口数据的 SDK 版本（semver），与批次头 sdk_version 同源"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "上报时的生命周期状态（C02-F1：已初始化、运行中、暂停、已销毁）。具体字符串取值由 C02/T14 冻结，本 Schema 不枚举"
+        },
+        "config_version": {
+          "type": "string",
+          "pattern": "^[0-9]{1,19}$",
+          "description": "当前生效的远程配置版本。remote-config.schema.json 中 config_version 是整数（>=1），但本字段位于 dimensions，按 event-standard.md 第 5 节与 batch.schema.json 的约束必须序列化为十进制字符串；没有生效配置时不上报"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "键名、含义见 reason-codes.md 第 4 节。固定项 + drop_<原因码> + count_<原因码> + 1% 会话的三个 p99；计数类指标值为 0 时不上报，所以 minimum 为 1",
+      "required": ["window_ms"],
+      "additionalProperties": false,
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "properties": {
+        "calls_total": { "type": "integer", "minimum": 1, "description": "窗口内公共方法调用次数" },
+        "events_enqueued": { "type": "integer", "minimum": 1, "description": "窗口内入队的事件数" },
+        "events_sent": { "type": "integer", "minimum": 1, "description": "窗口内发送成功的事件数" },
+        "batches_sent": { "type": "integer", "minimum": 1, "description": "窗口内发送成功的批次数" },
+        "batches_failed": { "type": "integer", "minimum": 1, "description": "窗口内发送失败的批次数" },
+        "offline_written": { "type": "integer", "minimum": 1, "description": "窗口内写入离线存储的批次数" },
+        "offline_replayed": { "type": "integer", "minimum": 1, "description": "窗口内离线补发的批次数" },
+        "queue_length_max": { "type": "integer", "minimum": 1, "description": "窗口内内存队列长度峰值；峰值为 0 时不上报" },
+        "window_ms": { "type": "integer", "minimum": 1, "description": "本窗口的长度（毫秒），常规为 60000；拆成多条时每条相同" },
+        "track_p99_ms": { "type": "number", "minimum": 0, "description": "1% 会话才上报（C08-AC-03）：track 阶段 P99 耗时" },
+        "pipeline_p99_ms": { "type": "number", "minimum": 0, "description": "1% 会话才上报（C08-AC-03）：处理管道 P99 耗时" },
+        "serialize_p99_ms": { "type": "number", "minimum": 0, "description": "1% 会话才上报（C08-AC-03）：序列化 P99 耗时" }
+      },
+      "patternProperties": {
+        "^drop_(invalid_args|invalid_event_name|invalid_field_key|non_finite_metric|event_too_large|command_queue_overflow|prestart_queue_overflow|plugin_dependency_missing|plugin_install_failed|sampled_out_session|sampled_out_rule|disabled_by_rule|killed|consent_denied|consent_buffer_cleared|filtered_by_plugin|queue_evicted|offline_evicted|offline_incompatible|retry_exhausted|rejected_400|rejected_401|rejected_403|rejected_413|destroyed)$": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "reason-codes.md 第 1 节原因码对应的丢弃计数；值为 0 时不上报"
+        },
+        "^count_(processor_error|truncated_dimension|truncated_dimension_keys|truncated_metric_keys|truncated_attachment|retry_429|retry_5xx|retry_network|split_413|circuit_open|replayed|storage_unavailable|config_fetch_failed|config_signature_invalid|config_version_stale|config_scope_mismatch|config_format_unsupported|config_parse_failed|config_cache_expired|config_signature_unavailable|config_consent_mode_rejected)$": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "reason-codes.md 第 2 节原因码对应的只计数指标；值为 0 时不上报"
+        }
+      }
+    },
+    "context": { "$ref": "#/$defs/dimensions" },
+    "truncated": { "$ref": "#/$defs/truncated" },
+    "retry_count": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "replayed": { "type": "boolean", "description": "是否为离线补发" }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "timestamp": { "type": "integer", "minimum": 1577836800000, "maximum": 4102444800000 },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
+    },
+    "fieldKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+    "sampleRate": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+    "dimensions": {
+      "type": "object",
+      "description": "全局自定义上下文（context），与事件自有 dimensions 分开存放；约束同 batch.schema.json $defs/dimensions",
+      "maxProperties": 50,
+      "propertyNames": { "$ref": "#/$defs/fieldKey" },
+      "additionalProperties": { "type": "string", "maxLength": 256 }
+    },
+    "truncated": {
+      "type": "array",
+      "description": "被截断的字段路径，如 dimensions.message、attachment（C04-F6）",
+      "items": { "type": "string", "maxLength": 128 },
+      "maxItems": 60,
+      "uniqueItems": true
+    }
+  }
+}
