@@ -6,3 +6,4 @@ temp/
 playwright-report/
 test-results/
 .DS_Store
+.pnpm-store
