@@ -1,0 +1,47 @@
+{
+  "event_name": "search_submit",
+  "schema_version": 1,
+  "event_type": "custom",
+  "description": "用户提交搜索",
+  "owner": "team-search",
+  "trigger": "搜索请求发出前上报一次",
+  "priority": "normal",
+  "status": "active",
+  "app_ids": [
+    "demo-app"
+  ],
+  "fields": [
+    {
+      "name": "search_scene",
+      "kind": "dimension",
+      "type": "enum",
+      "required": true,
+      "description": "字段 search_scene 的占位说明",
+      "sensitivity": "none",
+      "enum_values": [
+        "global",
+        "in_page",
+        "voice"
+      ]
+    },
+    {
+      "name": "query_ref",
+      "kind": "dimension",
+      "type": "string",
+      "required": false,
+      "description": "查询词占位标识，写入前由调用方脱敏",
+      "sensitivity": "mask",
+      "max_length": 64
+    },
+    {
+      "name": "result_count",
+      "kind": "metric",
+      "type": "integer",
+      "required": false,
+      "description": "指标 result_count 的占位说明",
+      "unit": "count",
+      "sensitivity": "none",
+      "minimum": 0
+    }
+  ]
+}

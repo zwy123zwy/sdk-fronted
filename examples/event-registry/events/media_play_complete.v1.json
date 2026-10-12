@@ -1,0 +1,51 @@
+{
+  "event_name": "media_play_complete",
+  "schema_version": 1,
+  "event_type": "custom",
+  "description": "媒体播放结束",
+  "owner": "team-media",
+  "trigger": "播放到片尾或用户主动结束播放时上报一次",
+  "priority": "normal",
+  "status": "active",
+  "app_ids": [
+    "demo-app"
+  ],
+  "fields": [
+    {
+      "name": "media_type",
+      "kind": "dimension",
+      "type": "enum",
+      "required": true,
+      "description": "字段 media_type 的占位说明",
+      "sensitivity": "none",
+      "enum_values": [
+        "video",
+        "audio",
+        "live"
+      ]
+    },
+    {
+      "name": "ended_by",
+      "kind": "dimension",
+      "type": "enum",
+      "required": true,
+      "description": "字段 ended_by 的占位说明",
+      "sensitivity": "none",
+      "enum_values": [
+        "user",
+        "natural",
+        "error"
+      ]
+    },
+    {
+      "name": "watched_ms",
+      "kind": "metric",
+      "type": "integer",
+      "required": true,
+      "description": "累计观看时长",
+      "unit": "ms",
+      "sensitivity": "none",
+      "minimum": 0
+    }
+  ]
+}

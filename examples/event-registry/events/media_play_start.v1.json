@@ -1,0 +1,46 @@
+{
+  "event_name": "media_play_start",
+  "schema_version": 1,
+  "event_type": "custom",
+  "description": "播放器进入播放状态",
+  "owner": "team-media",
+  "trigger": "首帧渲染完成、播放器状态变为播放中时上报一次",
+  "priority": "normal",
+  "status": "active",
+  "app_ids": [
+    "demo-app"
+  ],
+  "fields": [
+    {
+      "name": "media_type",
+      "kind": "dimension",
+      "type": "enum",
+      "required": true,
+      "description": "字段 media_type 的占位说明",
+      "sensitivity": "none",
+      "enum_values": [
+        "video",
+        "audio",
+        "live"
+      ]
+    },
+    {
+      "name": "can_autoplay",
+      "kind": "dimension",
+      "type": "boolean",
+      "required": false,
+      "description": "浏览器是否允许自动播放，SDK 序列化为字符串",
+      "sensitivity": "none"
+    },
+    {
+      "name": "startup_ms",
+      "kind": "metric",
+      "type": "integer",
+      "required": true,
+      "description": "从点击到首帧的耗时",
+      "unit": "ms",
+      "sensitivity": "none",
+      "minimum": 0
+    }
+  ]
+}

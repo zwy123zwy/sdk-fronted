@@ -1,0 +1,49 @@
+{
+  "event_name": "media_play_stall",
+  "schema_version": 1,
+  "event_type": "custom",
+  "description": "播放过程出现卡顿",
+  "owner": "team-media",
+  "trigger": "播放中缓冲开始事件触发时上报一次",
+  "priority": "normal",
+  "status": "active",
+  "app_ids": [
+    "demo-app"
+  ],
+  "fields": [
+    {
+      "name": "quality",
+      "kind": "dimension",
+      "type": "enum",
+      "required": true,
+      "description": "字段 quality 的占位说明",
+      "sensitivity": "none",
+      "enum_values": [
+        "360p",
+        "720p",
+        "1080p"
+      ]
+    },
+    {
+      "name": "stall_ms",
+      "kind": "metric",
+      "type": "integer",
+      "required": true,
+      "description": "本次卡顿时长",
+      "unit": "ms",
+      "sensitivity": "none",
+      "minimum": 0
+    },
+    {
+      "name": "buffer_ratio",
+      "kind": "metric",
+      "type": "number",
+      "required": false,
+      "description": "缓冲时长占播放时长比例",
+      "unit": "ratio",
+      "sensitivity": "none",
+      "minimum": 0,
+      "maximum": 1
+    }
+  ]
+}
