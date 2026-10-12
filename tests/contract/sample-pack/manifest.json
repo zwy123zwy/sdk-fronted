@@ -1,0 +1,262 @@
+{
+  "manifest_version": 1,
+  "contract_version": "0.2",
+  "generated_by": "T10（A09）契约测试，tests/contract/sample-pack",
+  "purpose": "接收方可复用的样例清单：把 docs/contracts/receiver-requirements.md 的每条「必须」映射到冻结契约样例与校验 Schema，供 M01 与外部接收方做协议自查。",
+  "how_to_use": [
+    "样例是 docs/contracts/examples/ 下的只读契约文件；本样例包只引用、不复制，避免出现两份会漂移的样例。",
+    "用 JSON Schema 2020-12 校验器按 samples[].schema 校验 samples[].path：expect=pass 的样例必须通过，expect=each_case_must_fail 的样例（cases 数组或单值）必须逐个失败。",
+    "本仓库用 ajv 8.20.0 + ajv-formats 3.0.1 复现全部结论：pnpm test:contract。",
+    "样例只含占位值（UUID、域名、令牌均为占位），不含真实个人信息、令牌或域名。"
+  ],
+  "validators": {
+    "draft": "https://json-schema.org/draft/2020-12/schema",
+    "ajv": "8.20.0",
+    "ajv_formats": "3.0.1",
+    "run": "pnpm test:contract"
+  },
+  "required_checks": [
+    {
+      "id": "RR-01",
+      "requirement": "实现 ingest-protocol.md 第 1–3 节的端点、请求格式、上限与响应码",
+      "level": "必须",
+      "check_kind": "data",
+      "samples": [
+        {
+          "path": "docs/contracts/examples/batch.valid.json",
+          "schema": "docs/contracts/schemas/batch.schema.json",
+          "expect": "pass",
+          "note": "常规通道批次请求体：协议版本、环境、SDK 信息、设备/会话/批次 ID、3 条事件"
+        },
+        {
+          "path": "docs/contracts/examples/batch-promoted.valid.json",
+          "schema": "docs/contracts/schemas/batch.schema.json",
+          "expect": "pass",
+          "note": "使用 common 提升的批次"
+        },
+        {
+          "path": "docs/contracts/examples/batch-beacon.valid.json",
+          "schema": "docs/contracts/schemas/batch.schema.json",
+          "expect": "pass",
+          "note": "信标通道批次：令牌在请求体 auth 字段"
+        },
+        {
+          "path": "docs/contracts/examples/batch.invalid.json",
+          "schema": "docs/contracts/schemas/batch.schema.json",
+          "expect": "each_case_must_fail",
+          "note": "5 个非法批次：缺 events、protocol_version 不支持、event_id/event_name/priority 非法、log 缺 level 且 sample_rate 为 0、维度键含大写且出现未定义顶层字段"
+        }
+      ],
+      "self_check": "按 ingest-protocol.md 第 1–3 节实现端点与响应码：用 batch.valid.json 原文 POST 期望 202；expect=each_case_must_fail 的每个 case 期望 400 且返回原因码；核对事件数上限（500）、单批大小上限（256 KB 压缩后/1 MB 解压后）。"
+    },
+    {
+      "id": "RR-02",
+      "requirement": "只在批次已持久化之后返回 202；任何失败都不得返回 2xx",
+      "level": "必须",
+      "check_kind": "behavior",
+      "samples": [],
+      "self_check": "行为要求，无可复用 JSON 样例：在持久化步骤注入失败（关闭存储、写入抛错、超时），确认响应为 5xx 而不是 2xx；恢复后用同一批次重发，入库事件数与源批次一致。对应 M01-AC-05。"
+    },
+    {
+      "id": "RR-03",
+      "requirement": "同时支持常规通道（令牌在 X-Write-Token 请求头）和信标通道（text/plain，令牌在请求体 auth 字段）；常规通道请求体中的 auth 必须忽略",
+      "level": "必须",
+      "check_kind": "data_and_behavior",
+      "samples": [
+        {
+          "path": "docs/contracts/examples/batch-beacon.valid.json",
+          "schema": "docs/contracts/schemas/batch.schema.json",
+          "expect": "pass",
+          "note": "信标通道请求体：Content-Type text/plain，auth.app_id + auth.write_token"
+        }
+      ],
+      "self_check": "把 batch-beacon.valid.json 作为 text/plain 信标请求体发送，令牌按 auth.write_token 比对；再用常规通道（X-Write-Token 请求头）发送同一份含 auth 字段的请求体，确认接收方忽略请求体里的 auth。auth 只允许出现在信标通道（batch.schema.json 中对 auth 的描述）。"
+    },
+    {
+      "id": "RR-04",
+      "requirement": "支持 Content-Encoding: gzip；流式解压，解压量达到 1 MB 立即中止并返回 413；压缩后超过 256 KB 直接返回 413；其他编码返回 400",
+      "level": "必须",
+      "check_kind": "data_and_behavior",
+      "samples": [
+        {
+          "path": "docs/contracts/examples/batch.valid.json",
+          "schema": "docs/contracts/schemas/batch.schema.json",
+          "expect": "pass",
+          "note": "把它 gzip 后作为 Content-Encoding: gzip 的请求体"
+        }
+      ],
+      "self_check": "压缩 batch.valid.json 后发送，确认正常入库；构造 gzip 炸弹确认解压量达到 1 MB 时立即中止并返回 413；构造压缩后超过 256 KB 的请求确认 413；用 br/deflate 等其他编码确认返回 400。对应 M01-AC-04。"
+    },
+    {
+      "id": "RR-05",
+      "requirement": "按 app_id + event_id 在至少 7 天窗口内去重",
+      "level": "必须",
+      "check_kind": "data_and_behavior",
+      "samples": [
+        {
+          "path": "docs/contracts/examples/batch.valid.json",
+          "schema": "docs/contracts/schemas/batch.schema.json",
+          "expect": "pass",
+          "note": "同一份批次（同 app_id + 相同 event_id）重复投递两次"
+        }
+      ],
+      "self_check": "把 batch.valid.json 连续发送两次（第二次可换 batch_id），确认两次都返回 202 而入库只增加一次；再用 batch-promoted.valid.json 验证提升还原后仍按 event_id 去重。对应 M01-AC-06。"
+    },
+    {
+      "id": "RR-06",
+      "requirement": "按 event-standard.md 的提升规则还原批次 common 字段；事件体中的值优先",
+      "level": "必须",
+      "check_kind": "data_and_behavior",
+      "samples": [
+        {
+          "path": "docs/contracts/examples/batch-promoted.valid.json",
+          "schema": "docs/contracts/schemas/batch.schema.json",
+          "expect": "pass",
+          "note": "common 里有 page_id/view_id/url/sample_rate；第 2 条事件自带 url，应按事件体取值"
+        }
+      ],
+      "self_check": "按 event-standard.md 第 3 节还原 batch-promoted.valid.json：还原后的每条事件与未提升版本完全一致，事件体中的同名字段（如第 2 条的 url）优先。对应 M01-AC-07。"
+    },
+    {
+      "id": "RR-08",
+      "requirement": "支持 CORS：允许 SDK 所在页面的来源、POST、Content-Type、Content-Encoding、X-App-Id、X-Write-Token、X-Request-Id；暴露 Retry-After、X-Server-Time",
+      "level": "必须",
+      "check_kind": "behavior",
+      "samples": [],
+      "self_check": "行为要求，无可复用 JSON 样例：发预检 OPTIONS，核对 Access-Control-Allow-Origin、Allow-Methods: POST、Allow-Headers（Content-Type、Content-Encoding、X-App-Id、X-Write-Token、X-Request-Id）与 Access-Control-Expose-Headers（Retry-After、X-Server-Time）。对应 M01-AC-08。"
+    },
+    {
+      "id": "RR-11",
+      "requirement": "只接受 HTTPS（TLS 1.2 及以上）",
+      "level": "必须",
+      "check_kind": "behavior",
+      "samples": [],
+      "self_check": "行为要求，无可复用 JSON 样例：对明文 HTTP 端点发起上报必须被拒绝（不监听或返回 403/301），并用 TLS 1.1 客户端连接确认握手失败。M01 只监听 127.0.0.1，本项由接收方自查。"
+    },
+    {
+      "id": "RR-12",
+      "requirement": "令牌只写不读，按应用签发，可吊销；吊销后返回 401",
+      "level": "必须",
+      "check_kind": "data_and_behavior",
+      "samples": [
+        {
+          "path": "docs/contracts/examples/batch-beacon.valid.json",
+          "schema": "docs/contracts/schemas/batch.schema.json",
+          "expect": "pass",
+          "note": "auth.write_token 位置（占位令牌 placeholder-write-token-0000，不是真实令牌）"
+        }
+      ],
+      "self_check": "用 batch-beacon.valid.json 的 auth 位置构造请求：正确占位令牌返回 202；错误令牌与吊销后的令牌返回 401；确认任何响应体或接口都不读回令牌。对应 M01-AC-02。"
+    },
+    {
+      "id": "RR-13",
+      "requirement": "访问日志与错误日志不记录令牌、信标请求体中的 auth 字段、完整 IP；auth 字段在持久化前删除；如需保存 IP，IPv4 去掉末段、IPv6 只保留前 48 位",
+      "level": "必须",
+      "check_kind": "data_and_behavior",
+      "samples": [
+        {
+          "path": "docs/contracts/examples/batch-beacon.valid.json",
+          "schema": "docs/contracts/schemas/batch.schema.json",
+          "expect": "pass",
+          "note": "auth 字段是必须在持久化前删除的字段"
+        }
+      ],
+      "self_check": "用 batch-beacon.valid.json 发送后检查访问日志、错误日志与入库记录：不出现 auth.write_token、不出现完整 IP；入库文档中不含 auth。若保存 IP，IPv4 去末段、IPv6 只保留前 48 位。对应 M01-AC-11。"
+    },
+    {
+      "id": "RR-23",
+      "requirement": "保留 sdk_health 事件，供 SDK 一侧计数与入库计数对账（Q6）",
+      "level": "必须",
+      "check_kind": "data_and_behavior",
+      "samples": [
+        {
+          "path": "docs/contracts/examples/builtin-events/sdk_health.valid.json",
+          "schema": "docs/contracts/schemas/builtin-events/sdk_health.schema.json",
+          "expect": "pass",
+          "note": "合法 sdk_health 事件体（字段见 reason-codes.md 第 4 节）"
+        },
+        {
+          "path": "docs/contracts/examples/builtin-events/sdk_health.invalid.json",
+          "schema": "docs/contracts/schemas/builtin-events/sdk_health.schema.json",
+          "expect": "each_case_must_fail",
+          "note": "metrics.calls_total 为 0：值为 0 的计数不上报"
+        },
+        {
+          "path": "docs/contracts/examples/builtin-events/sdk_health.state.invalid.json",
+          "schema": "docs/contracts/schemas/builtin-events/sdk_health.schema.json",
+          "expect": "each_case_must_fail",
+          "note": "dimensions.state 为 started，不在 initialized/running/paused/destroyed 之内"
+        }
+      ],
+      "self_check": "把 sdk_health.valid.json 包进批次上报，确认接收方与业务事件一样入库并计数，可与 SDK 侧计数对账；对非法样例确认按 reason-codes.md 第 4 节的字段约束拒绝或计数。"
+    }
+  ],
+  "optional_checks": [
+    {
+      "id": "RR-07",
+      "requirement": "429、503 返回 Retry-After；所有响应返回 X-Server-Time",
+      "level": "应该",
+      "check_kind": "behavior",
+      "samples": [],
+      "self_check": "行为要求：触发限流与 503，核对 Retry-After 与所有响应上的 X-Server-Time。"
+    },
+    {
+      "id": "RR-14",
+      "requirement": "校验来源域名白名单，不匹配时返回 403",
+      "level": "应该",
+      "check_kind": "behavior",
+      "samples": [],
+      "self_check": "行为要求：用不在白名单的 Origin 发请求，期望 403。"
+    },
+    {
+      "id": "RR-15",
+      "requirement": "对外接口限流，超限返回 429 而不是丢弃",
+      "level": "应该",
+      "check_kind": "behavior",
+      "samples": [],
+      "self_check": "行为要求：压到限流阈值以上，确认返回 429 且带 Retry-After，不静默丢弃。"
+    },
+    {
+      "id": "RR-21",
+      "requirement": "按 event-standard.md 校验公共字段；不合规的事件进入死信或单独计数，不静默丢弃",
+      "level": "应该",
+      "check_kind": "data_and_behavior",
+      "samples": [
+        {
+          "path": "docs/contracts/examples/batch.invalid.json",
+          "schema": "docs/contracts/schemas/batch.schema.json",
+          "expect": "each_case_must_fail",
+          "note": "可用于构造「公共字段不合规」的输入并确认进入死信或计数"
+        }
+      ],
+      "self_check": "用非法批次构造公共字段不合规的输入，确认事件进入死信或单独计数，且计数可查。"
+    },
+    {
+      "id": "RR-22",
+      "requirement": "可以使用 K01 导出的校验规则做运行期校验（dictionary-compat.md）",
+      "level": "可以",
+      "check_kind": "data_and_behavior",
+      "samples": [
+        {
+          "path": "docs/contracts/examples/event-definition.valid.json",
+          "schema": "docs/contracts/schemas/event-definition.schema.json",
+          "expect": "pass",
+          "note": "合法的事件定义（K01 元模型）"
+        },
+        {
+          "path": "docs/contracts/examples/event-definition.invalid.json",
+          "schema": "docs/contracts/schemas/event-definition.schema.json",
+          "expect": "each_case_must_fail",
+          "note": "4 个非法定义：保留前缀、critical 缺 critical_reason、enum 缺 enum_values 且 metric 缺 unit、dimension 用 number"
+        },
+        {
+          "path": "docs/contracts/examples/compat-pairs/01-add-optional-field.new.json",
+          "schema": "docs/contracts/schemas/event-definition.schema.json",
+          "expect": "pass",
+          "note": "兼容性样例对见 examples/compat-pairs/index.json"
+        }
+      ],
+      "self_check": "用 event-definition.schema.json 校验事件定义；运行期按 event_name + schema_version 查找定义，查不到时标记未登记后入库而不是丢弃。"
+    }
+  ]
+}
