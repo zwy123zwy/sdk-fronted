@@ -285,36 +285,25 @@ export interface Delivery {
 // @public
 export type DeliveryChannel = 'default' | 'page_leave';
 
-// @public (undocumented)
+// @public
 export interface DeliveryMetrics {
-    // (undocumented)
     readonly batchesFailed: number;
-    // (undocumented)
     readonly batchesSent: number;
-    // (undocumented)
     readonly circuitOpen: boolean;
-    // (undocumented)
     readonly eventsSent: number;
-    // (undocumented)
     readonly exposure: ExposureStats;
-    // (undocumented)
     readonly lastReplayReason: ReplayReason;
-    // (undocumented)
     readonly leader: {
         readonly mode: LeaderMode;
         readonly leader: boolean;
     };
-    // (undocumented)
     readonly leave: LeaveStats;
-    // (undocumented)
     readonly offlineEvicted: number;
-    // (undocumented)
     readonly offlineReplayed: number;
-    // (undocumented)
+    readonly offlineReplayedEvents: number;
     readonly offlineWritten: number;
-    // (undocumented)
+    readonly offlineWrittenEvents: number;
     readonly paused: boolean;
-    // (undocumented)
     readonly retry: {
         readonly attempts: number;
         readonly ratio: number;
@@ -401,7 +390,6 @@ export type EventPriority = 'normal' | 'critical';
 
 // @public
 export interface ExposureStats {
-    // (undocumented)
     readonly commitLatencyP50Ms: number | null;
     // (undocumented)
     readonly commitLatencyP95Ms: number | null;
@@ -500,15 +488,11 @@ export interface LeaveBudget {
     readonly maxMs: number;
 }
 
-// @public (undocumented)
+// @public
 export interface LeaveStats {
-    // (undocumented)
     readonly bytes: number;
-    // (undocumented)
     readonly requests: number;
-    // (undocumented)
     readonly sent: number;
-    // (undocumented)
     readonly skipped: number;
 }
 
@@ -704,7 +688,7 @@ export interface OfflineSpillPort {
     spill(event: QueueEvent, reason: 'queue_overflow'): boolean;
 }
 
-// @public (undocumented)
+// @public
 export interface OfflineStats {
     // (undocumented)
     readonly available: boolean;
@@ -718,11 +702,9 @@ export interface OfflineStats {
     readonly ready: boolean;
     // (undocumented)
     readonly storedBatches: number;
-    // (undocumented)
     readonly storedBytes: number;
     // (undocumented)
     readonly storedEvents: number;
-    // (undocumented)
     readonly writeFailures: number;
 }
 
@@ -1019,24 +1001,20 @@ export interface SenderOptions {
     readonly transport?: TransportPort | undefined;
 }
 
-// @public (undocumented)
+// @public
 export interface SenderStats {
-    // (undocumented)
     readonly attempts: number;
     // (undocumented)
     readonly circuitOpen: boolean;
     // (undocumented)
     readonly circuitOpens: number;
-    // (undocumented)
     readonly dropped: number;
     // (undocumented)
     readonly paused: boolean;
     // (undocumented)
     readonly probes: number;
-    // (undocumented)
     readonly retries: number;
     readonly retryRatio: number;
-    // (undocumented)
     readonly sent: number;
 }
 

@@ -92,11 +92,19 @@ export interface PrewriteHandle {
   readonly settled: Promise<PrewriteOutcome>;
 }
 
-/** 暴露窗口观测量（D004：未提交部分单独计量，不得与优雅路径混算）。 */
+/**
+ * 暴露窗口观测量（D004：未提交部分单独计量，不得与优雅路径混算）。
+ *
+ * **单位口径**：`commitLostEvents` / `pendingEvents` 是**事件数**（与 CR-001 的
+ * `exposure_window_events` 同源）；`pendingBatches` 是**批次数**；两个耗时字段是**毫秒**。
+ * 除 `commitLostEvents` / `commitLostWindowMs`（CR-001 的两个契约指标，
+ * 且 `events === 0` 时窗口必须为 `null`）外，其余都是内部观测量，没有契约指标名。
+ */
 export interface ExposureStats {
   readonly pendingBatches: number;
   readonly pendingEvents: number;
   readonly oldestPendingMs: number | null;
+  /** 提交耗时的中位数（毫秒）；只作数据，权威验证归 T20，不做绝对断言。 */
   readonly commitLatencyP50Ms: number | null;
   readonly commitLatencyP95Ms: number | null;
   /** 重启后对账出的「已发起预写但事务未提交」事件数（CR-001：`prewrite_commit_lost`）。 */
@@ -104,12 +112,22 @@ export interface ExposureStats {
   readonly commitLostWindowMs: number | null;
 }
 
+/**
+ * 离线存储的账目快照。
+ *
+ * **单位口径**：所有带 `Batches` / `Events` 后缀的字段单位见名；
+ * `storedBytes` 是**估算的 UTF-16 码元数**（不是精确字节）；
+ * `writeFailures` 是**提交事务失败次数**（既不是事件数也不是批次数）；
+ * `evictedBatches` 与原因码 `offline_evicted`（C08 记 `drop_offline_evicted`）同源，勿重复计。
+ */
 export interface OfflineStats {
   readonly storedBatches: number;
   readonly storedEvents: number;
+  /** 估算的 UTF-16 码元数。 */
   readonly storedBytes: number;
   readonly evictedBatches: number;
   readonly evictedEvents: number;
+  /** 提交事务失败次数（非事件数/批次数）。 */
   readonly writeFailures: number;
   readonly ready: boolean;
   readonly available: boolean;

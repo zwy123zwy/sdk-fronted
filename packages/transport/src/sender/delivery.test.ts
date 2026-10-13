@@ -264,6 +264,82 @@ describe('C07 装配层', () => {
     }
   });
 
+  test('契约单位：offline_written / offline_replayed 是批次数，事件数另用 *Events 字段', async () => {
+    // 这条用例在「事件数」旧语义下会失败：3 事件批次的 offlineWritten 会是 3 而不是 1。
+    const recorder = createRecordingBackend();
+    const transport = createFakeTransport();
+    const delivery = createDelivery({
+      appId: 'demo-app',
+      sessionId: 'session-a',
+      credentials: createFakeCredentials().port,
+      transport: transport.transport,
+      sleep: () => Promise.resolve(),
+      header: { header: () => TEST_HEADER },
+      offline: { backend: recorder.backend, limits: { commitIntervalMs: 5 } },
+    });
+    try {
+      const events = [
+        makeEvent({ priority: 'critical' }),
+        makeEvent({ priority: 'critical' }),
+        makeEvent({ priority: 'critical' }),
+      ];
+      const batch = makeBatch({ events });
+      // 常规通道全部失败 → 副本留下（3 事件仍在同一个批次里）
+      transport.setDefault(503);
+      delivery.submit.submit(batch, { channel: 'default', complete: () => undefined });
+      await delivery.offline.drain();
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 10);
+      });
+
+      const afterWrite = delivery.metrics();
+      // 契约 offline_written = **批次数**（契约原文「窗口内写入离线存储的批次数」）
+      expect(afterWrite.offlineWritten).toBe(1);
+      expect(afterWrite.offlineWrittenEvents).toBe(3);
+      // 发送失败，且补发路径不得虚增 batches_sent
+      expect(afterWrite.batchesSent).toBe(0);
+      expect(afterWrite.eventsSent).toBe(0);
+
+      // 补发同一个 3 事件批次
+      transport.setDefault(202);
+      const round = await delivery.replay('manual');
+      expect(round.batches).toBe(1);
+      expect(round.events).toBe(3);
+
+      const afterReplay = delivery.metrics();
+      // 契约 offline_replayed = **批次数**
+      expect(afterReplay.offlineReplayed).toBe(1);
+      expect(afterReplay.offlineReplayedEvents).toBe(3);
+      // 补发计入 offline_replayed，不重复计入 batches_sent（避免同一批次被两个指标各记一次）
+      expect(afterReplay.batchesSent).toBe(0);
+    } finally {
+      delivery.dispose();
+    }
+  });
+
+  test('契约单位：多批次分别计数（3 个单事件批次 → offlineWritten = 3）', async () => {
+    const recorder = createRecordingBackend();
+    const delivery = createDelivery({
+      appId: 'demo-app',
+      sessionId: 'session-a',
+      credentials: createFakeCredentials().port,
+      transport: { send: () => NEVER },
+      header: { header: () => TEST_HEADER },
+      offline: { backend: recorder.backend, limits: { commitBatchSize: 1, commitIntervalMs: 5 } },
+    });
+    try {
+      for (let index = 0; index < 3; index += 1) {
+        delivery.submit.submit(makeBatch(), { channel: 'default', complete: () => undefined });
+      }
+      await delivery.offline.drain();
+      const metrics = delivery.metrics();
+      expect(metrics.offlineWritten).toBe(3);
+      expect(metrics.offlineWrittenEvents).toBe(3);
+    } finally {
+      delivery.dispose();
+    }
+  });
+
   test('CR-001 exposureMetrics 只在事件数 ≥1 时上报，且值 ≥1', () => {
     const makeStub = (exposure: ExposureStats): OfflineStore => {
       const stats: OfflineStats = {
