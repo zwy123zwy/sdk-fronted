@@ -83,19 +83,48 @@ export function createDomPageEventsSource(target: DomPageEventsTarget): PageEven
 
 export type ReplayReason = 'startup' | 'online' | 'visible' | 'pageshow' | 'manual';
 
+/**
+ * 交付层的计数快照。
+ *
+ * **单位口径（逐字段与 `reason-codes.md` 第 4 节 / `sdk_health.schema.json` 对齐）**：
+ * - 名字与契约指标同名的字段（`eventsSent` / `batchesSent` / `batchesFailed` /
+ *   `offlineWritten` / `offlineReplayed`），单位与契约描述**逐字一致**；
+ * - `offlineWritten` / `offlineReplayed` 是**批次数**（契约明确写「批次数」）；
+ *   事件数放在名字里显式带 `Events` 的字段，避免同一个名字有两种含义；
+ * - 所有计数都是**自本交付层创建以来的累计值**，契约要求的是「窗口内」增量——
+ *   **窗口差分由 C08（T17）负责**；
+ * - 不带契约同名的字段是**内部观测量**，不得直接当作 `sdk_health` 指标上报。
+ */
 export interface DeliveryMetrics {
+  /** 契约 `events_sent`：发送成功的事件数（累计）。 */
   readonly eventsSent: number;
+  /** 契约 `batches_sent`：发送成功的**批次数**（累计）。413 拆分出的子批次不重复计入。 */
   readonly batchesSent: number;
+  /** 契约 `batches_failed`：未成功送达的**批次数**（累计，含重试用尽、终态拒绝与熔断期间未发送的批次）。 */
   readonly batchesFailed: number;
+  /** 契约 `offline_written`：写入离线存储的**批次数**（每个事务落盘成功 +1）。 */
   readonly offlineWritten: number;
+  /** 非契约指标：写入离线存储的**事件数**（供 T17/T32 参考，不得当作 `offline_written` 上报）。 */
+  readonly offlineWrittenEvents: number;
+  /** 契约 `offline_replayed`：离线补发的**批次数**（累计）。 */
   readonly offlineReplayed: number;
+  /** 非契约指标：离线补发的**事件数**（供 T17/T32 参考，不得当作 `offline_replayed` 上报）。 */
+  readonly offlineReplayedEvents: number;
+  /** 非契约指标：淘汰的**批次数**；与原因码 `offline_evicted`（`drop_offline_evicted`）同源，勿重复计。 */
   readonly offlineEvicted: number;
+  /** 暴露窗口观测量（CR-001 的两个契约指标见 `exposureMetrics()`）。 */
   readonly exposure: ExposureStats;
+  /** 离开通道的观测量（**单位是事件数**，见 `LeaveStats`）；无对应契约指标。 */
   readonly leave: LeaveStats;
+  /** 重试观测量：`attempts` 是**发送尝试次数**（含重试），`ratio = 重试次数 / 尝试次数`。无对应契约指标。 */
   readonly retry: { readonly attempts: number; readonly ratio: number };
+  /** 选主观测量（模式与是否当选）。无对应契约指标。 */
   readonly leader: { readonly mode: LeaderMode; readonly leader: boolean };
+  /** 熔断器当前状态；契约里的 `state` 维度是**生命周期状态**，与它无关。 */
   readonly circuitOpen: boolean;
+  /** 是否因 401/403 暂停。 */
   readonly paused: boolean;
+  /** 最近一次补发的触发来源（诊断用）。 */
   readonly lastReplayReason: ReplayReason;
 }
 
@@ -207,13 +236,19 @@ export function createDelivery(options: DeliveryOptions): Delivery {
   let eventsSent = 0;
   let batchesSent = 0;
   let batchesFailed = 0;
-  let offlineWritten = 0;
-  let offlineReplayed = 0;
+  // 契约口径：offline_written / offline_replayed 都是**批次数**；
+  // 事件数另用显式字段保存（避免同名两义）。
+  let offlineWrittenBatches = 0;
+  let offlineWrittenEvents = 0;
+  let offlineReplayedBatches = 0;
+  let offlineReplayedEvents = 0;
   let lastReplayReason: ReplayReason = 'manual';
 
   function trackHandle(handle: PrewriteHandle): void {
     void handle.settled.then((outcome) => {
-      if (outcome.status === 'durable') offlineWritten += handle.eventCount;
+      if (outcome.status !== 'durable') return;
+      offlineWrittenBatches += 1;
+      offlineWrittenEvents += handle.eventCount;
     });
   }
 
@@ -285,7 +320,8 @@ export function createDelivery(options: DeliveryOptions): Delivery {
     lastReplayReason = reason;
     try {
       const result = await replayController.run();
-      offlineReplayed += result.events;
+      offlineReplayedBatches += result.batches;
+      offlineReplayedEvents += result.events;
       return result;
     } catch {
       return { leader: false, mode: leader.mode(), batches: 0, events: 0, skipped: 0 };
@@ -316,7 +352,8 @@ export function createDelivery(options: DeliveryOptions): Delivery {
 
     async clearOffline(): Promise<void> {
       await offline.clear();
-      offlineWritten = 0;
+      offlineWrittenBatches = 0;
+      offlineWrittenEvents = 0;
     },
 
     metrics(): DeliveryMetrics {
@@ -326,8 +363,10 @@ export function createDelivery(options: DeliveryOptions): Delivery {
         eventsSent,
         batchesSent,
         batchesFailed,
-        offlineWritten,
-        offlineReplayed,
+        offlineWritten: offlineWrittenBatches,
+        offlineWrittenEvents,
+        offlineReplayed: offlineReplayedBatches,
+        offlineReplayedEvents,
         offlineEvicted: offlineStats.evictedBatches,
         exposure: offlineStats.exposure,
         leave: leave.stats(),

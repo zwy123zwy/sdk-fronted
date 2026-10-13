@@ -65,10 +65,22 @@ export interface SendResult {
   readonly reason?: string | undefined;
 }
 
+/**
+ * 发送器的计数快照。
+ *
+ * **单位口径**：`attempts` / `retries` 是**发送尝试次数**（`attempts` 含重试）；
+ * `sent` / `dropped` 是**批次数**；`retryRatio = retries / attempts`。
+ * 这些字段是内部观测量，**没有**对应的 `sdk_health` 契约指标名——
+ * 契约的 `batches_sent` / `batches_failed` 由装配层的 `DeliveryMetrics` 提供。
+ */
 export interface SenderStats {
+  /** 发送尝试次数（含重试）。 */
   readonly attempts: number;
+  /** 重试次数。 */
   readonly retries: number;
+  /** 成功送达的**批次数**。 */
   readonly sent: number;
+  /** 终态丢弃的**批次数**（4xx 拒绝 / 单条超限 / 重试用尽）。 */
   readonly dropped: number;
   /** 重试流量占比（重试次数 / 总尝试次数）；健康期目标 ≤5%。 */
   readonly retryRatio: number;

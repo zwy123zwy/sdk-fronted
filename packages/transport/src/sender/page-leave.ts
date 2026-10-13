@@ -28,10 +28,20 @@ export interface LeaveSendResult {
   readonly bytes: number;
 }
 
+/**
+ * 离开通道的观测量。
+ *
+ * **单位口径**：`sent` / `skipped` 是**事件数**；`requests` 是**信标/fetch 请求数**；
+ * `bytes` 是**累计写入的估算体积**（UTF-16 码元数）。全部是内部观测量，没有契约指标名。
+ */
 export interface LeaveStats {
+  /** 事件数。 */
   readonly sent: number;
+  /** 事件数。 */
   readonly skipped: number;
+  /** 累计估算体积（UTF-16 码元数）。 */
   readonly bytes: number;
+  /** 信标 / fetch keepalive 请求数。 */
   readonly requests: number;
 }
 
@@ -116,6 +126,7 @@ export function createLeaveSender(options: LeaveSenderOptions): LeaveSender {
   let sentTotal = 0;
   let skippedTotal = 0;
   let requestsTotal = 0;
+  let bytesTotal = 0;
 
   function exhausted(): boolean {
     return (
@@ -141,6 +152,7 @@ export function createLeaveSender(options: LeaveSenderOptions): LeaveSender {
         return { accepted: false, requests: 0, skippedEvents: batch.events.length, bytes: 0 };
       }
       if (burstStartedAt === 0) burstStartedAt = now();
+      const bytesBefore = usedBytes;
       const slices = sliceForBeacon(batch, BEACON_MAX_BYTES - 256);
       let accepted = false;
       let requests = 0;
@@ -197,11 +209,12 @@ export function createLeaveSender(options: LeaveSenderOptions): LeaveSender {
       sentTotal += usedEvents;
       skippedTotal += skipped;
       requestsTotal += requests;
+      bytesTotal += usedBytes - bytesBefore;
       return { accepted, requests, skippedEvents: skipped, bytes };
     },
 
     stats(): LeaveStats {
-      return { sent: sentTotal, skipped: skippedTotal, bytes: usedBytes, requests: requestsTotal };
+      return { sent: sentTotal, skipped: skippedTotal, bytes: bytesTotal, requests: requestsTotal };
     },
   };
 }
