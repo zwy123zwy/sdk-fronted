@@ -449,3 +449,116 @@ node packages/browser/scripts/measure-stub.mjs
 契约自证：`packages/core/src/api/schema-validation.test.ts` 用 Ajv 2020-12 把公共 API 实际
 产出的事件对着 `docs/contracts/schemas/batch.schema.json` 与
 `docs/contracts/schemas/builtin-events/web_js_error.schema.json` 校验。
+
+---
+
+# C03 配置合并、缓存、采样与 kill switch（T13 交接产物）
+
+面向 **T18 装配根**与 **C04–C07**。实现见 `packages/core/src/config/`、`packages/core/src/sampling/`；
+契约依据 `docs/contracts/remote-config.md` 0.2（含 CR-003）与 `docs/contracts/reason-codes.md`。
+
+## 21. 生效配置订阅接口
+
+```ts
+import { createConfigRuntime, CONFIG_CAPABILITY } from '@web-report-sdk/core';
+
+const runtime = createConfigRuntime({
+  kernel, appId, env,
+  configEndpoint,          // 不传则不拉取、直接用内建默认（AC-23）
+  sdkVersion,              // kill switch 的 sdk_versions 匹配依据
+  publicKeys,              // { key_id: JWK }；SDK 不内置公钥
+  consentMode,             // 初始化参数；远程只能收紧
+  runtimeOverrides,        // 只允许 transport / debug / 关闭插件
+  fetch, cache, clock, webcrypto, sessionRandom,   // 注入点（测试与装配）
+});
+
+runtime.start();                                  // 同步返回，异步拉取，不阻塞初始化
+runtime.current();                                // EffectiveConfig（不可变）
+runtime.subscribe((next, previous) => { /* ... */ });
+runtime.onPluginToggle((signal) => { /* reason: 'config' | 'sampled_out_session' | 'kill_switch' */ });
+runtime.isKilled();
+runtime.stop();
+
+kernel.getCapability(CONFIG_CAPABILITY) as ConfigRuntime | undefined;   // 'sdk.config'
+```
+
+下游直接消费（无需 import C03 内部模块）：
+
+- **C06**：`{ transport: () => runtime.current().transport }` 满足 `TransportConfigPort`（每次冲刷重新读取）；
+- **C08**：`runtime.current().config_version` 给 `createHealthDimensionsReader`（没有生效配置时为 `undefined`）；
+- **C04**：`runtime.current().privacy`（`consent_mode`/白名单/追加脱敏规则）；**C05**：`.plugins`；
+  **C07**：`.endpoints`。
+
+`ConfigRuntimeOptions` 是 C03 自有类型；**不修改 `ClientInitOptions`**（属 C01 破坏面），
+由 T18 装配根做 `ClientInitOptions → ConfigRuntimeOptions` 的映射。
+
+## 22. 内建默认值（C03 自有，契约未定义，属 SDK 内部实现）
+
+| 字段 | 内建默认（配置存在但字段缺失时） | 保守默认（`remote-config.md` 第 56 行，无可用配置时） |
+|---|---|---|
+| `sampling.session_rate` | `1` | `1` |
+| `sampling.allow_users` / `rules` | `[]` / `[]` | `[]` / `[]` |
+| `plugins` | `error`/`perf`/`route` 开，`http`/`apm_dual_write` 关 | **只 `error` 开**（critical 由 client 直报，不依赖插件），其余关 |
+| `transport` | **留空**（不复制 C06 默认值） | 留空 |
+| `privacy.consent_mode` | 初始化参数值（无则为 `essential_only`） | 同左（取值可为 `full`，仅来自初始化参数） |
+| `kill_switch` | `{ all: false, sdk_versions: [], plugins: [] }` | 同左 |
+| `endpoints` / `privacy` 各数组 | `{}` / `[]` | 同左 |
+
+- **与其它模块重叠的默认值以模块所有者为准**：`transport` 各字段的默认与钳制归 C06
+  （`packages/transport/README.md`：`20 / 32768 / 1000 / 5000 / 1`），C03 的内建 `transport` 为空，
+  **消费而不复制**，避免漂移。
+- 保守默认逐字符合 `remote-config.md` 第 56 行（只保留 critical 与 JS 错误采集、采样率 1、其他插件关闭、
+  `consent_mode` 取初始化参数、没有则为 `essential_only`）。
+- **冲突检查**：未发现与第 56 行或 T15/T16 的默认值冲突（如需变更请先报对接负责人，不自行取舍）。
+
+## 23. 签名校验与失败原因码
+
+- ES256（ECDSA P-256 + SHA-256）、IEEE P1363（r‖s 64 字节）、base64url；签名覆盖 `payload` 字符串的
+  UTF-8 字节；公钥只来自 `config_public_keys`（`{ key_id: JWK }`），SDK 不内置公钥。
+- **安全底线**：签名缺失/失败、`key_id` 未知、`alg ≠ ES256`、签名长度非法 → 一律拒绝；
+  JWK 含私钥成员 `d` 拒绝、额外成员忽略；运行环境无 WebCrypto → 只使用保守默认（**不得用缓存**）。
+- 多重失败**按固定顺序只计首个原因码**：发布物解析 → 发布物结构/格式 → WebCrypto 可用性 → 验签 →
+  正文解析 → 正文格式 → scope → 版本单调性 → 正文结构。
+- 原因码（`CONFIG_REASON_CODES`）：`config_fetch_failed`、`config_signature_invalid`、
+  `config_signature_unavailable`、`config_version_stale`、`config_scope_mismatch`、
+  `config_format_unsupported`、`config_parse_failed`、`config_schema_invalid`（CR-003）、
+  `config_cache_expired`、`config_consent_mode_rejected`。
+- **拒绝后的生效配置**：已有远程/缓存配置时保持不变，否则退回保守默认（`remote-config.md` 第 48 行、
+  AC-24）；唯一例外是 WebCrypto 不可用，契约明示「只使用保守默认」。
+
+## 24. 缓存与会话随机数
+
+- 配置缓存：只缓存**已验签通过**的正文；IndexedDB 主 + 内存回退；TTL 24 小时；**不使用 `localStorage`**。
+- 缓存是**可篡改输入**：安全负责人要求后续读取必须重新验签（本实现的 TTL/版本检查之外，重验签在 T31 复核范围）。
+- 会话随机数：`sessionStorage` 持久化（同意前只存内存；不可用时退回本实例内存），
+  `random < session_rate` 命中；白名单用户（原始 id 同步比较；哈希值经 `updateUserHash()` 预计算后同步比较）恒全量。
+
+## 25. 采样与 kill switch
+
+- 采样处理器注册在管线 `sample` 段；critical 事件置 `sample_rate = 1` 且不参与任何采样；
+  未命中会话计 `sampled_out_session`；规则 `rate: 0` 计 `disabled_by_rule`；规则未命中计 `sampled_out_rule`；
+  最终 `sample_rate = 会话采样率 × 规则采样率`（白名单视会话率为 1）。
+- 未命中会话经 `teardownForSampledOutSession(kernel, config)` 卸载采集插件
+  （`error`/`perf`/`route`/`http`/`apm_dual_write`）并返回启停信号；不可恢复（会话属性）。
+- kill switch：`all`/`sdk_versions` 命中 → `kernel.pause('killed')`（后续事件计 `killed`）+ 清空预启动队列
+  （逐条计 `killed`）+ 卸载全部插件 + 停止配置运行时；**不调用 `kernel.destroy()`**。插件级 kill 只卸载目标插件。
+- semver 子集严格按 `remote-config.md` 5.1（CR-003）；未列出语法由 `isSupportedSemverRange` 判定为**整份配置拒绝**
+  （`config_schema_invalid`），不得静默当作不命中。
+
+## 26. 非功能护栏（T20 负责权威验证）
+
+契约目标「采样判定单条 P99 ≤ 0.01 ms」按仓库既定政策**不进单元门禁**：
+`sampling/perf.test.ts`、`config/perf.test.ts` 只做同步路径的**中位数回归护栏**（实现落地后按实测回填余量），
+P99 / 吞吐的权威验证归 **T20** 的 `tests/bench/`。异步 `crypto.subtle.digest`（白名单哈希）不计入该护栏。
+
+## 27. C03 本地自检
+
+```bash
+pnpm exec vitest run --project unit packages/core/src/config packages/core/src/sampling
+pnpm exec tsc -p packages/core/tsconfig.json
+pnpm exec eslint packages/core/src/config packages/core/src/sampling packages/core/src/index.ts
+```
+
+契约自证：`packages/core/src/config/contract.test.ts` 直接 import
+`docs/contracts/schemas/remote-config.schema.json` 与真实样例，用 Ajv 2020-12 做正/负向对照、
+**运行时手写校验器 ↔ Ajv 同语料交叉验证**（D002 归一化例外显式化），并单列 CR-003 的 semver 超集用例。
