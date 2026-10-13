@@ -1,0 +1,1813 @@
+{
+  "scenario": "storage",
+  "description": "硬杀落盘窗口：预写到达各自存储定义的「落盘点」后，等 Δt 再 SIGKILL，重启读回离线副本",
+  "params": {
+    "storages": [
+      "local",
+      "idb",
+      "opfs"
+    ],
+    "controls": [
+      {
+        "storage": "idb-pending",
+        "deltas": [
+          500,
+          2500
+        ],
+        "note": "对照：IndexedDB 写入被推迟 60s，强杀时事务未完成"
+      },
+      {
+        "storage": "opfs-pending",
+        "deltas": [
+          500,
+          2500
+        ],
+        "note": "对照：OPFS 写入被推迟 60s，强杀时还没写"
+      },
+      {
+        "storage": "opfs-noclose",
+        "deltas": [
+          0,
+          250
+        ],
+        "note": "对照：OPFS 已 write+flush，但 close 被推迟"
+      },
+      {
+        "storage": "idb-strict",
+        "deltas": [
+          0,
+          250,
+          2500
+        ],
+        "note": "IndexedDB 事务带 durability:strict"
+      }
+    ],
+    "deltas": [
+      0,
+      100,
+      250,
+      500,
+      1000,
+      2500,
+      4000,
+      5000
+    ],
+    "trials": 2,
+    "perClass": 500,
+    "durableTimeoutMs": 400
+  },
+  "cells": [
+    {
+      "id": "local@0ms",
+      "storage": "local",
+      "deltaMs": 0,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=69810",
+      "expected": 1000,
+      "survived": 0,
+      "survivalRate": 0,
+      "lossRate": 1,
+      "finalLost": 1000,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        },
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "local",
+        "asyncStore": false,
+        "store": {
+          "mode": "local",
+          "durablePoint": "localStorage.setItem 返回（不代表落盘）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "local@100ms",
+      "storage": "local",
+      "deltaMs": 100,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=70035",
+      "expected": 1000,
+      "survived": 0,
+      "survivalRate": 0,
+      "lossRate": 1,
+      "finalLost": 1000,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        },
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "local",
+        "asyncStore": false,
+        "store": {
+          "mode": "local",
+          "durablePoint": "localStorage.setItem 返回（不代表落盘）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "local@250ms",
+      "storage": "local",
+      "deltaMs": 250,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=70267",
+      "expected": 1000,
+      "survived": 0,
+      "survivalRate": 0,
+      "lossRate": 1,
+      "finalLost": 1000,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        },
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "local",
+        "asyncStore": false,
+        "store": {
+          "mode": "local",
+          "durablePoint": "localStorage.setItem 返回（不代表落盘）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "local@500ms",
+      "storage": "local",
+      "deltaMs": 500,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=70502",
+      "expected": 1000,
+      "survived": 0,
+      "survivalRate": 0,
+      "lossRate": 1,
+      "finalLost": 1000,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        },
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "local",
+        "asyncStore": false,
+        "store": {
+          "mode": "local",
+          "durablePoint": "localStorage.setItem 返回（不代表落盘）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "local@1000ms",
+      "storage": "local",
+      "deltaMs": 1000,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=70747",
+      "expected": 1000,
+      "survived": 0,
+      "survivalRate": 0,
+      "lossRate": 1,
+      "finalLost": 1000,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        },
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "local",
+        "asyncStore": false,
+        "store": {
+          "mode": "local",
+          "durablePoint": "localStorage.setItem 返回（不代表落盘）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "local@2500ms",
+      "storage": "local",
+      "deltaMs": 2500,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=71136",
+      "expected": 1000,
+      "survived": 0,
+      "survivalRate": 0,
+      "lossRate": 1,
+      "finalLost": 1000,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        },
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "local",
+        "asyncStore": false,
+        "store": {
+          "mode": "local",
+          "durablePoint": "localStorage.setItem 返回（不代表落盘）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "local@4000ms",
+      "storage": "local",
+      "deltaMs": 4000,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=71452",
+      "expected": 1000,
+      "survived": 0,
+      "survivalRate": 0,
+      "lossRate": 1,
+      "finalLost": 1000,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        },
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "local",
+        "asyncStore": false,
+        "store": {
+          "mode": "local",
+          "durablePoint": "localStorage.setItem 返回（不代表落盘）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "local@5000ms",
+      "storage": "local",
+      "deltaMs": 5000,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=71827",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        },
+        {
+          "resolved": true,
+          "ms": 0,
+          "mode": "local",
+          "empty": true
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "local",
+        "asyncStore": false,
+        "store": {
+          "mode": "local",
+          "durablePoint": "localStorage.setItem 返回（不代表落盘）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    },
+    {
+      "id": "idb@0ms",
+      "storage": "idb",
+      "deltaMs": 0,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=72168",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 34.30000001192093,
+          "mode": "idb",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 37.599999994039536,
+          "mode": "idb",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "idb",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    },
+    {
+      "id": "idb@100ms",
+      "storage": "idb",
+      "deltaMs": 100,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=72406",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 28.30000001192093,
+          "mode": "idb",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 14.5,
+          "mode": "idb",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "idb",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    },
+    {
+      "id": "idb@250ms",
+      "storage": "idb",
+      "deltaMs": 250,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=72657",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 21,
+          "mode": "idb",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 38.30000001192093,
+          "mode": "idb",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "idb",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    },
+    {
+      "id": "idb@500ms",
+      "storage": "idb",
+      "deltaMs": 500,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=72878",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 20.900000005960464,
+          "mode": "idb",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 38,
+          "mode": "idb",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "idb",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    },
+    {
+      "id": "idb@1000ms",
+      "storage": "idb",
+      "deltaMs": 1000,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=73151",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 12.799999982118607,
+          "mode": "idb",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 13,
+          "mode": "idb",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "idb",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    },
+    {
+      "id": "idb@2500ms",
+      "storage": "idb",
+      "deltaMs": 2500,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=73447",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 66.09999999403954,
+          "mode": "idb",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 20.5,
+          "mode": "idb",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "idb",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    },
+    {
+      "id": "idb@4000ms",
+      "storage": "idb",
+      "deltaMs": 4000,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=73745",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 12.900000005960464,
+          "mode": "idb",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 13.600000023841858,
+          "mode": "idb",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "idb",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    },
+    {
+      "id": "idb@5000ms",
+      "storage": "idb",
+      "deltaMs": 5000,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=74123",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 30.80000001192093,
+          "mode": "idb",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 12.900000005960464,
+          "mode": "idb",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "idb",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    },
+    {
+      "id": "opfs@0ms",
+      "storage": "opfs",
+      "deltaMs": 0,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=74425",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 30.599999994039536,
+          "mode": "opfs",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 5.299999982118607,
+          "mode": "opfs",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "opfs",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs",
+          "perTab": true,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 58,
+        "received_events": 2900,
+        "stored_batches": 20,
+        "stored_events": 1000,
+        "duplicate_events": 1900
+      }
+    },
+    {
+      "id": "opfs@100ms",
+      "storage": "opfs",
+      "deltaMs": 100,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=74656",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 25.400000005960464,
+          "mode": "opfs",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 7.9000000059604645,
+          "mode": "opfs",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "opfs",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs",
+          "perTab": true,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 59,
+        "received_events": 2950,
+        "stored_batches": 20,
+        "stored_events": 1000,
+        "duplicate_events": 1950
+      }
+    },
+    {
+      "id": "opfs@250ms",
+      "storage": "opfs",
+      "deltaMs": 250,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=74888",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 35.79999998211861,
+          "mode": "opfs",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 5.399999976158142,
+          "mode": "opfs",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "opfs",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs",
+          "perTab": true,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 71,
+        "received_events": 3550,
+        "stored_batches": 20,
+        "stored_events": 1000,
+        "duplicate_events": 2550
+      }
+    },
+    {
+      "id": "opfs@500ms",
+      "storage": "opfs",
+      "deltaMs": 500,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=75110",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 26.400000005960464,
+          "mode": "opfs",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 6.5,
+          "mode": "opfs",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "opfs",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs",
+          "perTab": true,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 60,
+        "received_events": 3000,
+        "stored_batches": 20,
+        "stored_events": 1000,
+        "duplicate_events": 2000
+      }
+    },
+    {
+      "id": "opfs@1000ms",
+      "storage": "opfs",
+      "deltaMs": 1000,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=75374",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 32.5,
+          "mode": "opfs",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 3.800000011920929,
+          "mode": "opfs",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "opfs",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs",
+          "perTab": true,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 67,
+        "received_events": 3350,
+        "stored_batches": 20,
+        "stored_events": 1000,
+        "duplicate_events": 2350
+      }
+    },
+    {
+      "id": "opfs@2500ms",
+      "storage": "opfs",
+      "deltaMs": 2500,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=75630",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 30.30000001192093,
+          "mode": "opfs",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 7.5999999940395355,
+          "mode": "opfs",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "opfs",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs",
+          "perTab": true,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 60,
+        "received_events": 3000,
+        "stored_batches": 20,
+        "stored_events": 1000,
+        "duplicate_events": 2000
+      }
+    },
+    {
+      "id": "opfs@4000ms",
+      "storage": "opfs",
+      "deltaMs": 4000,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=75934",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 25.5,
+          "mode": "opfs",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 4.899999976158142,
+          "mode": "opfs",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "opfs",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs",
+          "perTab": true,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 68,
+        "received_events": 3400,
+        "stored_batches": 20,
+        "stored_events": 1000,
+        "duplicate_events": 2400
+      }
+    },
+    {
+      "id": "opfs@5000ms",
+      "storage": "opfs",
+      "deltaMs": 5000,
+      "control": false,
+      "controlNote": null,
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=76289",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 25.400000005960464,
+          "mode": "opfs",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 7.0999999940395355,
+          "mode": "opfs",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "opfs",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs",
+          "perTab": true,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 55,
+        "received_events": 2750,
+        "stored_batches": 20,
+        "stored_events": 1000,
+        "duplicate_events": 1750
+      }
+    },
+    {
+      "id": "idb-pending@500ms",
+      "storage": "idb-pending",
+      "deltaMs": 500,
+      "control": true,
+      "controlNote": "对照：IndexedDB 写入被推迟 60s，强杀时事务未完成",
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=76659",
+      "expected": 1000,
+      "survived": 0,
+      "survivalRate": 0,
+      "lossRate": 1,
+      "finalLost": 1000,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": false,
+          "ms": 402.2999999821186,
+          "mode": "idb-pending",
+          "records": 500,
+          "timeout": true
+        },
+        {
+          "resolved": false,
+          "ms": 401.90000000596046,
+          "mode": "idb-pending",
+          "records": 500,
+          "timeout": true
+        }
+      ],
+      "durableResolved": 0,
+      "storeInfo": {
+        "mode": "idb-pending",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb-pending",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": true,
+          "durablePoint": "（对照：写入推迟 60 s，观测时未完成）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "idb-pending@2500ms",
+      "storage": "idb-pending",
+      "deltaMs": 2500,
+      "control": true,
+      "controlNote": "对照：IndexedDB 写入被推迟 60s，强杀时事务未完成",
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=76946",
+      "expected": 1000,
+      "survived": 0,
+      "survivalRate": 0,
+      "lossRate": 1,
+      "finalLost": 1000,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": false,
+          "ms": 402.7999999821186,
+          "mode": "idb-pending",
+          "records": 500,
+          "timeout": true
+        },
+        {
+          "resolved": false,
+          "ms": 401.2000000178814,
+          "mode": "idb-pending",
+          "records": 500,
+          "timeout": true
+        }
+      ],
+      "durableResolved": 0,
+      "storeInfo": {
+        "mode": "idb-pending",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb-pending",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": true,
+          "durablePoint": "（对照：写入推迟 60 s，观测时未完成）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "opfs-pending@500ms",
+      "storage": "opfs-pending",
+      "deltaMs": 500,
+      "control": true,
+      "controlNote": "对照：OPFS 写入被推迟 60s，强杀时还没写",
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=77219",
+      "expected": 1000,
+      "survived": 0,
+      "survivalRate": 0,
+      "lossRate": 1,
+      "finalLost": 1000,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": false,
+          "ms": 403.90000000596046,
+          "mode": "opfs-pending",
+          "records": 500,
+          "timeout": true
+        },
+        {
+          "resolved": false,
+          "ms": 401.59999999403954,
+          "mode": "opfs-pending",
+          "records": 500,
+          "timeout": true
+        }
+      ],
+      "durableResolved": 0,
+      "storeInfo": {
+        "mode": "opfs-pending",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs-pending",
+          "perTab": true,
+          "writeOpts": {
+            "deferWriteMs": 60000
+          },
+          "supported": true,
+          "durablePoint": "（对照：写入被推迟 60 s，观测时未完成）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "opfs-pending@2500ms",
+      "storage": "opfs-pending",
+      "deltaMs": 2500,
+      "control": true,
+      "controlNote": "对照：OPFS 写入被推迟 60s，强杀时还没写",
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=77507",
+      "expected": 1000,
+      "survived": 0,
+      "survivalRate": 0,
+      "lossRate": 1,
+      "finalLost": 1000,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": false,
+          "ms": 402.39999997615814,
+          "mode": "opfs-pending",
+          "records": 500,
+          "timeout": true
+        },
+        {
+          "resolved": false,
+          "ms": 401.7000000178814,
+          "mode": "opfs-pending",
+          "records": 500,
+          "timeout": true
+        }
+      ],
+      "durableResolved": 0,
+      "storeInfo": {
+        "mode": "opfs-pending",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs-pending",
+          "perTab": true,
+          "writeOpts": {
+            "deferWriteMs": 60000
+          },
+          "supported": true,
+          "durablePoint": "（对照：写入被推迟 60 s，观测时未完成）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {}
+    },
+    {
+      "id": "opfs-noclose@0ms",
+      "storage": "opfs-noclose",
+      "deltaMs": 0,
+      "control": true,
+      "controlNote": "对照：OPFS 已 write+flush，但 close 被推迟",
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=77781",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": false,
+          "ms": 402.09999999403954,
+          "mode": "opfs-noclose",
+          "records": 500,
+          "timeout": true
+        },
+        {
+          "resolved": false,
+          "ms": 402.09999999403954,
+          "mode": "opfs-noclose",
+          "records": 500,
+          "timeout": true
+        }
+      ],
+      "durableResolved": 0,
+      "storeInfo": {
+        "mode": "opfs-noclose",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs-noclose",
+          "perTab": true,
+          "writeOpts": {
+            "deferCloseMs": 60000
+          },
+          "supported": true,
+          "durablePoint": "（对照：flush 已完成，close 被推迟）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 73,
+        "received_events": 3650,
+        "stored_batches": 20,
+        "stored_events": 1000,
+        "duplicate_events": 2650
+      }
+    },
+    {
+      "id": "opfs-noclose@250ms",
+      "storage": "opfs-noclose",
+      "deltaMs": 250,
+      "control": true,
+      "controlNote": "对照：OPFS 已 write+flush，但 close 被推迟",
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=78049",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": false,
+          "ms": 402.40000000596046,
+          "mode": "opfs-noclose",
+          "records": 500,
+          "timeout": true
+        },
+        {
+          "resolved": false,
+          "ms": 402.19999998807907,
+          "mode": "opfs-noclose",
+          "records": 500,
+          "timeout": true
+        }
+      ],
+      "durableResolved": 0,
+      "storeInfo": {
+        "mode": "opfs-noclose",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs-noclose",
+          "perTab": true,
+          "writeOpts": {
+            "deferCloseMs": 60000
+          },
+          "supported": true,
+          "durablePoint": "（对照：flush 已完成，close 被推迟）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 58,
+        "received_events": 2900,
+        "stored_batches": 20,
+        "stored_events": 1000,
+        "duplicate_events": 1900
+      }
+    },
+    {
+      "id": "idb-strict@0ms",
+      "storage": "idb-strict",
+      "deltaMs": 0,
+      "control": true,
+      "controlNote": "IndexedDB 事务带 durability:strict",
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=78274",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 51.099999994039536,
+          "mode": "idb-strict",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 14.800000011920929,
+          "mode": "idb-strict",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "idb-strict",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb-strict",
+          "durability": "strict",
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    },
+    {
+      "id": "idb-strict@250ms",
+      "storage": "idb-strict",
+      "deltaMs": 250,
+      "control": true,
+      "controlNote": "IndexedDB 事务带 durability:strict",
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=78520",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 15.700000017881393,
+          "mode": "idb-strict",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 16.400000005960464,
+          "mode": "idb-strict",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "idb-strict",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb-strict",
+          "durability": "strict",
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    },
+    {
+      "id": "idb-strict@2500ms",
+      "storage": "idb-strict",
+      "deltaMs": 2500,
+      "control": true,
+      "controlNote": "IndexedDB 事务带 durability:strict",
+      "trialsRun": 2,
+      "killMode": "SIGKILL via CDP SystemInfo pid=78809",
+      "expected": 1000,
+      "survived": 1000,
+      "survivalRate": 1,
+      "lossRate": 0,
+      "finalLost": 0,
+      "finalTotal": 1000,
+      "writeInfo": [
+        {
+          "resolved": true,
+          "ms": 40,
+          "mode": "idb-strict",
+          "records": 500
+        },
+        {
+          "resolved": true,
+          "ms": 14.099999994039536,
+          "mode": "idb-strict",
+          "records": 500
+        }
+      ],
+      "durableResolved": 2,
+      "storeInfo": {
+        "mode": "idb-strict",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb-strict",
+          "durability": "strict",
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "receiverCountersDelta": {
+        "received_batches": 20,
+        "received_events": 1000,
+        "stored_batches": 20,
+        "stored_events": 1000
+      }
+    }
+  ],
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "1223",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 chromium-1248，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "148.0.7778.96",
+  "durationMs": 299488,
+  "receiverCountersDelta": {
+    "received_batches": 869,
+    "received_events": 43450,
+    "stored_batches": 440,
+    "stored_events": 22000,
+    "duplicate_events": 21450
+  },
+  "protocolProblems": {}
+}

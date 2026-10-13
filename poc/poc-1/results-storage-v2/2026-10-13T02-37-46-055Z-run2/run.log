@@ -1,0 +1,537 @@
+M01 mock 接收端：http://127.0.0.1:65327（只监听 127.0.0.1）
+本地探针页：http://127.0.0.1:65326/probe.html
+
+===== 第 1/3 次独立运行：2026-10-13T02-24-32-546Z-run1 =====
+[chromium] chromium: driver=npx-cache-playwright-core-1.60.0 + chromium-1223 → /Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[chromium] 注意：优先候选不可用（repo-playwright-test: 期望 chromium-1248，该目录未安装），改用 npx-cache-playwright-core-1.60.0
+[chromium] 版本 148.0.7778.96；特性 {"sendBeacon":true,"fetchKeepalive":true,"webLocks":true,"broadcastChannel":true,"localStorage":true}
+[storage] local@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-pending@500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] idb-pending@2500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-pending@500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-pending@2500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-noclose@0ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs-noclose@250ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[chromium/storage] 用时 194.0s
+[storage-multitab] storage=local rounds=3 tabs=3 perClass=200
+  离线副本可见 600/1800（被覆盖 1200）；最终丢失 1200
+[storage-multitab] storage=idb rounds=3 tabs=3 perClass=200
+  离线副本可见 1800/1800（被覆盖 0）；最终丢失 0
+[storage-multitab] storage=opfs rounds=3 tabs=3 perClass=200
+  离线副本可见 1800/1800（被覆盖 0）；最终丢失 0
+[storage-multitab] storage=opfs-shared rounds=3 tabs=3 perClass=200
+  离线副本可见 800/1800（被覆盖 1000）；最终丢失 1000
+[chromium/storage-multitab] 用时 10.1s
+[storage-perf] storage=local bench=1000/100
+  批写 p50=0.1ms p95=0.4ms；单条落盘 p50=0ms；quota=10240MB
+[storage-perf] storage=idb bench=1000/100
+  批写 p50=3.9ms p95=9.2ms；单条落盘 p50=0.3ms；quota=10240MB
+[storage-perf] storage=idb-strict bench=1000/100
+  批写 p50=4ms p95=5ms；单条落盘 p50=0.4ms；quota=10240MB
+[storage-perf] storage=opfs bench=1000/100
+  批写 p50=3.7ms p95=43.3ms；单条落盘 p50=3ms；quota=10240MB
+[chromium/storage-perf] 用时 4.3s
+[firefox] firefox: driver=npx-cache-playwright-core-1.60.0 + firefox-1522 → /Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox
+[firefox] 注意：优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0
+[firefox] 版本 150.0.2；特性 {"sendBeacon":true,"fetchKeepalive":true,"webLocks":true,"broadcastChannel":true,"localStorage":true}
+[storage] local@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 500/1000（丢 500）
+[storage] idb@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-pending@500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] idb-pending@2500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-pending@500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-pending@2500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-noclose@0ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs-noclose@250ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[firefox/storage] 用时 301.5s
+[storage-multitab] storage=local rounds=3 tabs=3 perClass=200
+  离线副本可见 600/1800（被覆盖 1200）；最终丢失 1200
+[storage-multitab] storage=idb rounds=3 tabs=3 perClass=200
+  离线副本可见 1800/1800（被覆盖 0）；最终丢失 0
+[storage-multitab] storage=opfs rounds=3 tabs=3 perClass=200
+  离线副本可见 1800/1800（被覆盖 0）；最终丢失 0
+[storage-multitab] storage=opfs-shared rounds=3 tabs=3 perClass=200
+  离线副本可见 600/1800（被覆盖 1200）；最终丢失 1200
+[firefox/storage-multitab] 用时 14.8s
+[storage-perf] storage=local bench=1000/100
+  批写 p50=0ms p95=1ms；单条落盘 p50=0ms；quota=10240MB
+[storage-perf] storage=idb bench=1000/100
+  批写 p50=1ms p95=3ms；单条落盘 p50=0ms；quota=10240MB
+[storage-perf] storage=idb-strict bench=1000/100
+  批写 p50=2ms p95=2ms；单条落盘 p50=0ms；quota=10240MB
+[storage-perf] storage=opfs bench=1000/100
+  批写 p50=2ms p95=10ms；单条落盘 p50=2ms；quota=10240MB
+[firefox/storage-perf] 用时 8.5s
+[webkit] webkit: driver=npx-cache-playwright-core-1.60.0 + webkit-2287 → /Users/spirit-ai/Library/Caches/ms-playwright/webkit-2287/pw_run.sh
+[webkit] 注意：优先候选不可用（repo-playwright-test: 期望 webkit-2370，该目录未安装），改用 npx-cache-playwright-core-1.60.0
+[webkit] 版本 26.4；特性 {"sendBeacon":true,"fetchKeepalive":true,"webLocks":true,"broadcastChannel":true,"localStorage":true}
+[storage] local@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-pending@500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] idb-pending@2500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-pending@500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-pending@2500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-noclose@0ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs-noclose@250ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[webkit/storage] 用时 231.2s
+[storage-multitab] storage=local rounds=3 tabs=3 perClass=200
+  离线副本可见 600/1800（被覆盖 1200）；最终丢失 1200
+[storage-multitab] storage=idb rounds=3 tabs=3 perClass=200
+  离线副本可见 1800/1800（被覆盖 0）；最终丢失 0
+[storage-multitab] storage=opfs rounds=3 tabs=3 perClass=200
+  离线副本可见 1800/1800（被覆盖 0）；最终丢失 0
+[storage-multitab] storage=opfs-shared rounds=3 tabs=3 perClass=200
+  离线副本可见 600/1800（被覆盖 1200）；最终丢失 1200
+[webkit/storage-multitab] 用时 16.4s
+[storage-perf] storage=local bench=1000/100
+  批写 p50=0ms p95=0ms；单条落盘 p50=0ms；quota=19661MB
+[storage-perf] storage=idb bench=1000/100
+  批写 p50=3ms p95=7ms；单条落盘 p50=0ms；quota=19661MB
+[storage-perf] storage=idb-strict bench=1000/100
+  批写 p50=5ms p95=11ms；单条落盘 p50=1ms；quota=19661MB
+[storage-perf] storage=opfs bench=1000/100
+  批写 p50=2ms p95=10ms；单条落盘 p50=1ms；quota=19661MB
+[webkit/storage-perf] 用时 5.0s
+结果目录：/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/results-storage-v2/2026-10-13T02-24-32-546Z-run1
+
+===== 第 2/3 次独立运行：2026-10-13T02-37-46-055Z-run2 =====
+[chromium] chromium: driver=npx-cache-playwright-core-1.60.0 + chromium-1223 → /Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+[chromium] 注意：优先候选不可用（repo-playwright-test: 期望 chromium-1248，该目录未安装），改用 npx-cache-playwright-core-1.60.0
+[chromium] 版本 148.0.7778.96；特性 {"sendBeacon":true,"fetchKeepalive":true,"webLocks":true,"broadcastChannel":true,"localStorage":true}
+[storage] local@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-pending@500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] idb-pending@2500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-pending@500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-pending@2500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-noclose@0ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs-noclose@250ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[chromium/storage] 用时 193.6s
+[storage-multitab] storage=local rounds=3 tabs=3 perClass=200
+  离线副本可见 1000/1800（被覆盖 800）；最终丢失 800
+[storage-multitab] storage=idb rounds=3 tabs=3 perClass=200
+  离线副本可见 1800/1800（被覆盖 0）；最终丢失 0
+[storage-multitab] storage=opfs rounds=3 tabs=3 perClass=200
+  离线副本可见 1800/1800（被覆盖 0）；最终丢失 0
+[storage-multitab] storage=opfs-shared rounds=3 tabs=3 perClass=200
+  离线副本可见 600/1800（被覆盖 1200）；最终丢失 1200
+[chromium/storage-multitab] 用时 9.8s
+[storage-perf] storage=local bench=1000/100
+  批写 p50=0.1ms p95=0.4ms；单条落盘 p50=0ms；quota=10240MB
+[storage-perf] storage=idb bench=1000/100
+  批写 p50=4ms p95=9.1ms；单条落盘 p50=0.3ms；quota=10240MB
+[storage-perf] storage=idb-strict bench=1000/100
+  批写 p50=6.6ms p95=13.8ms；单条落盘 p50=0.5ms；quota=10240MB
+[storage-perf] storage=opfs bench=1000/100
+  批写 p50=3.3ms p95=41.1ms；单条落盘 p50=2.5ms；quota=10240MB
+[chromium/storage-perf] 用时 4.2s
+[firefox] firefox: driver=npx-cache-playwright-core-1.60.0 + firefox-1522 → /Users/spirit-ai/Library/Caches/ms-playwright/firefox-1522/firefox/Nightly.app/Contents/MacOS/firefox
+[firefox] 注意：优先候选不可用（repo-playwright-test: 期望 firefox-1555，该目录未安装），改用 npx-cache-playwright-core-1.60.0
+[firefox] 版本 150.0.2；特性 {"sendBeacon":true,"fetchKeepalive":true,"webLocks":true,"broadcastChannel":true,"localStorage":true}
+[storage] local@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] local@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-pending@500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] idb-pending@2500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-pending@500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-pending@2500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-noclose@0ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs-noclose@250ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[firefox/storage] 用时 372.9s
+[storage-multitab] storage=local rounds=3 tabs=3 perClass=200
+  离线副本可见 800/1800（被覆盖 1000）；最终丢失 1000
+[storage-multitab] storage=idb rounds=3 tabs=3 perClass=200
+  离线副本可见 1800/1800（被覆盖 0）；最终丢失 0
+[storage-multitab] storage=opfs rounds=3 tabs=3 perClass=200
+  离线副本可见 1800/1800（被覆盖 0）；最终丢失 0
+[storage-multitab] storage=opfs-shared rounds=3 tabs=3 perClass=200
+  离线副本可见 600/1800（被覆盖 1200）；最终丢失 1200
+[firefox/storage-multitab] 用时 17.3s
+[storage-perf] storage=local bench=1000/100
+  批写 p50=0ms p95=1ms；单条落盘 p50=0ms；quota=10240MB
+[storage-perf] storage=idb bench=1000/100
+  批写 p50=3ms p95=5ms；单条落盘 p50=1ms；quota=10240MB
+[storage-perf] storage=idb-strict bench=1000/100
+  批写 p50=2ms p95=3ms；单条落盘 p50=0ms；quota=10240MB
+[storage-perf] storage=opfs bench=1000/100
+  批写 p50=3ms p95=10ms；单条落盘 p50=3ms；quota=10240MB
+[firefox/storage-perf] 用时 9.8s
+[webkit] webkit: driver=npx-cache-playwright-core-1.60.0 + webkit-2287 → /Users/spirit-ai/Library/Caches/ms-playwright/webkit-2287/pw_run.sh
+[webkit] 注意：优先候选不可用（repo-playwright-test: 期望 webkit-2370，该目录未安装），改用 npx-cache-playwright-core-1.60.0
+[webkit] 版本 26.4；特性 {"sendBeacon":true,"fetchKeepalive":true,"webLocks":true,"broadcastChannel":true,"localStorage":true}
+[storage] local@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] local@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@100ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@1000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@4000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs@5000ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-pending@500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] idb-pending@2500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 1000）
+[storage] opfs-pending@500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 0）
+[storage] opfs-pending@2500ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 0/1000（丢 0）
+[storage] opfs-noclose@0ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] opfs-noclose@250ms trials=2 perClass=500
+  落盘点 0/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@0ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@250ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[storage] idb-strict@2500ms trials=2 perClass=500
+  落盘点 2/2 次成功；重启后存活 1000/1000（丢 0）
+[webkit/storage] 警告：接收端出现被拒批次 {"rejected_invalid_structure":1733}（测量口径可能被污染）
+[webkit/storage] 用时 252.8s
+[storage-multitab] storage=local rounds=3 tabs=3 perClass=200
+  离线副本可见 800/1800（被覆盖 1000）；最终丢失 1000
+[storage-multitab] storage=idb rounds=3 tabs=3 perClass=200
+  离线副本可见 1800/1800（被覆盖 0）；最终丢失 0
+[storage-multitab] storage=opfs rounds=3 tabs=3 perClass=200
+  离线副本可见 1800/1800（被覆盖 0）；最终丢失 0
+[storage-multitab] storage=opfs-shared rounds=3 tabs=3 perClass=200
+  离线副本可见 600/1800（被覆盖 1200）；最终丢失 1200
+[webkit/storage-multitab] 警告：接收端出现被拒批次 {"rejected_invalid_structure":840}（测量口径可能被污染）
+[webkit/storage-multitab] 用时 22.0s
+[storage-perf] storage=local bench=1000/100
+  批写 p50=0ms p95=1ms；单条落盘 p50=0ms；quota=19661MB
+[storage-perf] storage=idb bench=1000/100
+  批写 p50=3ms p95=10ms；单条落盘 p50=0ms；quota=19661MB
+[storage-perf] storage=idb-strict bench=1000/100
+  批写 p50=5ms p95=17ms；单条落盘 p50=1ms；quota=19661MB
+[storage-perf] storage=opfs bench=1000/100
+  批写 p50=3ms p95=11ms；单条落盘 p50=2ms；quota=19661MB
+[webkit/storage-perf] 用时 5.3s

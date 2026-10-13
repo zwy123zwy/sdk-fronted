@@ -59,6 +59,121 @@ function runDirsUnder(root) {
     .sort();
 }
 
+/** 追加轮：存储落盘窗口 / 跨标签页 / 写入耗时。 */
+function renderStorageSections(out, browsers, byBrowser, cellIds) {
+  const roundSuffix = (runDir) => {
+    const m = /-run(\d+)$/.exec(runDir);
+    return m ? `第 ${m[1]} 次` : '';
+  };
+  if (cellIds.storage) {
+    out.push('## 追加轮：硬杀落盘窗口（每个「存储 × Δt」格子 1000 条样本；同一命令重复 3 次独立运行）');
+    out.push('');
+    for (const b of browsers) {
+      const runs = storeRuns(b, 'storage');
+      if (runs.length === 0) continue;
+      // Δt 顺序
+      const deltas = [];
+      for (const r of runs) {
+        for (const c of r.data.cells) if (!deltas.includes(c.deltaMs)) deltas.push(c.deltaMs);
+      }
+      deltas.sort((a, b2) => a - b2);
+      out.push(`### ${b}`);
+      out.push('');
+      out.push('| 存储 | 类型 | ' + deltas.map((d) => `Δt=${d}ms`).join(' | ') + ' |');
+      out.push('|---|--|' + deltas.map(() => '--|').join(''));
+      const storages = [];
+      for (const r of runs) for (const c of r.data.cells) if (!storages.includes(c.storage)) storages.push(c.storage);
+      const order = ['local', 'idb', 'idb-strict', 'opfs', 'idb-pending', 'opfs-pending', 'opfs-noclose'];
+      storages.sort((a, b2) => {
+        const ia = order.indexOf(a);
+        const ib = order.indexOf(b2);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      });
+      for (const st of storages) {
+        const cells = runs.map((r) => r.data.cells.find((c) => c.storage === st));
+        if (cells.every((c) => !c)) continue;
+        const kind = cells.find((c) => c)?.control ? '对照' : '主';
+        const row = deltas.map((d) => {
+          const parts = [];
+          for (let i = 0; i < runs.length; i++) {
+            const c = cells[i] ? cells[i] && runs[i].data.cells.find((x) => x.storage === st && x.deltaMs === d) : null;
+            if (!c) continue;
+            parts.push(`${c.survived}/${c.expected}`);
+          }
+          return parts.length > 0 ? parts.join(' / ') : '—';
+        });
+        out.push(`| ${st} | ${kind} | ${row.join(' | ')} |`);
+      }
+      out.push('');
+      out.push('（每格三个数字 = 三次独立运行的存活条数/总数；`存活/1000` 表示落盘在强杀后仍可读回。主格 Δt 从「落盘点确认」之后开始计；对照格没有落盘点，从等待上限之后开始计。）');
+      out.push('');
+    }
+  }
+
+  if (cellIds['storage-multitab']) {
+    out.push('## 追加轮：跨标签页并发写');
+    out.push('');
+    out.push('| 存储 | ' + browsers.map((b) => `${b} 可见/应有（被覆盖）`).join(' | ') + ' |');
+    out.push('|---|' + browsers.map(() => '--|').join(''));
+    const storages = [];
+    for (const b of browsers) {
+      const runs = storeRuns(b, 'storage-multitab');
+      for (const r of runs) for (const c of r.data.cells) if (!storages.includes(c.storage)) storages.push(c.storage);
+    }
+    for (const st of storages) {
+      const cols = browsers.map((b) => {
+        const runs = storeRuns(b, 'storage-multitab');
+        if (runs.length === 0) return '未测量';
+        return runs
+          .map((r) => {
+            const c = r.data.cells.find((x) => x.storage === st);
+            return c ? `${c.visibleInStore}/${c.expected}（${c.overwritten}）` : '—';
+          })
+          .join(' / ');
+      });
+      out.push(`| ${st} | ${cols.join(' | ')} |`);
+    }
+    out.push('');
+  }
+
+  if (cellIds['storage-perf']) {
+    out.push('## 追加轮：写入耗时与配额');
+    out.push('');
+    out.push('| 存储 | ' + browsers.map((b) => `${b} 批写 p50/p95 ms`).join(' | ') + ' |');
+    out.push('|---|' + browsers.map(() => '--|').join(''));
+    const storages = [];
+    for (const b of browsers) {
+      const runs = storeRuns(b, 'storage-perf');
+      for (const r of runs) for (const c of r.data.cells) if (!storages.includes(c.storage)) storages.push(c.storage);
+    }
+    for (const st of storages) {
+      const cols = browsers.map((b) => {
+        const runs = storeRuns(b, 'storage-perf');
+        if (runs.length === 0) return '未测量';
+        return runs
+          .map((r) => {
+            const c = r.data.cells.find((x) => x.storage === st);
+            return c ? `${c.benchBatchMs.p50} / ${c.benchBatchMs.p95}` : '—';
+          })
+          .join(' / ');
+      });
+      out.push(`| ${st} | ${cols.join(' | ')} |`);
+    }
+    out.push('');
+  }
+}
+
+/** 收集某个浏览器、某个场景在各次 run 里的结果（按 runId 排序）。 */
+function storeRuns(browser, scenario) {
+  const globalRuns = globalThis.__POC_RUNS__ || [];
+  const out = [];
+  for (const r of globalRuns) {
+    const data = r.byBrowser[browser] && r.byBrowser[browser][scenario];
+    if (data && !data.error) out.push({ runDir: r.runDir, data });
+  }
+  return out;
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const roots = args.dirs.length > 0 ? args.dirs : [path.join(HERE, 'results')];
@@ -68,8 +183,10 @@ function main() {
   const byBrowser = {};
   let run = { startedAt: '', finishedAt: '', preset: '' };
   const usedRuns = [];
+  globalThis.__POC_RUNS__ = [];
   for (const dir of allRunDirs) {
     const loaded = load(dir);
+    globalThis.__POC_RUNS__.push({ runDir: dir, byBrowser: loaded.byBrowser });
     for (const [browser, scenarios] of Object.entries(loaded.byBrowser)) {
       byBrowser[browser] = scenarios;
     }
@@ -98,7 +215,7 @@ function main() {
   out.push('');
   out.push('| 场景 | 格子 | ' + browsers.map((b) => `${b} 样本量(n/c)`).join(' | ') + ' |');
   out.push('|---|--|' + browsers.map(() => '--|').join(''));
-  const scenarioNames = ['leave', 'kill', 'offline', 'multitab'];
+  const scenarioNames = ['leave', 'kill', 'offline', 'multitab', 'storage', 'storage-multitab', 'storage-perf'];
   const cellIds = {};
   for (const s of scenarioNames) {
     const ids = new Set();
@@ -109,7 +226,8 @@ function main() {
     }
     cellIds[s] = [...ids];
   }
-  for (const s of scenarioNames) {
+  const matrixScenarios = ['leave', 'kill', 'offline', 'multitab'];
+  for (const s of matrixScenarios) {
     for (const id of cellIds[s]) {
       const cells = browsers.map((b) => {
         const r = byBrowser[b] && byBrowser[b][s];
@@ -224,6 +342,12 @@ function main() {
   }
   out.push('');
   out.push('（重复补发率按两种口径给出：重复事件 / 入库事件（含 normal 与 critical）、重复事件 / 该场景的离线副本事件数（critical）。「当选主标签页数」= 全部轮次里首轮并发中 `recover_leader` 计数 > 0 的「标签页 × 轮次」数 / 总「标签页 × 轮次」数。）');
+  out.push('');
+
+  // 6. 存储落盘窗口（追加轮）
+  if (cellIds.storage || cellIds['storage-multitab'] || cellIds['storage-perf']) {
+    renderStorageSections(out, browsers, byBrowser, cellIds);
+  }
 
   console.log(out.join('\n'));
 }

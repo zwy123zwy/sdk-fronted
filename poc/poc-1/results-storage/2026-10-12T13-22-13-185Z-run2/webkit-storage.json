@@ -1,0 +1,98 @@
+{
+  "scenario": "storage",
+  "error": "browserType.launchPersistentContext: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - <launching> /Users/spirit-ai/Library/Caches/ms-playwright/webkit-2287/pw_run.sh --inspector-pipe --headless --user-data-dir=/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/results-storage/2026-10-12T13-22-13-185Z-run2/profiles/storage-opfs-250 about:blank\u001b[22m\n\u001b[2m  - <launched> pid=2511\u001b[22m\n\u001b[2m  - [pid=2511][err] 2026-10-12 21:31:21.727 Playwright[2517:9065834] could not create directory \"/Users/spirit-ai/Library/Caches/org.webkit.Playwright/WebKit/AlternativeServices\" for future sandbox extension, error Error Domain=NSCocoaErrorDomain Code=513 \"You don’t have permission to save the file “AlternativeServices” in the folder “WebKit”.\" UserInfo={NSFilePath=/Users/spirit-ai/Library/Caches/org.webkit.Playwright/WebKit/AlternativeServices, NSURL=file:///Users/spirit-ai/Library/Caches/org.webkit.Playwright/WebKit/AlternativeServices, NSUnderlyingError=0xc78deaf40 {Error Domain=NSPOSIXErrorDomain Code=1 \"Operation not permitted\"}}\u001b[22m\n\u001b[2m  - [pid=2511][err] 2026-10-12 21:31:21.727 Playwright[2517:9065834] could not create directory \"/Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/DeviceIdHashSalts\" for future sandbox extension, error Error Domain=NSCocoaErrorDomain Code=513 \"You don’t have permission to save the file “DeviceIdHashSalts” in the folder “WebsiteData”.\" UserInfo={NSFilePath=/Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/DeviceIdHashSalts, NSURL=file:///Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/DeviceIdHashSalts, NSUnderlyingError=0xc78deafa0 {Error Domain=NSPOSIXErrorDomain Code=1 \"Operation not permitted\"}}\u001b[22m\n\u001b[2m  - [pid=2511][err] 2026-10-12 21:31:21.727 Playwright[2517:9065834] could not create directory \"/Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/MediaKeysHashSalts\" for future sandbox extension, error Error Domain=NSCocoaErrorDomain Code=513 \"You don’t have permission to save the file “MediaKeysHashSalts” in the folder “WebsiteData”.\" UserInfo={NSFilePath=/Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/MediaKeysHashSalts, NSURL=file:///Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/MediaKeysHashSalts, NSUnderlyingError=0xc78deb210 {Error Domain=NSPOSIXErrorDomain Code=1 \"Operation not permitted\"}}\u001b[22m\n\u001b[2m  - [pid=2511][err] 2026-10-12 21:31:21.728 Playwright[2517:9065834] could not create directory \"/Users/spirit-ai/Library/Caches/org.webkit.Playwright/WebKit/HSTS\" for future sandbox extension, error Error Domain=NSCocoaErrorDomain Code=513 \"You don’t have permission to save the file “HSTS” in the folder “WebKit”.\" UserInfo={NSFilePath=/Users/spirit-ai/Library/Caches/org.webkit.Playwright/WebKit/HSTS, NSURL=file:///Users/spirit-ai/Library/Caches/org.webkit.Playwright/WebKit/HSTS, NSUnderlyingError=0xc78deb270 {Error Domain=NSPOSIXErrorDomain Code=1 \"Operation not permitted\"}}\u001b[22m\n\u001b[2m  - [pid=2511][err] 2026-10-12 21:31:21.728 Playwright[2517:9065834] could not create directory \"/Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/Default\" for future sandbox extension, error Error Domain=NSCocoaErrorDomain Code=513 \"You don’t have permission to save the file “Default” in the folder “WebsiteData”.\" UserInfo={NSFilePath=/Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/Default, NSURL=file:///Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/Default, NSUnderlyingError=0xc78deb2d0 {Error Domain=NSPOSIXErrorDomain Code=1 \"Operation not permitted\"}}\u001b[22m\n\u001b[2m  - [pid=2511][err] 2026-10-12 21:31:21.728 Playwright[2517:9065834] could not create directory \"/Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/SearchHistory\" for future sandbox extension, error Error Domain=NSCocoaErrorDomain Code=513 \"You don’t have permission to save the file “SearchHistory” in the folder “WebsiteData”.\" UserInfo={NSFilePath=/Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/SearchHistory, NSURL=file:///Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/SearchHistory, NSUnderlyingError=0xc78deb330 {Error Domain=NSPOSIXErrorDomain Code=1 \"Operation not permitted\"}}\u001b[22m\n\u001b[2m  - [pid=2511][err] 2026-10-12 21:31:21.728 Playwright[2517:9065834] could not create directory \"/Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/ResourceMonitorThrottler\" for future sandbox extension, error Error Domain=NSCocoaErrorDomain Code=513 \"You don’t have permission to save the file “ResourceMonitorThrottler” in the folder “WebsiteData”.\" UserInfo={NSFilePath=/Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/ResourceMonitorThrottler, NSURL=file:///Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/ResourceMonitorThrottler, NSUnderlyingError=0xc78deb390 {Error Domain=NSPOSIXErrorDomain Code=1 \"Operation not permitted\"}}\u001b[22m\n\u001b[2m  - [pid=2511][err] 2026-10-12 21:31:21.728 Playwright[2517:9065834] could not create directory \"/Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/EnhancedSecurity\" for future sandbox extension, error Error Domain=NSCocoaErrorDomain Code=513 \"You don’t have permission to save the file “EnhancedSecurity” in the folder “WebsiteData”.\" UserInfo={NSFilePath=/Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/EnhancedSecurity, NSURL=file:///Users/spirit-ai/Library/WebKit/org.webkit.Playwright/WebsiteData/EnhancedSecurity, NSUnderlyingError=0xc78deb3f0 {Error Domain=NSPOSIXErrorDomain Code=1 \"Operation not permitted\"}}\u001b[22m\n\n    at async launchProbeContext (/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/lib/harness.mjs:13:19)\n    at async scenarioStorageKill (/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/lib/scenarios-storage.mjs:95:23)\n    at async runOnce (/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/run.mjs:231:57)\n    at async main (/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/run.mjs:311:7)",
+  "params": {
+    "storages": [
+      "local",
+      "idb",
+      "opfs"
+    ],
+    "controls": [
+      {
+        "storage": "idb-pending",
+        "deltas": [
+          500,
+          2500
+        ],
+        "note": "对照：IndexedDB 写入被推迟 60s，强杀时事务未完成"
+      },
+      {
+        "storage": "opfs-pending",
+        "deltas": [
+          500,
+          2500
+        ],
+        "note": "对照：OPFS 写入被推迟 60s，强杀时还没写"
+      },
+      {
+        "storage": "opfs-noclose",
+        "deltas": [
+          0,
+          250
+        ],
+        "note": "对照：OPFS 已 write+flush，但 close 被推迟"
+      },
+      {
+        "storage": "idb-strict",
+        "deltas": [
+          0,
+          250,
+          2500
+        ],
+        "note": "IndexedDB 事务带 durability:strict"
+      }
+    ],
+    "deltas": [
+      0,
+      100,
+      250,
+      500,
+      1000,
+      2500,
+      4000,
+      5000
+    ],
+    "trials": 2,
+    "perClass": 500,
+    "durableTimeoutMs": 400,
+    "multitab": {
+      "storages": [
+        "local",
+        "idb",
+        "opfs",
+        "opfs-shared"
+      ],
+      "rounds": 3,
+      "tabs": 3,
+      "perClass": 200
+    },
+    "perf": {
+      "storages": [
+        "local",
+        "idb",
+        "idb-strict",
+        "opfs"
+      ],
+      "benchRecords": 1000,
+      "benchBatch": 100
+    }
+  },
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "2287",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/webkit-2287/pw_run.sh",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 webkit-2370，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "26.4",
+  "durationMs": 346678,
+  "receiverCountersDelta": {
+    "received_batches": 320,
+    "received_events": 16000,
+    "stored_batches": 320,
+    "stored_events": 16000
+  },
+  "protocolProblems": {}
+}

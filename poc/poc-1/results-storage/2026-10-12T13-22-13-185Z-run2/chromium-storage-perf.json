@@ -1,0 +1,324 @@
+{
+  "scenario": "storage-perf",
+  "description": "写入耗时（到各自落盘点的延迟）与配额估算",
+  "params": {
+    "storages": [
+      "local",
+      "idb",
+      "idb-strict",
+      "opfs"
+    ],
+    "benchRecords": 1000,
+    "benchBatch": 100
+  },
+  "cells": [
+    {
+      "id": "local",
+      "storage": "local",
+      "storeInfo": {
+        "mode": "local",
+        "asyncStore": false,
+        "store": {
+          "mode": "local",
+          "durablePoint": "localStorage.setItem 返回（不代表落盘）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "estimate": {
+        "usage": 0,
+        "quota": 10737418240,
+        "usageDetails": {}
+      },
+      "estimateAfterBench": {
+        "usage": 0,
+        "quota": 10737418240,
+        "usageDetails": {}
+      },
+      "quotaProbe": {
+        "mode": "local",
+        "records": 60001,
+        "bytes": 61441024,
+        "error": null,
+        "hitCap": true
+      },
+      "quotaInjection": {
+        "mode": "local",
+        "attempted": 10,
+        "counted": 10,
+        "errorName": null
+      },
+      "benchBatchMs": {
+        "n": 10,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.2
+      },
+      "benchRawMs": [
+        0.2,
+        0,
+        0,
+        0.1,
+        0,
+        0.1,
+        0,
+        0,
+        0.1,
+        0.1
+      ],
+      "benchError": null,
+      "singleWriteMs": {
+        "n": 20,
+        "min": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      }
+    },
+    {
+      "id": "idb",
+      "storage": "idb",
+      "storeInfo": {
+        "mode": "idb",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "estimate": {
+        "usage": 1524,
+        "quota": 10737419764,
+        "usageDetails": {
+          "indexedDB": 1524
+        }
+      },
+      "estimateAfterBench": {
+        "usage": 563774,
+        "quota": 10737982014,
+        "usageDetails": {
+          "indexedDB": 563774
+        }
+      },
+      "quotaProbe": {
+        "mode": "idb",
+        "records": 0,
+        "bytes": 0,
+        "error": null,
+        "hitCap": false
+      },
+      "quotaInjection": {
+        "mode": "idb",
+        "attempted": 10,
+        "counted": 10,
+        "errorName": null
+      },
+      "benchBatchMs": {
+        "n": 10,
+        "min": 4,
+        "p50": 4.4,
+        "p95": 5.5,
+        "max": 5.5
+      },
+      "benchRawMs": [
+        5.5,
+        5.2,
+        4.5,
+        4.4,
+        4.1,
+        4.5,
+        4.3,
+        4.1,
+        4.2,
+        4
+      ],
+      "benchError": null,
+      "singleWriteMs": {
+        "n": 20,
+        "min": 0.2,
+        "p50": 0.3,
+        "p95": 0.5,
+        "max": 0.5
+      }
+    },
+    {
+      "id": "idb-strict",
+      "storage": "idb-strict",
+      "storeInfo": {
+        "mode": "idb-strict",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb-strict",
+          "durability": "strict",
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "estimate": {
+        "usage": 1538,
+        "quota": 10737419778,
+        "usageDetails": {
+          "indexedDB": 1538
+        }
+      },
+      "estimateAfterBench": {
+        "usage": 563788,
+        "quota": 10737982028,
+        "usageDetails": {
+          "indexedDB": 563788
+        }
+      },
+      "quotaProbe": {
+        "mode": "idb-strict",
+        "records": 0,
+        "bytes": 0,
+        "error": null,
+        "hitCap": false
+      },
+      "quotaInjection": {
+        "mode": "idb-strict",
+        "attempted": 10,
+        "counted": 10,
+        "errorName": null
+      },
+      "benchBatchMs": {
+        "n": 10,
+        "min": 3.8,
+        "p50": 4.1,
+        "p95": 5.6,
+        "max": 5.6
+      },
+      "benchRawMs": [
+        5.6,
+        4.1,
+        4.3,
+        4.4,
+        3.8,
+        3.9,
+        3.8,
+        4.2,
+        3.8,
+        3.8
+      ],
+      "benchError": null,
+      "singleWriteMs": {
+        "n": 20,
+        "min": 0.3,
+        "p50": 0.4,
+        "p95": 0.7,
+        "max": 0.7
+      }
+    },
+    {
+      "id": "opfs",
+      "storage": "opfs",
+      "storeInfo": {
+        "mode": "opfs",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs",
+          "perTab": true,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "estimate": {
+        "usage": 0,
+        "quota": 10737418240,
+        "usageDetails": {}
+      },
+      "estimateAfterBench": {
+        "usage": 68089,
+        "quota": 10737486329,
+        "usageDetails": {
+          "fileSystem": 68089
+        }
+      },
+      "quotaProbe": {
+        "mode": "opfs",
+        "records": 0,
+        "bytes": 0,
+        "error": null,
+        "hitCap": false
+      },
+      "quotaInjection": {
+        "mode": "opfs",
+        "attempted": 10,
+        "counted": 10,
+        "errorName": null
+      },
+      "benchBatchMs": {
+        "n": 10,
+        "min": 1.7,
+        "p50": 2.4,
+        "p95": 26.2,
+        "max": 26.2
+      },
+      "benchRawMs": [
+        26.2,
+        2,
+        1.7,
+        1.9,
+        2.2,
+        2.6,
+        2.4,
+        2.1,
+        2.4,
+        2.4
+      ],
+      "benchError": null,
+      "singleWriteMs": {
+        "n": 20,
+        "min": 2.8,
+        "p50": 3.2,
+        "p95": 19.5,
+        "max": 19.5
+      }
+    }
+  ],
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "1223",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 chromium-1248，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "148.0.7778.96",
+  "durationMs": 8977,
+  "receiverCountersDelta": {},
+  "protocolProblems": {}
+}

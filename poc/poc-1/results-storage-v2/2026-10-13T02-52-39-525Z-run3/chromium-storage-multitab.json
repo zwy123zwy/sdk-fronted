@@ -1,0 +1,501 @@
+{
+  "scenario": "storage-multitab",
+  "description": "跨标签页并发写离线副本：3 个标签页同时预写，统计被覆盖的条数与最终丢失",
+  "params": {
+    "storages": [
+      "local",
+      "idb",
+      "opfs",
+      "opfs-shared"
+    ],
+    "rounds": 3,
+    "tabs": 3,
+    "perClass": 200
+  },
+  "cells": [
+    {
+      "id": "local",
+      "storage": "local",
+      "roundsRun": 3,
+      "expected": 1800,
+      "visibleInStore": 600,
+      "overwritten": 1200,
+      "overwriteRate": 0.6666666666666666,
+      "finalLost": 1200,
+      "finalLossRate": 0.6666666666666666,
+      "storeInfo": {
+        "mode": "local",
+        "asyncStore": false,
+        "store": {
+          "mode": "local",
+          "durablePoint": "localStorage.setItem 返回（不代表落盘）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "expected": 600,
+          "visibleInStore": 200,
+          "overwritten": 400,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            },
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            },
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "expected": 600,
+          "visibleInStore": 200,
+          "overwritten": 400,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            },
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            },
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "expected": 600,
+          "visibleInStore": 200,
+          "overwritten": 400,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            },
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            },
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            }
+          ]
+        }
+      ],
+      "receiverCountersDelta": {
+        "received_batches": 12,
+        "received_events": 600,
+        "stored_batches": 12,
+        "stored_events": 600
+      }
+    },
+    {
+      "id": "idb",
+      "storage": "idb",
+      "roundsRun": 3,
+      "expected": 1800,
+      "visibleInStore": 1800,
+      "overwritten": 0,
+      "overwriteRate": 0,
+      "finalLost": 0,
+      "finalLossRate": 0,
+      "storeInfo": {
+        "mode": "idb",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "expected": 600,
+          "visibleInStore": 600,
+          "overwritten": 0,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 17.200000017881393,
+              "mode": "idb",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 42,
+              "mode": "idb",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 49.19999998807907,
+              "mode": "idb",
+              "records": 200
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "expected": 600,
+          "visibleInStore": 600,
+          "overwritten": 0,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 8.099999994039536,
+              "mode": "idb",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 13.5,
+              "mode": "idb",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 18.69999998807907,
+              "mode": "idb",
+              "records": 200
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "expected": 600,
+          "visibleInStore": 600,
+          "overwritten": 0,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 8.200000017881393,
+              "mode": "idb",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 19.099999994039536,
+              "mode": "idb",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 24.599999994039536,
+              "mode": "idb",
+              "records": 200
+            }
+          ]
+        }
+      ],
+      "receiverCountersDelta": {
+        "received_batches": 36,
+        "received_events": 1800,
+        "stored_batches": 36,
+        "stored_events": 1800
+      }
+    },
+    {
+      "id": "opfs",
+      "storage": "opfs",
+      "roundsRun": 3,
+      "expected": 1800,
+      "visibleInStore": 1800,
+      "overwritten": 0,
+      "overwriteRate": 0,
+      "finalLost": 0,
+      "finalLossRate": 0,
+      "storeInfo": {
+        "mode": "opfs",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs",
+          "perTab": true,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "expected": 600,
+          "visibleInStore": 600,
+          "overwritten": 0,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 39.30000001192093,
+              "mode": "opfs",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 39.69999998807907,
+              "mode": "opfs",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 27.30000001192093,
+              "mode": "opfs",
+              "records": 200
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "expected": 600,
+          "visibleInStore": 600,
+          "overwritten": 0,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 11.199999988079071,
+              "mode": "opfs",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 10.199999988079071,
+              "mode": "opfs",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 8.5,
+              "mode": "opfs",
+              "records": 200
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "expected": 600,
+          "visibleInStore": 600,
+          "overwritten": 0,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 7.0999999940395355,
+              "mode": "opfs",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 6.299999982118607,
+              "mode": "opfs",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 4.899999976158142,
+              "mode": "opfs",
+              "records": 200
+            }
+          ]
+        }
+      ],
+      "receiverCountersDelta": {
+        "received_batches": 84,
+        "received_events": 4200,
+        "stored_batches": 36,
+        "stored_events": 1800,
+        "duplicate_events": 2400
+      }
+    },
+    {
+      "id": "opfs-shared",
+      "storage": "opfs-shared",
+      "roundsRun": 3,
+      "expected": 1800,
+      "visibleInStore": 600,
+      "overwritten": 1200,
+      "overwriteRate": 0.6666666666666666,
+      "finalLost": 1200,
+      "finalLossRate": 0.6666666666666666,
+      "storeInfo": {
+        "mode": "opfs-shared",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs-shared",
+          "perTab": false,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "expected": 600,
+          "visibleInStore": 200,
+          "overwritten": 400,
+          "durables": [
+            {
+              "resolved": false,
+              "ms": 27.69999998807907,
+              "mode": "opfs-shared",
+              "records": 200,
+              "error": "Error: Failed to execute 'createSyncAccessHandle' on 'FileSystemFileHandle': Access Handles cannot be created if there is another open Access Handle or Writable stream associated with the same file."
+            },
+            {
+              "resolved": false,
+              "ms": 27,
+              "mode": "opfs-shared",
+              "records": 200,
+              "error": "Error: Failed to execute 'createSyncAccessHandle' on 'FileSystemFileHandle': Access Handles cannot be created if there is another open Access Handle or Writable stream associated with the same file."
+            },
+            {
+              "resolved": true,
+              "ms": 27.900000005960464,
+              "mode": "opfs-shared",
+              "records": 200
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "expected": 600,
+          "visibleInStore": 200,
+          "overwritten": 400,
+          "durables": [
+            {
+              "resolved": false,
+              "ms": 4.9000000059604645,
+              "mode": "opfs-shared",
+              "records": 200,
+              "error": "Error: Failed to execute 'createSyncAccessHandle' on 'FileSystemFileHandle': Access Handles cannot be created if there is another open Access Handle or Writable stream associated with the same file."
+            },
+            {
+              "resolved": false,
+              "ms": 4.699999988079071,
+              "mode": "opfs-shared",
+              "records": 200,
+              "error": "Error: Failed to execute 'createSyncAccessHandle' on 'FileSystemFileHandle': Access Handles cannot be created if there is another open Access Handle or Writable stream associated with the same file."
+            },
+            {
+              "resolved": true,
+              "ms": 5.4000000059604645,
+              "mode": "opfs-shared",
+              "records": 200
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "expected": 600,
+          "visibleInStore": 200,
+          "overwritten": 400,
+          "durables": [
+            {
+              "resolved": false,
+              "ms": 4.899999976158142,
+              "mode": "opfs-shared",
+              "records": 200,
+              "error": "Error: Failed to execute 'createSyncAccessHandle' on 'FileSystemFileHandle': Access Handles cannot be created if there is another open Access Handle or Writable stream associated with the same file."
+            },
+            {
+              "resolved": false,
+              "ms": 4.5,
+              "mode": "opfs-shared",
+              "records": 200,
+              "error": "Error: Failed to execute 'createSyncAccessHandle' on 'FileSystemFileHandle': Access Handles cannot be created if there is another open Access Handle or Writable stream associated with the same file."
+            },
+            {
+              "resolved": true,
+              "ms": 5.5999999940395355,
+              "mode": "opfs-shared",
+              "records": 200
+            }
+          ]
+        }
+      ],
+      "receiverCountersDelta": {
+        "received_batches": 30,
+        "received_events": 1500,
+        "stored_batches": 12,
+        "stored_events": 600,
+        "duplicate_events": 900
+      }
+    }
+  ],
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "1223",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 chromium-1248，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "148.0.7778.96",
+  "durationMs": 10799,
+  "receiverCountersDelta": {
+    "received_batches": 162,
+    "received_events": 8100,
+    "stored_batches": 96,
+    "stored_events": 4800,
+    "duplicate_events": 3300
+  },
+  "protocolProblems": {}
+}

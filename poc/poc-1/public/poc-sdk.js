@@ -29,7 +29,10 @@
     queue: [], // normal 事件（内存）
     bc: null,
     leaderLost: 0,
-    lastResults: []
+    lastResults: [],
+    store: null, // 追加轮：可切换的离线副本存储（null = 用下面的 localStorage 同步实现）
+    lastWrite: null,
+    writeLog: []
   };
 
   var DEFAULT_STATS = {
@@ -206,6 +209,27 @@
     return removed;
   }
 
+  /** 异步读回离线副本（归一成 {id: {t, n}}）。store 为空时等价于同步 localStorage 版本。 */
+  function readPendingAsync() {
+    if (!state.store) return Promise.resolve(readPending());
+    return state.store.all().then(function (list) {
+      var map = {};
+      list.forEach(function (r) { map[r.id] = { t: r.t, n: r.n }; });
+      return map;
+    }).catch(function () { return {}; });
+  }
+
+  /** 删除已确认的离线副本；返回真正删掉的条数。 */
+  function ackIdsAsync(ids) {
+    if (!state.store) return Promise.resolve(ackIds(ids));
+    return readPendingAsync().then(function (map) {
+      var n = 0;
+      for (var i = 0; i < ids.length; i++) if (Object.prototype.hasOwnProperty.call(map, ids[i])) n++;
+      if (n === 0) return 0;
+      return state.store.remove(ids).then(function () { return n; });
+    });
+  }
+
   function sendChunk(transport, evts, reason) {
     var body = buildBatchBody(evts, transport === 'beacon');
     var cls = evts[0].c;
@@ -231,16 +255,16 @@
       headers: headers,
       body: body
     }).then(function (res) {
-      var acked = 0;
-      if (res.status === 202) {
-        bumpStats({ batch_202: 1 });
-        if (cls === 'critical') acked = ackIds(evts.map(function (e) { return e.id; }));
+      var ackPromise = cls === 'critical' && res.status === 202
+        ? ackIdsAsync(evts.map(function (e) { return e.id; }))
+        : Promise.resolve(0);
+      if (res.status === 202) bumpStats({ batch_202: 1 });
+      else bumpStats({ batch_other: 1 });
+      return ackPromise.then(function (acked) {
         if (acked > 0) bumpStats({ acked_events: acked });
-      } else {
-        bumpStats({ batch_other: 1 });
-      }
-      tracePush({ k: 'flush', r: reason, t: transport, n: evts.length, c: cls, ok: res.status === 202, status: res.status, ack: acked });
-      return { ok: res.status === 202, status: res.status, acked: acked, transport: transport, reason: reason, cls: cls, n: evts.length };
+        tracePush({ k: 'flush', r: reason, t: transport, n: evts.length, c: cls, ok: res.status === 202, status: res.status, ack: acked });
+        return { ok: res.status === 202, status: res.status, acked: acked, transport: transport, reason: reason, cls: cls, n: evts.length };
+      });
     }).catch(function (err) {
       bumpStats({ batch_network_error: 1 });
       tracePush({ k: 'flush', r: reason, t: transport, n: evts.length, c: cls, ok: false, err: String(err && err.name) });
@@ -265,7 +289,7 @@
 
     var jobs = [];
     var normals = state.queue.slice();
-    var store = readPending();
+    var store = state.store ? {} : readPending();
     var criticals = includeCritical
       ? Object.keys(store).map(function (id) {
           return { id: id, c: 'critical', t: store[id].t, n: store[id].n };
@@ -292,22 +316,19 @@
   }
 
   function doRecover() {
-    var jobs = [];
-    var all = [];
-    var store = readPending();
-    var ids = Object.keys(store);
-    if (ids.length === 0) {
-      return Promise.resolve({ leader: true, events: 0, batches: 0 });
-    }
-    chunk(ids, MAX_BATCH_EVENTS).forEach(function (group) {
-      var evts = group.map(function (id) { return { id: id, c: 'critical', t: store[id].t, n: store[id].n }; });
-      all.push(evts);
-      jobs.push(sendChunk('fetch', evts, 'recover'));
-    });
-    return Promise.all(jobs).then(function (rs) {
-      var acked = rs.reduce(function (a, r) { return a + r.acked; }, 0);
-      bumpStats({ recovered_events: acked, recovered_batches: rs.length });
-      return { leader: true, events: acked, batches: rs.length };
+    return readPendingAsync().then(function (store) {
+      var ids = Object.keys(store);
+      if (ids.length === 0) return { leader: true, events: 0, batches: 0 };
+      var jobs = [];
+      chunk(ids, MAX_BATCH_EVENTS).forEach(function (group) {
+        var evts = group.map(function (id) { return { id: id, c: 'critical', t: store[id].t, n: store[id].n }; });
+        jobs.push(sendChunk('fetch', evts, 'recover'));
+      });
+      return Promise.all(jobs).then(function (rs) {
+        var acked = rs.reduce(function (a, r) { return a + r.acked; }, 0);
+        bumpStats({ recovered_events: acked, recovered_batches: rs.length });
+        return { leader: true, events: acked, batches: rs.length };
+      });
     });
   }
 
@@ -374,6 +395,25 @@
   function track(ids, cls, name) {
     var now = Date.now();
     if (cls === 'critical') {
+      if (state.store) {
+        // 追加轮：可切换存储。track 立即返回，写入的完成时刻（落盘点）由 awaitDurable 观测。
+        var records = ids.map(function (id) { return { id: id, t: now, n: name || 'poc_reliability_probe' }; });
+        var started = performance.now();
+        var p = state.store.put(records);
+        state.lastWrite = { promise: p, startedAt: started, records: records.length, mode: state.cfg.storage };
+        p.then(function () {
+          bumpStats({ prewrite_ok: records.length, enqueued_critical: records.length });
+        }, function (err) {
+          bumpStats({ prewrite_failed_quota: records.length, enqueued_critical: records.length });
+          tracePush({
+            k: 'prewrite',
+            ok: false,
+            mode: state.cfg.storage,
+            err: err ? String(err.name) + (err.message ? ': ' + err.message : '') : 'unknown'
+          });
+        });
+        return { added: records.length, dropped: 0, async: true, mode: state.cfg.storage };
+      }
       var store = readPending();
       var cap = state.cfg.pendingCap;
       var added = 0;
@@ -387,6 +427,9 @@
         added++;
       }
       try {
+        if (state.injectPrewriteFailure) {
+          throw new DOMException('injected quota exceeded', 'QuotaExceededError');
+        }
         writeJSON(K_PENDING, store);
         bumpStats({ prewrite_ok: added, enqueued_critical: ids.length, dropped_critical_cap: dropped });
       } catch (e) {
@@ -419,7 +462,8 @@
       pendingCap: cfg.pendingCap || 5000,
       normalCap: cfg.normalCap || 500,
       leaveTrigger: (cfg.leave && cfg.leave.trigger) || 'none',
-      leaveTransport: (cfg.leave && cfg.leave.transport) || 'beacon'
+      leaveTransport: (cfg.leave && cfg.leave.transport) || 'beacon',
+      storage: cfg.storage || 'local'
     };
     if (state.cfg.leader === 'bc' && typeof BroadcastChannel === 'function') {
       state.bc = new BroadcastChannel(BC_NAME);
@@ -445,7 +489,13 @@
       recover();
     }
     tracePush({ k: 'init', trigger: state.cfg.leaveTrigger, transport: state.cfg.leaveTransport, leader: state.cfg.leader });
-    return { tabId: TAB_ID, visibility: document.visibilityState };
+    var baseInfo = { tabId: TAB_ID, visibility: document.visibilityState, storage: state.cfg.storage };
+    if (state.cfg.storage === 'local') return baseInfo;
+    state.store = window.__pocStorage.create(state.cfg.storage, {});
+    return state.store.init().then(function () {
+      tracePush({ k: 'init-storage', mode: state.cfg.storage, info: state.store.info() });
+      return baseInfo;
+    });
   }
 
   function stats() {
@@ -492,12 +542,152 @@
     return aggregateMeta().trace;
   }
 
-  function trace() {
-    return readMeta().trace;
-  }
-
   function pendingIds() {
     return Object.keys(readPending());
+  }
+
+  /** 与 pendingIds 等价，但支持异步存储（store 模式下必须用它）。 */
+  function pendingIdsAsync() {
+    return readPendingAsync().then(function (map) { return Object.keys(map); });
+  }
+
+  /** 观测「落盘点」：resolve 的瞬间即该存储定义的落盘完成时刻。 */
+  function awaitDurable(timeoutMs) {
+    var w = state.lastWrite;
+    if (!w) return Promise.resolve({ resolved: true, ms: 0, mode: state.cfg ? state.cfg.storage : 'none', empty: true });
+    var limit = typeof timeoutMs === 'number' ? timeoutMs : 5000;
+    return Promise.race([
+      w.promise.then(function () {
+        return { resolved: true, ms: performance.now() - w.startedAt, mode: w.mode, records: w.records };
+      }, function (err) {
+        return {
+          resolved: false,
+          ms: performance.now() - w.startedAt,
+          mode: w.mode,
+          records: w.records,
+          error: err ? String(err.name) + (err.message ? ': ' + err.message : '') : 'unknown'
+        };
+      }),
+      new Promise(function (res) {
+        setTimeout(function () {
+          res({ resolved: false, ms: performance.now() - w.startedAt, mode: w.mode, records: w.records, timeout: true });
+        }, limit);
+      })
+    ]);
+  }
+
+  function storeInfo() {
+    return {
+      mode: state.cfg ? state.cfg.storage : 'local',
+      asyncStore: !!state.store,
+      store: state.store ? state.store.info() : { mode: 'local', durablePoint: 'localStorage.setItem 返回（不代表落盘）' },
+      capabilities: {
+        indexedDB: typeof indexedDB !== 'undefined',
+        storageEstimate: !!(navigator.storage && navigator.storage.estimate),
+        storageGetDirectory: !!(navigator.storage && navigator.storage.getDirectory),
+        worker: typeof Worker === 'function'
+      },
+      lastWrite: state.lastWrite ? { mode: state.lastWrite.mode, records: state.lastWrite.records } : null
+    };
+  }
+
+  function estimateStorage() {
+    if (!navigator.storage || !navigator.storage.estimate) return Promise.resolve(null);
+    return navigator.storage.estimate().then(function (e) {
+      return { usage: e.usage, quota: e.quota, usageDetails: e.usageDetails || null };
+    });
+  }
+
+  /** 写入耗时基准：按 batchSize 分批写 n 条，返回每批的毫秒数。 */
+  function storageBench(n, batchSize) {
+    var ms = [];
+    var batches = Math.ceil(n / batchSize);
+    var chain = Promise.resolve();
+    for (var b = 0; b < batches; b++) {
+      (function (b) {
+        chain = chain.then(function () {
+          var recs = [];
+          for (var i = 0; i < batchSize; i++) {
+            recs.push({ id: '00000000-0000-4000-8000-' + ('bench' + b + '-' + i), t: Date.now(), n: 'bench' });
+          }
+          var t0 = performance.now();
+          var write = state.store
+            ? state.store.put(recs)
+            : Promise.resolve().then(function () {
+                var map = {};
+                for (var k = 0; k < recs.length; k++) map[recs[k].id] = { t: recs[k].t, n: recs[k].n };
+                localStorage.setItem('wr.poc.bench', JSON.stringify(map));
+              });
+          return write.then(function () { ms.push(performance.now() - t0); });
+        });
+      })(b);
+    }
+    return chain.then(function () { return ms; });
+  }
+
+  /**
+   * 人工注入一次 QuotaExceededError，验证「写入被拒」的处理路径（不是真实配额耗尽）。
+   * 返回 {mode, attempted, counted, errorName}：counted = prewrite_failed_quota 的增量。
+   */
+  function quotaFailureInjection(n) {
+    var count = n || 10;
+    var ids = [];
+    for (var i = 0; i < count; i++) ids.push('00000000-0000-4000-8000-' + ('ffff' + i + '000000000000').slice(0, 12));
+    var before = statsOwn().prewrite_failed_quota || 0;
+    var restore = null;
+    if (state.store) {
+      var orig = state.store.put;
+      restore = function () { state.store.put = orig; };
+      state.store.put = function () {
+        return Promise.reject(new DOMException('injected quota exceeded', 'QuotaExceededError'));
+      };
+    } else {
+      // 用 SDK 内部标记注入，而不是覆盖 localStorage.setItem
+      // （WebKit 的 Storage 对象不可被覆盖，patch 会静默失效，测不到错误路径）
+      state.injectPrewriteFailure = true;
+      restore = function () { state.injectPrewriteFailure = false; };
+    }
+    var errorName = null;
+    try {
+      track(ids, 'critical');
+    } catch (e) {
+      errorName = String(e && e.name);
+    }
+    return new Promise(function (resolve) {
+      setTimeout(function () {
+        var after = statsOwn().prewrite_failed_quota || 0;
+        if (restore) restore();
+        resolve({ mode: state.cfg ? state.cfg.storage : 'local', attempted: count, counted: after - before, errorName: errorName });
+      }, 300);
+    });
+  }
+
+  /** localStorage 配额探针：真的把它写满，记录失败点（其它存储只回配额估算）。 */
+  function quotaProbe() {
+    var key = 'wr.poc.quota-probe';
+    var out = { mode: state.cfg ? state.cfg.storage : 'local', records: 0, bytes: 0, error: null, hitCap: false };
+    if (state.cfg && state.cfg.storage !== 'local') return Promise.resolve(out);
+    var pad = new Array(1025).join('x');
+    try {
+      localStorage.removeItem(key);
+      for (;;) {
+        localStorage.setItem(key, JSON.stringify({ i: out.records, pad: pad }));
+        out.records++;
+        if (out.records > 60000) {
+          out.hitCap = true;
+          break;
+        }
+      }
+    } catch (e) {
+      out.error = String((e && e.name) || e);
+    }
+    out.bytes = out.records * 1024;
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {
+      /* ignore */
+    }
+    return Promise.resolve(out);
   }
 
   function resetAll() {
@@ -524,6 +714,13 @@
     statsOwn: statsOwn,
     trace: trace,
     pendingIds: pendingIds,
+    pendingIdsAsync: pendingIdsAsync,
+    awaitDurable: awaitDurable,
+    storeInfo: storeInfo,
+    estimateStorage: estimateStorage,
+    storageBench: storageBench,
+    quotaProbe: quotaProbe,
+    quotaFailureInjection: quotaFailureInjection,
     resetAll: resetAll,
     version: 'poc1-1'
   };
