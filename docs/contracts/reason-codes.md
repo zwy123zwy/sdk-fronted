@@ -55,6 +55,7 @@
 | `config_scope_mismatch` | C03 | `app_id`、`env` 与请求路径不一致 | C03-AC-17 |
 | `config_format_unsupported` | C03 | `format_version` 主版本不认识 | C03-AC-09 |
 | `config_parse_failed` | C03 | 发布物或正文不是合法 JSON | C03-AC-18 |
+| `config_schema_invalid` | C03 | 发布物或正文是合法 JSON 但不符合 `schemas/remote-config.schema.json`（含使用了 `remote-config.md` 5.1 节未列出的 semver 范围语法） | C03-AC-24 |
 | `config_cache_expired` | C03 | 本地缓存超过 24 小时 | C03-AC-19 |
 | `config_signature_unavailable` | C03 | 运行环境不支持 WebCrypto | C03-AC-20 |
 | `config_consent_mode_rejected` | C03 | 远程配置中的 `consent_mode` 为 `full` 或非法值，被忽略（D002） | C03-AC-21 |
@@ -99,3 +100,4 @@ C08 每 60 秒聚合一次，作为 `sdk_health` 事件上报（C08-F3），且�
 | 0.1 | 2026-10-09 | 草案 |
 | 0.2 | 2026-10-10 | 删除 S04 死信原因码，网关 `error` 改为接收方建议取值；每个原因码对应验收用例；新增 `plugin_dependency_missing`、`plugin_install_failed`、`consent_buffer_cleared`、`offline_incompatible`、`config_version_stale`、`config_scope_mismatch`、`config_parse_failed`、`config_consent_mode_rejected`；`processor_error`、`storage_unavailable` 移到只计数；冻结 |
 | 0.2（兼容追加） | 2026-10-13 | 经 CR-001 与架构负责人批准（2026-10-13）：第 1 节新增 `prewrite_commit_lost`（C07，硬杀导致的预写未落盘）；第 4 节 `metrics` 新增 `exposure_window_events`、`exposure_window_ms`。属兼容变更，**不递增文档版本号**（沿用 2026-10-12 对内置事件 Schema 与样例的先例）；`offline_evicted`、`storage_unavailable` 的既有语义不变 |
+| 0.2（兼容追加） | 2026-10-13 | 经 **CR-003** 与架构负责人批准：第 2 节新增 `config_schema_invalid`（C03，「合法 JSON 但不符合 `remote-config.schema.json`」，与 `config_parse_failed`＝非合法 JSON 区分；含使用了 `remote-config.md` 5.1 节未列出的 semver 范围语法）。属兼容变更，**不递增文档版本号**；`config_parse_failed` 的既有语义不变 |

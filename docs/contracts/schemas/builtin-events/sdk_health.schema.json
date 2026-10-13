@@ -89,7 +89,7 @@
           "minimum": 1,
           "description": "reason-codes.md 第 1 节原因码对应的丢弃计数；值为 0 时不上报"
         },
-        "^count_(processor_error|truncated_dimension|truncated_dimension_keys|truncated_metric_keys|truncated_attachment|retry_429|retry_5xx|retry_network|split_413|circuit_open|replayed|storage_unavailable|config_fetch_failed|config_signature_invalid|config_version_stale|config_scope_mismatch|config_format_unsupported|config_parse_failed|config_cache_expired|config_signature_unavailable|config_consent_mode_rejected)$": {
+        "^count_(processor_error|truncated_dimension|truncated_dimension_keys|truncated_metric_keys|truncated_attachment|retry_429|retry_5xx|retry_network|split_413|circuit_open|replayed|storage_unavailable|config_fetch_failed|config_signature_invalid|config_version_stale|config_scope_mismatch|config_format_unsupported|config_parse_failed|config_schema_invalid|config_cache_expired|config_signature_unavailable|config_consent_mode_rejected)$": {
           "type": "integer",
           "minimum": 1,
           "description": "reason-codes.md 第 2 节原因码对应的只计数指标；值为 0 时不上报"
