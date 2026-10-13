@@ -43,7 +43,7 @@ kill switch、采样规则、脱敏规则不能被运行时覆盖。`consent_mod
 
 | 情况 | 行为 | 原因码 | 验收用例 |
 |---|---|---|---|
-| 网络失败、5xx，有未过期缓存 | 使用本地缓存 | `config_fetch_failed` | C03-AC-05 |
+| 网络失败、5xx，有未过期缓存 | 优先**保持当前生效配置**；仅在没有任何可用配置时才采用该缓存 | `config_fetch_failed` | C03-AC-05 |
 | 网络失败、5xx，没有缓存 | 拒绝本次配置：**有当前生效配置则保持，无则使用保守默认** | `config_fetch_failed` | C03-AC-06 |
 | 签名校验失败、`key_id` 不在公钥列表中 | 拒绝本次配置，继续使用当前生效配置；没有可用配置时使用保守默认 | `config_signature_invalid` | C03-AC-07、C03-AC-16 |
 | `config_version` 不大于当前生效版本 | 拒绝本次配置，保持当前配置 | `config_version_stale` | C03-AC-08 |
