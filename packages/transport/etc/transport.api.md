@@ -104,7 +104,24 @@ export interface BroadcastPort {
 }
 
 // @public
+export function buildHealthEvents(input: HealthEventInput): readonly SdkHealthEvent[];
+
+// @public
+export function buildHealthMetrics(input: HealthMetricsInput): Record<string, number>;
+
+// @public (undocumented)
+export interface CallCounterOptions {
+    readonly methods?: readonly string[] | undefined;
+}
+
+// @public
 export function captureNativeHttpRefs(target?: object): NativeHttpRefs;
+
+// @public
+export function clampWindowMs(value: number): number;
+
+// @public
+export function combineFixedMetrics(...sources: readonly FixedMetricsPort[]): FixedMetricsPort;
 
 // @public
 export interface CommitLossReport {
@@ -139,12 +156,29 @@ export interface CompressorPort {
 }
 
 // @public
+export const COUNT_REASON_CODES: readonly ["processor_error", "truncated_dimension", "truncated_dimension_keys", "truncated_metric_keys", "truncated_attachment", "retry_429", "retry_5xx", "retry_network", "split_413", "circuit_open", "replayed", "storage_unavailable", "config_fetch_failed", "config_signature_invalid", "config_version_stale", "config_scope_mismatch", "config_format_unsupported", "config_parse_failed", "config_cache_expired", "config_signature_unavailable", "config_consent_mode_rejected"];
+
+// @public
+export type Counted<T> = {
+    [K in keyof T]: T[K] extends (...args: infer A) => infer R ? (...args: A) => R : T[K];
+};
+
+// @public
+export const COUNTED_CALL_METHODS: readonly ["init", "track", "log", "captureError", "setUser", "clearUser", "setContext", "removeContext", "setPage", "setConsent", "flush", "destroy"];
+
+// @public
 export interface CountersPort {
     count(reason: string, delta?: number): void;
 }
 
 // @public
 export function createBatchAssembler(options: BatchAssemblerOptions): BatchAssembler;
+
+// @public
+export function createCallCounter<T extends object>(client: T, options?: CallCounterOptions): InstrumentedCalls<T>;
+
+// @public (undocumented)
+export function createDebugTracer(options: DebugTracerOptions): DebugTracer;
 
 // @public
 export function createDefaultBroadcastPort(): BroadcastPort | null;
@@ -155,14 +189,32 @@ export function createDefaultLocksPort(): LocksPort | null;
 // @public
 export function createDelivery(options: DeliveryOptions): Delivery;
 
+// @public
+export function createDeliveryMetricsSource(delivery: DeliveryMetricsLike): FixedMetricsPort;
+
 // @public (undocumented)
 export function createDomPageEventsSource(target: DomPageEventsTarget): PageEventsPort;
 
 // @public
 export function createDomPageLeaveSource(target: PageLifecycleDocument): PageLeaveSource;
 
+// @public (undocumented)
+export function createFixedMetricsAccumulator(): FixedMetricsAccumulator;
+
+// @public
+export function createHealthDimensionsReader(options: HealthDimensionsReaderOptions): () => HealthDimensionsInput;
+
+// @public (undocumented)
+export function createHealthReporter(options: HealthReporterOptions): HealthReporter;
+
 // @public
 export function createIdbBackend(options?: IdbBackendOptions): OfflineBackend;
+
+// @public
+export function createLatencyDecorators(options: LatencyDecoratorOptions): LatencyDecorators;
+
+// @public (undocumented)
+export function createLatencyWindow(options?: LatencyWindowOptions): LatencyWindow;
 
 // @public
 export function createLeaderElection(options?: LeaderElectionOptions): LeaderElection;
@@ -171,10 +223,25 @@ export function createLeaderElection(options?: LeaderElectionOptions): LeaderEle
 export function createMemoryQueue(options?: MemoryQueueOptions): MemoryQueue;
 
 // @public
+export function createOfflineExposureSource(source: ExposureStatsLike): ExposureWindowPort;
+
+// @public
 export function createOfflineStore(options: OfflineStoreOptions): OfflineStore;
 
 // @public
+export function createQueueMetricsSource(options: QueueMetricsSourceOptions): QueueMetricsSource;
+
+// @public
+export function createRegistryTimer(registry: RepeatSchedulerLike): HealthTimerPort;
+
+// @public
 export function createReplayController(options: ReplayControllerOptions): ReplayController;
+
+// @public
+export function createSessionSampler(options?: SessionSamplerOptions): SessionSampler;
+
+// @public
+export function createSubmitMetricsSource(options: SubmitMetricsSourceOptions): SubmitMetricsSource;
 
 // @public
 export function createTransportQueue(options: TransportQueueOptions): TransportQueue;
@@ -204,6 +271,89 @@ export interface CriticalFlushQueue {
     flush(reason?: FlushReason): unknown;
 }
 
+// @public
+export const DEBUG_DESTINATIONS: readonly ["queued", "sent", "failed", "retry", "circuit_open", "offline", "replayed", "dropped", "page_leave", "emitted"];
+
+// @public
+export const DEBUG_PREFIX = "[web-report-sdk]";
+
+// @public
+export const DEBUG_QUERY_PARAM = "wr_debug";
+
+// @public (undocumented)
+export interface DebugDecision {
+    readonly allowed: boolean;
+    readonly enabled: boolean;
+    // (undocumented)
+    readonly reason: DebugDecisionReason;
+    readonly requested: boolean;
+}
+
+// @public (undocumented)
+export type DebugDecisionReason = 'not_requested' | 'production_user_not_allowlisted' | 'allowed_non_production' | 'allowed_allowlisted_user';
+
+// @public (undocumented)
+export type DebugDestination = (typeof DEBUG_DESTINATIONS)[number];
+
+// @public
+export interface DebugDiagnosticsRecord {
+    // (undocumented)
+    readonly dropped: 'event' | 'field';
+    // (undocumented)
+    readonly event_name?: string | undefined;
+    // (undocumented)
+    readonly field?: string | undefined;
+    // (undocumented)
+    readonly kind: string;
+    // (undocumented)
+    readonly reason_code: string;
+}
+
+// @public (undocumented)
+export interface DebugGateOptions {
+    readonly allowUsers?: readonly string[] | undefined;
+    readonly env?: string | undefined;
+    // (undocumented)
+    readonly hashedUser?: string | undefined;
+    readonly paramName?: string | undefined;
+    readonly productionEnvs?: readonly string[] | undefined;
+    readonly search?: string | undefined;
+    // (undocumented)
+    readonly user?: string | undefined;
+}
+
+// @public
+export interface DebugRouteRecord {
+    // (undocumented)
+    readonly count?: number | undefined;
+    // (undocumented)
+    readonly destination: DebugDestination;
+    // (undocumented)
+    readonly event_name?: string | undefined;
+    // (undocumented)
+    readonly kind: string;
+    // (undocumented)
+    readonly reason_code?: string | undefined;
+}
+
+// @public (undocumented)
+export interface DebugTracer {
+    diagnostic(record: DebugDiagnosticsRecord): void;
+    // (undocumented)
+    enabled(): boolean;
+    route(record: DebugRouteRecord): void;
+}
+
+// @public (undocumented)
+export interface DebugTracerOptions {
+    readonly enabled: boolean | (() => boolean);
+    // (undocumented)
+    readonly write: DebugWritePort;
+}
+
+// @public
+export type DebugWritePort = (line: string) => void;
+
 // Warning: (ae-forgotten-export) The symbol "BackoffOptions" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -221,7 +371,16 @@ export const DEFAULT_CIRCUIT: CircuitOptions;
 export const DEFAULT_DEAD_SESSION_MS = 90000;
 
 // @public
+export const DEFAULT_HEALTH_WINDOW_MS = 60000;
+
+// @public
 export const DEFAULT_IDLE_FLUSH_MS = 1000;
+
+// @public
+export const DEFAULT_LATENCY_CALL_METHODS: readonly ["track", "log", "captureError"];
+
+// @public
+export const DEFAULT_LATENCY_CAPACITY = 512;
 
 // @public (undocumented)
 export const DEFAULT_LOCK_NAME = "web-report-sdk:replay";
@@ -239,7 +398,13 @@ export const DEFAULT_MAX_WAIT_MS = 5000;
 export const DEFAULT_OFFLINE_LIMITS: OfflineLimits;
 
 // @public
+export const DEFAULT_PRODUCTION_ENVS: readonly ["production", "prod"];
+
+// @public
 export const DEFAULT_REPLAY_BATCHES_PER_SECOND = 1;
+
+// @public
+export const DEFAULT_SESSION_SAMPLE_RATE = 0.01;
 
 // @public
 export const DEFAULT_SLOW_EFFECTIVE_TYPES: readonly string[];
@@ -310,6 +475,15 @@ export interface DeliveryMetrics {
     };
 }
 
+// @public
+export interface DeliveryMetricsLike {
+    // (undocumented)
+    metrics(): {
+        readonly offlineWritten: number;
+        readonly offlineReplayed: number;
+    };
+}
+
 // @public (undocumented)
 export interface DeliveryOptions {
     // (undocumented)
@@ -355,6 +529,9 @@ export interface DeliveryOptions {
 }
 
 // @public
+export const DESTINATION_LABELS: Readonly<Record<DebugDestination, string>>;
+
+// @public
 export type Dimensions = Readonly<Record<string, string>>;
 
 // @public
@@ -365,6 +542,15 @@ export interface DomPageEventsTarget {
     removeEventListener(type: string, listener: () => void): void;
     // (undocumented)
     readonly visibilityState?: string | undefined;
+}
+
+// @public
+export const DROP_REASON_CODES: readonly ["invalid_args", "invalid_event_name", "invalid_field_key", "non_finite_metric", "event_too_large", "command_queue_overflow", "prestart_queue_overflow", "plugin_dependency_missing", "plugin_install_failed", "sampled_out_session", "sampled_out_rule", "disabled_by_rule", "killed", "consent_denied", "consent_buffer_cleared", "filtered_by_plugin", "queue_evicted", "offline_evicted", "offline_incompatible", "retry_exhausted", "prewrite_commit_lost", "rejected_400", "rejected_401", "rejected_403", "rejected_413", "destroyed"];
+
+// @public
+export interface DurationRecorder {
+    // (undocumented)
+    record(stage: LatencyStage, durationMs: number): void;
 }
 
 // @public
@@ -405,6 +591,52 @@ export interface ExposureStats {
 }
 
 // @public
+export interface ExposureStatsLike {
+    // (undocumented)
+    stats(): {
+        readonly exposure: {
+            readonly commitLostEvents: number;
+            readonly commitLostWindowMs: number | null;
+        };
+    };
+}
+
+// @public
+export interface ExposureWindowInput {
+    // (undocumented)
+    readonly events: number;
+    // (undocumented)
+    readonly windowMs: number | null;
+}
+
+// @public (undocumented)
+export interface ExposureWindowPort {
+    // (undocumented)
+    exposure(): ExposureWindowInput;
+}
+
+// @public
+export const FIXED_METRIC_NAMES: readonly ["calls_total", "events_enqueued", "events_sent", "batches_sent", "batches_failed", "offline_written", "offline_replayed", "queue_length_max"];
+
+// @public
+export type FixedMetricDeltas = Partial<Record<FixedMetricName, number>>;
+
+// @public (undocumented)
+export type FixedMetricName = (typeof FIXED_METRIC_NAMES)[number];
+
+// @public
+export interface FixedMetricsAccumulator extends FixedMetricsPort {
+    add(name: FixedMetricName, delta?: number): void;
+    observePeak(name: FixedMetricName, value: number): void;
+}
+
+// @public
+export interface FixedMetricsPort {
+    // (undocumented)
+    take(): FixedMetricDeltas;
+}
+
+// @public
 export type FlushReason = 'events' | 'bytes' | 'idle' | 'max_wait' | 'manual' | 'page_leave' | 'resume';
 
 // @public
@@ -419,6 +651,117 @@ export interface FlushResult {
 // @public
 export type FlushStatus = 'submitted' | 'empty' | 'in_flight' | 'circuit_open';
 
+// @public
+export function formatDiagnosticsRecord(record: DebugDiagnosticsRecord): string;
+
+// @public
+export function formatRouteRecord(record: DebugRouteRecord): string;
+
+// @public
+export interface HealthCountersPort {
+    reset(): void;
+    // (undocumented)
+    snapshot(): Readonly<Record<string, number>>;
+}
+
+// @public
+export interface HealthDimensions {
+    // (undocumented)
+    readonly config_version?: string | undefined;
+    // (undocumented)
+    readonly sdk_version: string;
+    // (undocumented)
+    readonly state: HealthState;
+}
+
+// @public
+export interface HealthDimensionsInput {
+    readonly config_version?: number | null | undefined;
+    // (undocumented)
+    readonly sdk_version: string;
+    // (undocumented)
+    readonly state: HealthState | null;
+}
+
+// @public (undocumented)
+export interface HealthDimensionsPort {
+    // (undocumented)
+    dimensions(): HealthDimensionsInput;
+}
+
+// @public (undocumented)
+export interface HealthDimensionsReaderOptions {
+    readonly configVersion?: (() => number | null) | undefined;
+    // (undocumented)
+    readonly lifecycle: LifecycleStateSource;
+    readonly sdkVersion: string;
+}
+
+// @public (undocumented)
+export interface HealthEventInput {
+    // (undocumented)
+    readonly createId: () => string;
+    // (undocumented)
+    readonly dimensions: HealthDimensions;
+    readonly maxMetricsPerEvent?: number | undefined;
+    // (undocumented)
+    readonly metrics: Readonly<Record<string, number>>;
+    // (undocumented)
+    readonly occurredAt: number;
+}
+
+// @public
+export interface HealthMetricsInput {
+    // (undocumented)
+    readonly counters: Readonly<Record<string, number>>;
+    // (undocumented)
+    readonly exposure?: ExposureWindowInput | null | undefined;
+    // (undocumented)
+    readonly fixed?: FixedMetricDeltas | undefined;
+    // (undocumented)
+    readonly latency?: LatencyP99 | undefined;
+    // (undocumented)
+    readonly windowMs: number;
+}
+
+// @public (undocumented)
+export interface HealthReporter {
+    dispose(): void;
+    flush(): readonly SdkHealthEvent[];
+    start(): void;
+}
+
+// @public (undocumented)
+export interface HealthReporterOptions {
+    // (undocumented)
+    readonly counters: HealthCountersPort;
+    readonly createId?: (() => string) | undefined;
+    // (undocumented)
+    readonly dimensions: () => HealthDimensionsInput;
+    readonly emit: (event: SdkHealthEvent) => void;
+    // (undocumented)
+    readonly exposure?: ExposureWindowPort | undefined;
+    // (undocumented)
+    readonly latency?: LatencyWindowPort | undefined;
+    readonly maxMetricsPerEvent?: number | undefined;
+    // (undocumented)
+    readonly metrics?: FixedMetricsPort | undefined;
+    // (undocumented)
+    readonly now?: (() => number) | undefined;
+    // (undocumented)
+    readonly timer?: HealthTimerPort | undefined;
+    readonly windowMs?: number | undefined;
+}
+
+// @public
+export type HealthState = 'initialized' | 'running' | 'paused' | 'destroyed';
+
+// @public
+export interface HealthTimerPort {
+    // (undocumented)
+    schedule(handler: () => void, intervalMs: number): () => void;
+}
+
 // @public (undocumented)
 export interface IdbBackendOptions {
     // (undocumented)
@@ -426,6 +769,77 @@ export interface IdbBackendOptions {
     // (undocumented)
     readonly dbVersion?: number | undefined;
     readonly idbFactory?: IDBFactory | null | undefined;
+}
+
+// @public (undocumented)
+export interface InstrumentedCalls<T> {
+    // (undocumented)
+    readonly client: Counted<T>;
+    take(): FixedMetricDeltas;
+}
+
+// @public
+export function jsonSize(value: unknown): number;
+
+// @public
+export const LATENCY_METRIC_NAMES: Readonly<Record<LatencyStage, string>>;
+
+// @public (undocumented)
+export const LATENCY_STAGES: readonly ["track", "pipeline", "serialize"];
+
+// @public (undocumented)
+export interface LatencyDecoratorOptions {
+    // (undocumented)
+    readonly callMethods?: readonly string[] | undefined;
+    // (undocumented)
+    readonly callStage?: LatencyStage | undefined;
+    // (undocumented)
+    readonly functionStage?: LatencyStage | undefined;
+    readonly now?: (() => number) | undefined;
+    // (undocumented)
+    readonly pipelineStage?: LatencyStage | undefined;
+    // (undocumented)
+    readonly recorder: DurationRecorder;
+}
+
+// @public (undocumented)
+export interface LatencyDecorators {
+    // (undocumented)
+    wrapCalls<T extends object>(client: T): Counted<T>;
+    // (undocumented)
+    wrapFunction<A extends readonly unknown[], R>(fn: (...args: A) => R): (...args: A) => R;
+    // (undocumented)
+    wrapPipeline<T extends PipelineLike>(pipeline: T): T;
+}
+
+// @public
+export type LatencyP99 = Partial<Record<LatencyStage, number>>;
+
+// @public
+export type LatencyStage = 'track' | 'pipeline' | 'serialize';
+
+// @public
+export interface LatencyWindow extends LatencyWindowPort {
+    // (undocumented)
+    p99(stage: LatencyStage): number | null;
+    // (undocumented)
+    record(stage: LatencyStage, durationMs: number): void;
+    // (undocumented)
+    reset(): void;
+    // (undocumented)
+    readonly sampled: boolean;
+}
+
+// @public (undocumented)
+export interface LatencyWindowOptions {
+    readonly capacity?: number | undefined;
+    readonly sampled?: boolean | undefined;
+}
+
+// @public (undocumented)
+export interface LatencyWindowPort {
+    // (undocumented)
+    take(): LatencyP99;
 }
 
 // @public (undocumented)
@@ -497,6 +911,12 @@ export interface LeaveStats {
 }
 
 // @public
+export interface LifecycleStateSource {
+    // (undocumented)
+    state(): string;
+}
+
+// @public
 export const LIMIT_RANGES: {
     readonly maxBatchEvents: {
         readonly min: 1;
@@ -521,6 +941,12 @@ export interface LocksPort {
     // (undocumented)
     tryAcquire(name: string, task: () => Promise<void>): Promise<boolean>;
 }
+
+// @public
+export const MAX_METRICS_PER_EVENT = 50;
+
+// @public (undocumented)
+export function measureTrafficShare(healthEvents: readonly unknown[], businessEvents: readonly unknown[]): TrafficShare;
 
 // @public
 export interface MemoryQueue {
@@ -571,6 +997,9 @@ export interface NativeHttpRefs {
 }
 
 // @public
+export function nearestRankPercentile(values: readonly number[], percentile: number): number | null;
+
+// @public
 export interface NetworkInfoPort {
     // (undocumented)
     snapshot(): NetworkSnapshot;
@@ -583,6 +1012,9 @@ export interface NetworkSnapshot {
     // (undocumented)
     readonly saveData?: boolean | undefined;
 }
+
+// @public
+export const NOOP_DEBUG_TRACER: DebugTracer;
 
 // @public
 export const OFFLINE_DB_NAME = "web-report-sdk-offline";
@@ -786,6 +1218,17 @@ export interface PageLifecycleDocument {
 export type PageResumeReason = 'online' | 'visible' | 'pageshow';
 
 // @public
+export interface PipelineLike {
+    // (undocumented)
+    process(event: {
+        readonly event_name: string;
+        readonly priority: 'normal' | 'critical';
+        readonly occurred_at: number;
+        [field: string]: unknown;
+    }): unknown;
+}
+
+// @public
 export interface PrewriteHandle {
     // (undocumented)
     readonly batchId: string;
@@ -848,6 +1291,20 @@ export interface QueueEvent {
     readonly priority: EventPriority;
     // (undocumented)
     readonly schema_version: number;
+}
+
+// @public (undocumented)
+export interface QueueMetricsSource {
+    readonly queue: TransportQueue;
+    // (undocumented)
+    take(): FixedMetricDeltas;
+}
+
+// @public (undocumented)
+export interface QueueMetricsSourceOptions {
+    readonly isSelf?: ((event: QueueEvent) => boolean) | undefined;
+    // (undocumented)
+    readonly queue: TransportQueue;
 }
 
 // @public
@@ -921,6 +1378,12 @@ export const REASON_SPLIT_413 = "split_413";
 export const REASON_STORAGE_UNAVAILABLE = "storage_unavailable";
 
 // @public
+export interface RepeatSchedulerLike {
+    // (undocumented)
+    scheduleRepeat(handler: () => void, intervalMs: number): () => void;
+}
+
+// @public
 export const REPLAY_BATCHES_PER_SECOND_MAX = 2;
 
 // @public (undocumented)
@@ -968,8 +1431,31 @@ export interface ReplayRoundResult {
     readonly skipped: number;
 }
 
+// @public (undocumented)
+export function resolveDebugMode(options: DebugGateOptions): DebugDecision;
+
 // @public
 export function resolveLimits(settings: TransportSettings, network: NetworkSnapshot, policy?: WeakNetworkPolicy): EffectiveLimits;
+
+// @public
+export interface SdkHealthEvent {
+    // (undocumented)
+    readonly dimensions: HealthDimensions;
+    // (undocumented)
+    readonly event_id: string;
+    // (undocumented)
+    readonly event_name: 'sdk_health';
+    // (undocumented)
+    readonly event_type: 'sdk_internal';
+    // (undocumented)
+    readonly metrics: Readonly<Record<string, number>>;
+    // (undocumented)
+    readonly occurred_at: number;
+    // (undocumented)
+    readonly priority: 'normal';
+    // (undocumented)
+    readonly schema_version: 1;
+}
 
 // @public (undocumented)
 export interface SenderOptions {
@@ -1029,6 +1515,19 @@ export interface SendResult {
     readonly terminal: boolean;
 }
 
+// @public (undocumented)
+export interface SessionSampler {
+    rate(): number;
+    sampled(): boolean;
+}
+
+// @public (undocumented)
+export interface SessionSamplerOptions {
+    // (undocumented)
+    readonly random?: (() => number) | undefined;
+    readonly rate?: number | undefined;
+}
+
 // @public
 export type SubmitChannel = 'default' | 'page_leave';
 
@@ -1040,11 +1539,39 @@ export interface SubmitContext {
     readonly complete: (outcome: SubmitOutcome) => void;
 }
 
+// @public (undocumented)
+export interface SubmitMetricsSource {
+    readonly submit: BatchSubmitPort;
+    // (undocumented)
+    take(): FixedMetricDeltas;
+}
+
+// @public (undocumented)
+export interface SubmitMetricsSourceOptions {
+    readonly isSelf?: ((event: QueueEvent) => boolean) | undefined;
+    // (undocumented)
+    readonly submit: BatchSubmitPort;
+}
+
 // @public
 export type SubmitOutcome = 'sent' | 'failed' | 'circuit_open';
 
 // @public
 export function supportsFetchKeepalive(): boolean;
+
+// @public
+export interface TrafficShare {
+    // (undocumented)
+    readonly businessBytes: number;
+    // (undocumented)
+    readonly businessEvents: number;
+    readonly byteRatio: number;
+    readonly countRatio: number;
+    // (undocumented)
+    readonly healthBytes: number;
+    // (undocumented)
+    readonly healthEvents: number;
+}
 
 // @public
 export interface TransportConfigPort {
@@ -1132,6 +1659,9 @@ export interface WeakNetworkPolicy {
     readonly idleFlushMsMultiplier?: number | undefined;
     readonly slowEffectiveTypes?: readonly string[] | undefined;
 }
+
+// @public
+export const WINDOW_METRIC_KEY = "window_ms";
 
 // (No @packageDocumentation comment for this package)
 

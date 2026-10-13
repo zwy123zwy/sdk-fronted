@@ -1,6 +1,6 @@
 # @web-report-sdk/transport
 
-传输包（C06–C08）。当前实现 **C06 队列与调度（T15）**；C07 发送与可靠投递、C08 自监控由 T16/T17 补充。
+传输包（C06–C08）。当前实现 **C06 队列与调度（T15）**、**C07 发送与可靠投递（T16）**、**C08 自监控与调试模式（T17）**。
 
 - 零运行时依赖；模块顶层无副作用（不注册监听、不访问 `window`），可在 SSR 与 Vitest 中直接导入。
 - C06 **不负责发送**：批次通过注入的 `BatchSubmitPort` 交出；离线存储、生效配置、网络信息、页面离开信号同样为注入接口。
@@ -207,3 +207,46 @@ P99/均值在共享机器上由进程抢占主导，以契约目标值当门禁�
 - **补发限速** ≤2 批/秒（取配置值与契约上限的较小者）；**健康期重试流量 ≤5%** 用确定性计数断言。
 - **暴露窗口**（CR-001）：`prewrite_commit_lost` + `exposure_window_events` / `exposure_window_ms`
   （后者仅在事件数 ≥1 时上报，值 ≥1）；真实浏览器的落盘语义负向对照归 **T29**。
+
+## 7. C08 自监控与调试模式（T17）
+
+| 路径 | 内容 |
+|---|---|
+| `src/monitor/` | 计数映射（`drop_*` / `count_*` / 固定计数 / 暴露窗口）、1% 会话耗时采样与 P99、每 60 秒的 `sdk_health` 上报、自监控流量占比测量 |
+| `src/debug/` | 调试模式门禁（URL 参数 + 非生产/白名单）、与 core `console-sink` 一致的逐条去向输出 |
+
+装配方式（全部是注入端口，模块顶层无副作用）：
+
+- `createHealthReporter({ counters, dimensions, emit, metrics?, latency?, exposure?, timer?, now?, createId?, windowMs? })`：
+  `counters` 结构兼容 core 的 `Counters`（`snapshot()` + `reset()`）；`dimensions` 可用
+  `createHealthDimensionsReader({ sdkVersion, lifecycle, configVersion })`；`emit` 接到 C01 的
+  `EventSink` / C06 的 `enqueue`；`timer` 可用 `createRegistryTimer(kernel.registry)`；
+  `window_ms` 取两次 flush 之间的真实间隔（常规 60000）。
+- 计数来源用装饰器（**必须使用包装后的句柄**，否则窗口计数不生效）：
+  - `createQueueMetricsSource({ queue })` → `events_enqueued` + `queue_length_max`（包装 C06 的 `enqueue()` / `queueLength()`）；
+  - `createSubmitMetricsSource({ submit })` → `events_sent` / `batches_sent` / `batches_failed`
+    （包装 C07 提交端口；离开通道拿不到送达信号不计，自监控批次不计）；
+  - `createDeliveryMetricsSource(delivery)` → `offline_written` / `offline_replayed`
+    （T16 的**批次计数**做窗口差分；`offlineEvicted` 与原因码 `offline_evicted` 同源，只取原因码，避免双计）；
+  - `createCallCounter(client)` → `calls_total`；`createLatencyDecorators({ recorder })` → 包装
+    `track` / `log` / `captureError`（记 `track`）、`pipeline.process`（记 `pipeline`）、任意同步函数（记 `serialize`）；
+  - 用 `combineFixedMetrics(...)` 组合多个来源。装配根接线归 **T18**。
+- CR-001：`createOfflineExposureSource(offline)` 提供暴露窗口输入；`exposure_window_ms` **仅在
+  `exposure_window_events >= 1`** 时由映射层上报（Schema 侧另有 `dependentRequired` 兜底）。
+- 一个窗口内非零指标超过 50 时自动拆成多条 `sdk_health`，每条带相同的 `window_ms` 与 `dimensions`
+  （`metrics.maxProperties: 50`）。
+
+调试模式（给 T34 的开启方式说明）：
+
+- URL 参数 `wr_debug`（`0` / `false` / `off` 视为关闭）；**只有非生产环境或白名单用户**才真正开启；
+  `env` 缺失时保守处理（仅白名单）。门禁实现见 `resolveDebugMode()`。
+- 输出通过注入的写端口（`createDebugTracer({ enabled, write })`），本包不直接使用 `console`；
+  只序列化字段白名单（原因码 + 去向 + 事件名），**不含令牌**（有泄漏对照用例）。
+
+非功能口径（本仓库政策）：
+
+- 计数映射的同步中位数护栏见 `src/monitor/perf.test.ts`（实测：空闲 0.00425 ms、4 路并发负载下
+  0.00438–0.00500 ms；护栏 0.06 ms ≈ 12 倍余量，**回归护栏、非契约目标值**）；
+  任务卡「0.001 ms」的权威验证归 **T20** 的受控基准。
+- 自监控流量占比使用确定性口径：窗口内 `sdk_health` 事件数（及 JSON 码元体积）÷ 业务事件数（体积）；
+  阈值断言见 `src/monitor/reporter.test.ts` 的 AC-07，不用墙钟。
