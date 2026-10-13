@@ -11,3 +11,6 @@ export const PACKAGE_NAME = '@web-report-sdk/transport';
 
 export * from './batch/index';
 export * from './queue/index';
+export * from './offline/index';
+export * from './sender/index';
+export * from './leader/index';

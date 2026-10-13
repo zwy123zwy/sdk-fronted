@@ -1,0 +1,377 @@
+/**
+ * C07 装配层：把离线存储、发送器、页面离开通道、补发与选主接到 C06 的注入接口上。
+ *
+ * 依赖方向：本模块**消费** T15 已冻结的 `BatchSubmitPort` / `TransportQueue`，
+ * 不修改队列代码；C06 只通过 `submit(batch, context)` 与本模块交互。
+ */
+import type { BatchEnvelope, BatchHeaderSource, QueueEvent } from '../batch/types';
+import { createOfflineStore } from '../offline/offline-store';
+import { METRIC_EXPOSURE_WINDOW_EVENTS, METRIC_EXPOSURE_WINDOW_MS } from '../offline/constants';
+import { countCriticalEvents } from '../offline/format';
+import type { ExposureStats, OfflineStore, OfflineStoreOptions, PrewriteHandle } from '../offline/types';
+import type {
+  BatchSubmitPort,
+  CountersPort,
+  FlushReason,
+  SubmitContext,
+} from '../queue/types';
+import { createLeaderElection } from '../leader/leader';
+import type { BroadcastPort, LeaderMode, LocksPort } from '../leader/leader';
+import { createReplayController } from '../leader/replay';
+import type { ReplayRoundResult } from '../leader/replay';
+import { createLeaveSender } from './page-leave';
+import type { LeaveBudget, LeaveStats } from './page-leave';
+import { createBatchSender } from './sender';
+import type {
+  BatchSender,
+  CredentialsPort,
+  NativeHttpRefs,
+  SenderStats,
+  TransportPort,
+} from './types';
+
+/** C06 队列中供 C07 使用的控制面（`TransportQueue` 结构上满足它）。 */
+export interface QueueControlPort {
+  setCircuitOpen(open: boolean): void;
+  isCircuitOpen(): boolean;
+  inFlight(): boolean;
+  limits(): { readonly replayBatchesPerSecond: number };
+}
+
+/** 关键事件立即冲刷所需的最小队列能力（`wireEnqueue` 用）。 */
+export interface CriticalFlushQueue {
+  enqueue(event: QueueEvent): unknown;
+  flush(reason?: FlushReason): unknown;
+}
+
+export type PageResumeReason = 'online' | 'visible' | 'pageshow';
+
+export interface PageEventsPort {
+  subscribe(handler: (reason: PageResumeReason) => void): () => void;
+}
+
+/** 页面恢复事件的 DOM 适配（`window` 上同时监听三个事件）。 */
+export interface DomPageEventsTarget {
+  readonly visibilityState?: string | undefined;
+  addEventListener(type: string, listener: () => void): void;
+  removeEventListener(type: string, listener: () => void): void;
+}
+
+export function createDomPageEventsSource(target: DomPageEventsTarget): PageEventsPort {
+  return {
+    subscribe(handler: (reason: PageResumeReason) => void): () => void {
+      const onOnline = (): void => {
+        handler('online');
+      };
+      const onVisible = (): void => {
+        if (target.visibilityState === 'visible') handler('visible');
+      };
+      const onPageShow = (): void => {
+        handler('pageshow');
+      };
+      target.addEventListener('online', onOnline);
+      target.addEventListener('visibilitychange', onVisible);
+      target.addEventListener('pageshow', onPageShow);
+      return (): void => {
+        target.removeEventListener('online', onOnline);
+        target.removeEventListener('visibilitychange', onVisible);
+        target.removeEventListener('pageshow', onPageShow);
+      };
+    },
+  };
+}
+
+export type ReplayReason = 'startup' | 'online' | 'visible' | 'pageshow' | 'manual';
+
+export interface DeliveryMetrics {
+  readonly eventsSent: number;
+  readonly batchesSent: number;
+  readonly batchesFailed: number;
+  readonly offlineWritten: number;
+  readonly offlineReplayed: number;
+  readonly offlineEvicted: number;
+  readonly exposure: ExposureStats;
+  readonly leave: LeaveStats;
+  readonly retry: { readonly attempts: number; readonly ratio: number };
+  readonly leader: { readonly mode: LeaderMode; readonly leader: boolean };
+  readonly circuitOpen: boolean;
+  readonly paused: boolean;
+  readonly lastReplayReason: ReplayReason;
+}
+
+export interface DeliveryOptions {
+  readonly appId: string;
+  readonly sessionId: string;
+  readonly credentials: CredentialsPort;
+  readonly offline?: OfflineStore | Omit<OfflineStoreOptions, 'appId' | 'sessionId'> | undefined;
+  readonly header?: BatchHeaderSource | undefined;
+  readonly http?: NativeHttpRefs | undefined;
+  readonly transport?: TransportPort | undefined;
+  readonly counters?: CountersPort | undefined;
+  readonly pageEvents?: PageEventsPort | undefined;
+  readonly locks?: LocksPort | null | undefined;
+  readonly broadcast?: BroadcastPort | null | undefined;
+  readonly settleMs?: number | undefined;
+  readonly queue?: (() => QueueControlPort | null) | undefined;
+  readonly now?: (() => number) | undefined;
+  readonly random?: (() => number) | undefined;
+  readonly sleep?: ((ms: number) => Promise<void>) | undefined;
+  readonly timeoutMs?: number | undefined;
+  readonly keepaliveSupported?: (() => boolean) | undefined;
+  readonly onServerTime?: ((serverTimeMs: number) => void) | undefined;
+  readonly leaveBudget?: Partial<LeaveBudget> | undefined;
+}
+
+export interface Delivery {
+  readonly submit: BatchSubmitPort;
+  readonly offline: OfflineStore;
+  readonly sender: BatchSender;
+  attachQueue(queue: QueueControlPort): void;
+  /** 给 C01 的 `EventSink`：critical 事件立即冲刷（POC 的「事件产生即发送」）。 */
+  wireEnqueue(queue: CriticalFlushQueue): (event: { readonly priority?: string | undefined }) => void;
+  replay(reason?: ReplayReason): Promise<ReplayRoundResult>;
+  clearOffline(): Promise<void>;
+  metrics(): DeliveryMetrics;
+  /** CR-001 的暴露窗口指标（仅事件数 ≥1 时上报，且值 ≥1）。 */
+  exposureMetrics(): readonly { readonly name: string; readonly value: number }[];
+  start(): () => void;
+  dispose(): void;
+}
+
+const noopCounters: CountersPort = { count: (): void => undefined };
+const LEAVE_BURST_GAP_MS = 100;
+
+/** 创建装配后的 C07 交付层。 */
+export function createDelivery(options: DeliveryOptions): Delivery {
+  const counters = options.counters ?? noopCounters;
+  const now = options.now ?? ((): number => Date.now());
+  const offline: OfflineStore =
+    options.offline !== undefined && 'prewrite' in options.offline
+      ? options.offline
+      : createOfflineStore({
+          appId: options.appId,
+          sessionId: options.sessionId,
+          ...(options.offline === undefined ? {} : options.offline),
+          ...(options.header === undefined ? {} : { header: options.header }),
+          ...(options.counters === undefined ? {} : { counters: options.counters }),
+          ...(options.now === undefined ? {} : { now: options.now }),
+        });
+
+  const sender = createBatchSender({
+    credentials: options.credentials,
+    ...(options.http === undefined ? {} : { http: options.http }),
+    ...(options.transport === undefined ? {} : { transport: options.transport }),
+    ...(options.counters === undefined ? {} : { counters: options.counters }),
+    ...(options.now === undefined ? {} : { now: options.now }),
+    ...(options.random === undefined ? {} : { random: options.random }),
+    ...(options.sleep === undefined ? {} : { sleep: options.sleep }),
+    ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+    ...(options.keepaliveSupported === undefined
+      ? {}
+      : { keepaliveSupported: options.keepaliveSupported }),
+    ...(options.onServerTime === undefined ? {} : { onServerTime: options.onServerTime }),
+  });
+
+  const leave = createLeaveSender({
+    credentials: options.credentials,
+    ...(options.http === undefined ? {} : { http: options.http }),
+    transport: sender.transport,
+    ...(options.counters === undefined ? {} : { counters: options.counters }),
+    ...(options.now === undefined ? {} : { now: options.now }),
+    ...(options.leaveBudget === undefined ? {} : { budget: options.leaveBudget }),
+  });
+
+  const leader = createLeaderElection({
+    ...(options.locks === undefined ? {} : { locks: options.locks }),
+    ...(options.broadcast === undefined ? {} : { broadcast: options.broadcast }),
+    ...(options.settleMs === undefined ? {} : { settleMs: options.settleMs }),
+    ...(options.now === undefined ? {} : { now: options.now }),
+    ...(options.sleep === undefined ? {} : { sleep: options.sleep }),
+    ...(options.counters === undefined ? {} : { counters: options.counters }),
+  });
+
+  const replayController = createReplayController({
+    offline,
+    sender,
+    leader,
+    counters,
+    rate: (): number => queueControl?.limits().replayBatchesPerSecond ?? 1,
+    ...(options.now === undefined ? {} : { now: options.now }),
+    ...(options.sleep === undefined ? {} : { sleep: options.sleep }),
+  });
+
+  let queueControl: QueueControlPort | null = null;
+  let disposed = false;
+  let replaying = false;
+  let lastLeaveAt = 0;
+  let eventsSent = 0;
+  let batchesSent = 0;
+  let batchesFailed = 0;
+  let offlineWritten = 0;
+  let offlineReplayed = 0;
+  let lastReplayReason: ReplayReason = 'manual';
+
+  function trackHandle(handle: PrewriteHandle): void {
+    void handle.settled.then((outcome) => {
+      if (outcome.status === 'durable') offlineWritten += handle.eventCount;
+    });
+  }
+
+  function deleteWhenDurable(handle: PrewriteHandle): void {
+    void handle.settled.then((outcome) => {
+      if (outcome.status === 'durable') void offline.remove([handle.batchId]);
+    });
+  }
+
+  function submit(batch: BatchEnvelope, context: SubmitContext): void {
+    if (disposed) {
+      context.complete('failed');
+      return;
+    }
+    let handle: PrewriteHandle | null = null;
+    try {
+      if (countCriticalEvents(batch) > 0) {
+        handle = offline.prewrite(batch);
+        trackHandle(handle);
+      }
+    } catch {
+      // 存储层自己会计 storage_unavailable；这里只保证不向业务抛错。
+      handle = null;
+    }
+
+    if (context.channel === 'page_leave') {
+      try {
+        const startedAt = now();
+        if (startedAt - lastLeaveAt > LEAVE_BURST_GAP_MS) leave.resetBudget();
+        lastLeaveAt = startedAt;
+        leave.send(batch);
+      } catch {
+        // 离开路径绝不抛错。
+      }
+      // 信标通道拿不到 202：报 failed，**不删离线副本**（AC-13）。
+      context.complete('failed');
+      return;
+    }
+
+    void sender.send(batch).then(
+      (result) => {
+        if (result.status === 'sent') {
+          eventsSent += batch.events.length;
+          batchesSent += 1;
+          if (handle !== null) deleteWhenDurable(handle);
+        } else if (result.status === 'circuit_open') {
+          batchesFailed += 1;
+          const control = queueControl;
+          if (control !== null) control.setCircuitOpen(true);
+        } else {
+          batchesFailed += 1;
+          // 终态丢弃（4xx / 单条超限）：删除副本，避免补发里无限重试。
+          if (result.terminal && handle !== null) deleteWhenDurable(handle);
+        }
+        context.complete(result.status);
+      },
+      () => {
+        batchesFailed += 1;
+        context.complete('failed');
+      },
+    );
+  }
+
+  async function replay(reason: ReplayReason = 'manual'): Promise<ReplayRoundResult> {
+    if (disposed || replaying) {
+      return { leader: false, mode: 'none', batches: 0, events: 0, skipped: 0 };
+    }
+    replaying = true;
+    lastReplayReason = reason;
+    try {
+      const result = await replayController.run();
+      offlineReplayed += result.events;
+      return result;
+    } catch {
+      return { leader: false, mode: leader.mode(), batches: 0, events: 0, skipped: 0 };
+    } finally {
+      replaying = false;
+    }
+  }
+
+  return {
+    submit: { submit },
+
+    offline,
+    sender,
+
+    attachQueue(queue: QueueControlPort): void {
+      queueControl = queue;
+    },
+
+    wireEnqueue(queue: CriticalFlushQueue) {
+      return (event: { readonly priority?: string | undefined }): void => {
+        queue.enqueue(event as unknown as QueueEvent);
+        // 「事件产生即发送 critical」：不等 C06 的静默窗口，立即冲刷（POC-1 建议第 1 条）。
+        if (event.priority === 'critical') queue.flush('events');
+      };
+    },
+
+    replay,
+
+    async clearOffline(): Promise<void> {
+      await offline.clear();
+      offlineWritten = 0;
+    },
+
+    metrics(): DeliveryMetrics {
+      const offlineStats = offline.stats();
+      const senderStats: SenderStats = sender.stats();
+      return {
+        eventsSent,
+        batchesSent,
+        batchesFailed,
+        offlineWritten,
+        offlineReplayed,
+        offlineEvicted: offlineStats.evictedBatches,
+        exposure: offlineStats.exposure,
+        leave: leave.stats(),
+        retry: { attempts: senderStats.attempts, ratio: senderStats.retryRatio },
+        leader: { mode: leader.mode(), leader: leader.lastLeader() },
+        circuitOpen: senderStats.circuitOpen,
+        paused: senderStats.paused,
+        lastReplayReason,
+      };
+    },
+
+    exposureMetrics(): readonly { readonly name: string; readonly value: number }[] {
+      const exposure = offline.stats().exposure;
+      if (exposure.commitLostEvents < 1) return [];
+      const metrics: { readonly name: string; readonly value: number }[] = [
+        { name: METRIC_EXPOSURE_WINDOW_EVENTS, value: exposure.commitLostEvents },
+      ];
+      if (exposure.commitLostWindowMs !== null) {
+        // CR-001 的 Schema 约束：两个指标都是 `integer, minimum: 1`。
+        metrics.push({
+          name: METRIC_EXPOSURE_WINDOW_MS,
+          value: Math.max(1, Math.round(exposure.commitLostWindowMs)),
+        });
+      }
+      return metrics;
+    },
+
+    start(): () => void {
+      const pageEvents = options.pageEvents;
+      if (pageEvents === undefined) return () => undefined;
+      const unsubscribe = pageEvents.subscribe((reason) => {
+        void replay(reason);
+      });
+      void replay('startup');
+      return (): void => {
+        unsubscribe();
+      };
+    },
+
+    dispose(): void {
+      if (disposed) return;
+      disposed = true;
+      queueControl = null;
+      offline.dispose();
+    },
+  };
+}
