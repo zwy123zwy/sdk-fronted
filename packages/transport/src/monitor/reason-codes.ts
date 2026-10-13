@@ -59,6 +59,7 @@ export const COUNT_REASON_CODES = [
   'config_scope_mismatch',
   'config_format_unsupported',
   'config_parse_failed',
+  'config_schema_invalid',
   'config_cache_expired',
   'config_signature_unavailable',
   'config_consent_mode_rejected',
