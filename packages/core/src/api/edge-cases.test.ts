@@ -48,7 +48,7 @@ describe('C01 公共 API 边界', () => {
     const events: KernelEvent[] = [];
     const stop = sdk.onEvent((event) => events.push(event));
 
-    sdk.init({ appId: 'app-sdk' });
+    sdk.init({ appId: 'app-sdk', consent: 'granted' });
     sdk.track('task_complete', { dimensions: { task_id: 't-1' } });
     sdk.track('page_view');
 
@@ -61,7 +61,7 @@ describe('C01 公共 API 边界', () => {
     expect(events).toHaveLength(2);
 
     const other = createClient({ debug: false });
-    other.init({ appId: 'app-other' });
+    other.init({ appId: 'app-other', consent: 'granted' });
     expect(stateOf(other).app_id).toBe('app-other');
     expect(stateOf(sdk).app_id).toBe('app-sdk');
 
@@ -73,7 +73,7 @@ describe('C01 公共 API 边界', () => {
     const records: DiagnosticsRecord[] = [];
     const client = clientWith(collect());
     const stop = client.onDiagnostics((record) => records.push(record));
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     client.track('sdk_health');
     expect(records).toHaveLength(1);
@@ -87,7 +87,7 @@ describe('C01 公共 API 边界', () => {
   it('captureError 支持字符串、对象、数字与空值', () => {
     const sink = collect();
     const client = clientWith(sink);
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     client.captureError('字符串错误');
     client.captureError(new TypeError('类型错误'));
@@ -113,7 +113,7 @@ describe('C01 公共 API 边界', () => {
   it('captureError 的 dimensions 与 attachment 优先级不被覆盖', () => {
     const sink = collect();
     const client = clientWith(sink);
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     client.captureError(new Error('boom'), {
       dimensions: { message: '业务消息', source: 'checkout' },
@@ -133,7 +133,7 @@ describe('C01 公共 API 边界', () => {
   it('log 的非法级别按 info 记录并计数，且支持 attachment', () => {
     const sink = collect();
     const client = clientWith(sink);
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     (client.log as (level: string, message: string, input?: unknown) => void)('verbose', '文本', {
       attachment: 'detail',
@@ -152,7 +152,7 @@ describe('C01 公共 API 边界', () => {
 
   it('setUser(hashed) 与 removeContext 的非字符串键被安全处理', () => {
     const client = clientWith(collect());
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     client.setUser('hashed-user', { hashed: true });
     expect(stateOf(client).user).toEqual({ id: 'hashed-user', hashed: true });
@@ -179,12 +179,12 @@ describe('C01 公共 API 边界', () => {
     expect(stateOf(client).consent).toBe('buffer');
     expect(stateOf(client).pageId).toBe('/p');
 
-    client.init({ appId: 'app-b' });
+    client.init({ appId: 'app-b', consent: 'granted' });
     expect(stateOf(client).app_id).toBe('app-a');
 
     client.destroy();
     const before = client.kernel.counters.get('destroyed');
-    client.init({ appId: 'app-c' });
+    client.init({ appId: 'app-c', consent: 'granted' });
     expect(client.kernel.counters.get('destroyed')).toBeGreaterThan(before);
     // 销毁后能力注册表已被内核释放，快照不可再读；用内核生命周期状态断言
     expect(client.kernel.lifecycle.isDestroyed()).toBe(true);
@@ -203,7 +203,7 @@ describe('C01 公共 API 边界', () => {
     const client = clientWith(sink);
     client.track('task_complete');
     client.destroy();
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
     client.flush();
     // destroy 立即清空命令队列：未就绪时缓存的 track 不会在 init 后被回放
     expect(sink).toHaveLength(0);
@@ -216,7 +216,8 @@ describe('C01 公共 API 边界', () => {
     const client = clientWith(sink, { debug: (record) => records.push(record) });
 
     const commands: readonly StubCommand[] = [
-      { kind: 'init', args: [{ appId: 'app-a' }], occurredAt: 1 },
+      // 加载桩缓存的是**接入方调用**，因此同意由初始化参数给出（缺省 unknown 会拦下非必要事件）。
+      { kind: 'init', args: [{ appId: 'app-a', consent: 'granted' }], occurredAt: 1 },
       { kind: 'track', name: 'task_complete', args: [{ dimensions: { task_id: 't-1' } }], occurredAt: 2 },
       { kind: 'log', args: ['info', '来自加载桩'], occurredAt: 3 },
       { kind: 'captureError', args: [new Error('首屏错误')], occurredAt: 4 },
@@ -255,7 +256,8 @@ describe('C01 公共 API 边界', () => {
     bridge({ kind: 'init', args: [], occurredAt: 1 });
     expect(client.kernel.counters.get('invalid_args')).toBe(1);
 
-    bridge({ kind: 'init', args: [{ appId: 'app-a' }], occurredAt: 2 });
+    // 同意由初始化参数给出（缺省 unknown + essential_only 会拦下 sdk_log 这类非必要事件）
+    bridge({ kind: 'init', args: [{ appId: 'app-a', consent: 'granted' }], occurredAt: 2 });
     bridge({ kind: 'track', name: 'sdk_health', args: [], occurredAt: 3 });
     bridge({ kind: 'track', args: [], occurredAt: 4 });
     bridge({ kind: 'log', args: ['verbose', 'x'], occurredAt: 5 });
@@ -265,7 +267,14 @@ describe('C01 公共 API 边界', () => {
     bridge({ kind: 'setConsent', args: ['maybe'], occurredAt: 9 });
 
     expect(client.kernel.counters.get('invalid_event_name')).toBe(2);
-    expect(client.kernel.counters.get('invalid_args')).toBeGreaterThanOrEqual(6);
+    // 2026-10-13 契约一致性迁移：`setContext` 的**非法键名**由 `invalid_args` 改为
+    // 契约明写归 C04 的 `invalid_field_key`（编排方授权）。因此这里 6 → 5，
+    // 并且下面单独断言两个原因码之和仍是 6（"非法键名归 C04、非法参数归 C01，不合并"）。
+    expect(client.kernel.counters.get('invalid_args')).toBeGreaterThanOrEqual(5);
+    expect(client.kernel.counters.get('invalid_field_key')).toBe(1);
+    expect(
+      client.kernel.counters.get('invalid_args') + client.kernel.counters.get('invalid_field_key'),
+    ).toBeGreaterThanOrEqual(6);
     // log 的非法级别按 info 兜底照常上报，其余非法命令不产生事件
     expect(sink.map((event) => event['event_name'])).toEqual(['sdk_log']);
     client.destroy();
@@ -280,7 +289,7 @@ describe('C01 公共 API 边界', () => {
         throw new Error('debug 故障');
       },
     });
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     client.track('task_complete');
     client.track('sdk_health');
@@ -312,7 +321,7 @@ describe('C01 公共 API 边界', () => {
   it('captureError 的超长 message / attachment 被截断并计数 truncated_dimension', () => {
     const sink = collect();
     const client = clientWith(sink);
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     client.captureError(new Error('x'.repeat(300)), { attachment: 'y'.repeat(8200) });
 
@@ -328,7 +337,7 @@ describe('C01 公共 API 边界', () => {
   it('log 的超长 message 被截断并计数 truncated_dimension', () => {
     const sink = collect();
     const client = clientWith(sink);
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     client.log('info', 'z'.repeat(300));
 
@@ -360,7 +369,7 @@ describe('C01 公共 API 边界', () => {
     const client = clientWith(sink, {
       location: { href: 'https://injected.test/p', pageId: '/injected' },
     });
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
     client.track('task_complete');
 
     expect(sink[0]?.['url']).toBe('https://injected.test/p');
@@ -374,7 +383,7 @@ describe('C01 公共 API 边界', () => {
     const records: DiagnosticsRecord[] = [];
     const client = createClient({ onEvent: (event) => first.push(event), debug: false });
 
-    client.init({ appId: 'app-a', onEvent: (event) => second.push(event), debug: (record) => records.push(record) });
+    client.init({ appId: 'app-a', consent: 'granted', onEvent: (event) => second.push(event), debug: (record) => records.push(record) });
     client.track('task_complete');
     client.track('sdk_health');
 

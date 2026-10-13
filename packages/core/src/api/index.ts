@@ -47,6 +47,7 @@ export type {
   ClientInitOptions,
   ClientOptions,
   ClientState,
+  ConsentMode,
   ConsentState,
   DiagnosticsRecord,
   DiagnosticsSink,

@@ -20,7 +20,84 @@ export const API_REASON_CODES: {
 export function applyKillSwitch(kernel: Kernel, decision: KillSwitchDecision, stopRuntime: () => void): void;
 
 // @public
+export type BatchConsent = 'granted' | 'denied' | 'unknown';
+
+// @public
+export interface BatchHeaderProviderOptions {
+    // (undocumented)
+    readonly appId: string;
+    // (undocumented)
+    readonly clock: () => ClockState;
+    // (undocumented)
+    readonly consent: () => BatchConsent;
+    readonly env?: string | undefined;
+    readonly release?: string | undefined;
+    // (undocumented)
+    readonly sdkName: string;
+    // (undocumented)
+    readonly sdkVersion: string;
+    // (undocumented)
+    readonly session: () => SessionState;
+    // (undocumented)
+    readonly user: () => ContextUser | undefined;
+}
+
+// @public
 export function buildConfigUrl(configEndpoint: string, appId: string, env: string): string;
+
+// @public
+export const BUILTIN_MASK_RULES: readonly BuiltinMaskRule[];
+
+// @public
+export const BUILTIN_SENSITIVE_HEADERS: readonly string[];
+
+// @public
+export interface BuiltinMaskRule {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly pattern: string;
+    // (undocumented)
+    readonly replacement: string;
+    readonly sample: string;
+    // (undocumented)
+    readonly sampleMasked: string;
+}
+
+// @public
+export const C04_LIMITS: FieldLimits;
+
+// @public
+export interface C04BatchHeader {
+    // (undocumented)
+    readonly app_id: string;
+    // (undocumented)
+    readonly clock_calibrated: boolean;
+    // (undocumented)
+    readonly clock_offset: number;
+    // (undocumented)
+    readonly consent: BatchConsent;
+    // (undocumented)
+    readonly device_id: string;
+    // (undocumented)
+    readonly device_id_persistent: boolean;
+    // (undocumented)
+    readonly env: string;
+    // (undocumented)
+    readonly protocol_version: 1;
+    // (undocumented)
+    readonly release: string;
+    // (undocumented)
+    readonly sdk_name: string;
+    // (undocumented)
+    readonly sdk_version: string;
+    // (undocumented)
+    readonly session_id: string;
+    // (undocumented)
+    readonly user_id?: string | undefined;
+    // (undocumented)
+    readonly user_id_hashed?: boolean | undefined;
+}
 
 // @public (undocumented)
 export const CACHE_TTL_MS = 86400000;
@@ -53,11 +130,15 @@ export interface CapabilityRegistryServices {
 }
 
 // @public
+export function clampOffset(offsetMs: number): number;
+
+// @public
 export interface Client<TDictionary extends EventDictionary = PermissiveDictionary> {
     // (undocumented)
     captureError(error: unknown, input?: EventInput): undefined;
     // (undocumented)
     clearUser(): undefined;
+    configureView(options?: ViewOptions): undefined;
     // (undocumented)
     destroy(): undefined;
     // (undocumented)
@@ -88,15 +169,19 @@ export interface Client<TDictionary extends EventDictionary = PermissiveDictiona
 export interface ClientInitOptions {
     readonly appId?: string | undefined;
     readonly consent?: ConsentState | undefined;
+    readonly consent_mode?: ConsentMode | undefined;
+    readonly context?: Readonly<Record<string, string>> | undefined;
     readonly debug?: boolean | DiagnosticsSink | undefined;
     readonly dictionary?: EventDictionary | undefined;
     readonly endpoint?: string | undefined;
     readonly env?: string | undefined;
+    readonly extra_mask_rules?: readonly MaskRule[] | undefined;
     readonly location?: LocationSource | undefined;
     readonly onEvent?: EventSink | undefined;
     readonly pageId?: string | undefined;
     readonly release?: string | undefined;
     readonly token?: string | undefined;
+    readonly url_query_allowlist?: readonly string[] | undefined;
 }
 
 // @public
@@ -111,8 +196,12 @@ export interface ClientOptions extends ClientInitOptions {
 // @public
 export interface ClientState {
     readonly app_id: string | undefined;
+    readonly bufferEvicted: number;
+    readonly bufferSize: number;
     // (undocumented)
     readonly consent: ConsentState;
+    readonly consentMode: ConsentMode | undefined;
+    readonly contextKeysBeyondLimit: number;
     // (undocumented)
     readonly contexts: Readonly<Record<string, string>>;
     // (undocumented)
@@ -123,12 +212,38 @@ export interface ClientState {
     readonly pageId: string | undefined;
     // (undocumented)
     readonly user: UserInput | undefined;
+    readonly viewId: string | undefined;
+}
+
+// @public
+export const CLOCK_OFFSET_LIMIT_MS = 86400000;
+
+// @public
+export interface ClockCalibration {
+    current(): ClockState;
+    noteServerTime(sample: ClockSample): void;
+    reset(): void;
 }
 
 // @public
 export interface ClockPort {
     // (undocumented)
     now(): number;
+}
+
+// @public
+export interface ClockSample {
+    readonly clientReceivedAtMs: number;
+    readonly clientSentAtMs: number;
+    readonly serverTimeMs: number;
+}
+
+// @public
+export interface ClockState {
+    // (undocumented)
+    readonly calibrated: boolean;
+    // (undocumented)
+    readonly offsetMs: number;
 }
 
 // @public
@@ -156,6 +271,21 @@ export interface CommandQueue {
 export interface CommandQueuePushResult {
     readonly status: 'queued' | 'rejected';
 }
+
+// @public
+export interface CompiledMaskRule {
+    // (undocumented)
+    readonly builtin: boolean;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly regex: RegExp;
+    // (undocumented)
+    readonly replacement: string;
+}
+
+// @public
+export function compileMaskRules(extra: readonly MaskRule[], createRegExp?: (pattern: string, flags: string) => RegExp): readonly CompiledMaskRule[];
 
 // @public
 export const CONFIG_CAPABILITY = "sdk.config";
@@ -281,11 +411,188 @@ export interface ConfigRuntimeOptions {
 // @public
 export type ConfigSource = 'builtin' | 'cache' | 'remote' | 'conservative';
 
+// @public (undocumented)
+export const CONSENT_BUFFER_MAX_BYTES = 5242880;
+
+// @public
+export const CONSENT_BUFFER_MAX_EVENTS = 2000;
+
+// @public
+export interface ConsentDecision {
+    readonly action: 'emit' | 'buffer' | 'deny';
+    readonly reason: string | undefined;
+}
+
+// @public
+export interface ConsentGatePort {
+    readonly buffer: (event: KernelEvent) => boolean;
+    // (undocumented)
+    readonly mode: () => ConsentMode;
+    // (undocumented)
+    readonly state: () => ConsentState;
+}
+
+// @public
+export interface ConsentGateSource {
+    // (undocumented)
+    readonly buffer: (event: KernelEvent) => boolean;
+    // (undocumented)
+    readonly mode: () => ConsentMode;
+    // (undocumented)
+    readonly state: () => ConsentState;
+}
+
+// @public
+export interface ConsentManager {
+    readonly buffer: (event: KernelEvent) => boolean;
+    // (undocumented)
+    readonly bufferEvicted: () => number;
+    // (undocumented)
+    readonly bufferSize: () => number;
+    readonly clearBuffer: (reason: string) => number;
+    readonly drain: () => number;
+    readonly headerConsent: () => BatchConsent;
+    // (undocumented)
+    readonly mode: () => ConsentMode;
+    readonly setMode: (mode: ConsentMode) => void;
+    readonly setState: (next: ConsentState) => void;
+    // (undocumented)
+    readonly state: () => ConsentState;
+}
+
+// @public
+export interface ConsentManagerOptions {
+    readonly count: (reason: string, delta?: number) => void;
+    readonly emit: (event: KernelEvent) => void;
+    // (undocumented)
+    readonly limits: {
+        readonly maxEvents: number;
+        readonly maxBytes: number;
+    };
+    // (undocumented)
+    readonly mode: ConsentMode;
+    readonly sizeOf: (event: KernelEvent) => number;
+    // (undocumented)
+    readonly state?: ConsentState | undefined;
+}
+
 // @public
 export type ConsentMode = 'essential_only' | 'buffer' | 'full';
 
 // @public
-export type ConsentState = 'granted' | 'denied' | 'buffer';
+export type ConsentState = 'granted' | 'denied' | 'buffer' | 'unknown';
+
+// @public
+export function constrainEvent(input: ConstrainInput): ConstrainResult;
+
+// @public
+export interface ConstrainInput {
+    readonly count: (reason: string, delta?: number) => void;
+    readonly diagnostics?: PrivacyDiagnosticsSink | undefined;
+    // (undocumented)
+    readonly event: KernelEvent;
+    // (undocumented)
+    readonly limits: FieldLimits;
+    // (undocumented)
+    readonly masker: Masker;
+}
+
+// @public
+export interface ConstrainResult {
+    readonly dropped: boolean;
+    readonly dropReason: string | undefined;
+    readonly event: KernelEvent;
+}
+
+// @public
+export const CONTEXT_CAPABILITY = "sdk.context_store";
+
+// @public
+export interface ContextEnrichPort {
+    readonly enrich: (event: KernelEvent) => KernelEvent;
+}
+
+// @public
+export interface ContextSnapshot {
+    readonly context: Readonly<Record<string, string>> | undefined;
+    readonly page_id: string | undefined;
+    readonly url: string | undefined;
+    readonly view_id: string | undefined;
+}
+
+// @public
+export interface ContextStoragePort {
+    // (undocumented)
+    read(key: string): string | undefined;
+    // (undocumented)
+    remove(key: string): void;
+    // (undocumented)
+    write(key: string, value: string): void;
+}
+
+// @public
+export interface ContextStore {
+    // (undocumented)
+    readonly clearUser: () => void;
+    // (undocumented)
+    readonly configureView: (options: {
+        readonly url?: string | undefined;
+        readonly view_id?: string | undefined;
+    }) => void;
+    readonly consentMode: () => ConsentMode;
+    readonly destroy: () => void;
+    readonly enrich: (event: KernelEvent) => KernelEvent;
+    readonly pageId: () => string | undefined;
+    // (undocumented)
+    readonly removeContext: (key: string) => void;
+    // (undocumented)
+    readonly setConsentMode: (mode: ConsentMode) => void;
+    // (undocumented)
+    readonly setContext: (key: string, value: string) => void;
+    readonly setInitialContext: (values: Readonly<Record<string, string>>) => void;
+    // (undocumented)
+    readonly setPage: (pageId: string) => void;
+    // (undocumented)
+    readonly setUser: (id: string, options?: {
+        readonly hashed?: boolean | undefined;
+    }) => void;
+    readonly snapshot: () => ContextSnapshot;
+    // (undocumented)
+    readonly state: () => ContextStoreState;
+    readonly user: () => ContextUser | undefined;
+}
+
+// @public
+export interface ContextStoreOptions {
+    // (undocumented)
+    readonly consent: ConsentManager;
+    readonly consentMode: ConsentMode;
+    readonly initialContext?: Readonly<Record<string, string>> | undefined;
+    // (undocumented)
+    readonly page: PageTracker;
+}
+
+// @public
+export interface ContextStoreState {
+    readonly bufferEvicted: number;
+    readonly bufferSize: number;
+    readonly contextKeysBeyondLimit: number;
+    // (undocumented)
+    readonly contexts: Readonly<Record<string, string>>;
+    // (undocumented)
+    readonly pageId: string | undefined;
+    // (undocumented)
+    readonly user: ContextUser | undefined;
+    // (undocumented)
+    readonly viewId: string | undefined;
+}
+
+// @public
+export interface ContextUser {
+    readonly hashed?: boolean | undefined;
+    // (undocumented)
+    readonly id: string;
+}
 
 // @public
 export interface Counters {
@@ -296,6 +603,9 @@ export interface Counters {
 }
 
 // @public
+export function createBatchHeaderProvider(options: BatchHeaderProviderOptions): () => C04BatchHeader;
+
+// @public
 export function createBuiltinConfig(consentMode: ConsentMode): EffectiveConfig;
 
 // @public
@@ -303,6 +613,9 @@ export function createCapabilityRegistry(services: CapabilityRegistryServices): 
 
 // @public
 export function createClient<TDictionary extends EventDictionary = PermissiveDictionary>(options?: ClientOptions): Client<TDictionary>;
+
+// @public
+export function createClockCalibration(): ClockCalibration;
 
 // @public
 export function createCommandQueue(options?: {
@@ -318,16 +631,37 @@ export function createConfigCache(options: {
 export function createConfigRuntime(options: ConfigRuntimeOptions): ConfigRuntime;
 
 // @public
+export function createConsentFilterProcessor(gate: ConsentGatePort): Processor;
+
+// @public
+export function createConsentManager(options: ConsentManagerOptions): ConsentManager;
+
+// @public
+export function createConsentProcessor(consent: ConsentManager): Processor;
+
+// @public
 export function createConservativeConfig(consentMode: ConsentMode): EffectiveConfig;
 
 // @public
+export function createContextEnrichProcessor(port: ContextEnrichPort): Processor;
+
+// @public
+export function createContextStore(options: ContextStoreOptions): ContextStore;
+
+// @public
 export function createCounters(): Counters;
+
+// @public
+export function createEnrichProcessor(page: PageTracker): Processor;
 
 // @public
 export function createFetchPort(options: {
     readonly timeoutMs: number;
     readonly fetchImpl?: ((request: ConfigFetchRequest) => Promise<ConfigFetchResponse>) | undefined;
 }): ConfigFetchPort;
+
+// @public
+export function createFieldConstraintsProcessor(options: FieldConstraintsOptions): Processor;
 
 // @public
 export function createGlobalRegistry(services: GlobalRegistryServices): GlobalRegistry;
@@ -342,7 +676,13 @@ export function createKernel(config?: KernelConfig): Kernel;
 export function createLifecycle(services: LifecycleServices): Lifecycle;
 
 // @public
+export function createMasker(rules?: readonly MaskRule[]): Masker;
+
+// @public
 export function createMemoryCache(): ConfigCachePort;
+
+// @public
+export function createPageTracker(options: PageTrackerOptions): PageTracker;
 
 // @public
 export function createPipeline(services: PipelineServices): Pipeline;
@@ -363,13 +703,22 @@ export function createSdk<TDictionary extends EventDictionary = PermissiveDictio
 export function createSessionSampling(options: SessionSamplingOptions): SessionSampling;
 
 // @public
+export function createSessionTracker(options: SessionTrackerOptions): SessionTracker;
+
+// @public
 export function createUuid(): string;
+
+// @public
+export function decideConsent(state: ConsentState, mode: ConsentMode, event: KernelEvent): ConsentDecision;
 
 // @public
 export function defineEventDictionary<const TDictionary extends EventDictionary>(dictionary: TDictionary): TDictionary;
 
 // @public
 export function definePlugin(plugin: Plugin_2): Plugin_2;
+
+// @public
+export const DEVICE_ID_KEY = "wr_device_id";
 
 // @public
 export interface DiagnosticsRecord {
@@ -419,6 +768,13 @@ export interface EffectiveConfig {
     readonly source: ConfigSource;
     // (undocumented)
     readonly transport: Readonly<TransportSettings>;
+}
+
+// @public
+export interface ErasePort {
+    readonly deviceId?: (() => void) | undefined;
+    readonly offlineData?: (() => void) | undefined;
+    readonly sessionRandom?: (() => void) | undefined;
 }
 
 // @public
@@ -472,6 +828,34 @@ export const FETCH_INTERVAL_MS = 300000;
 export const FETCH_TIMEOUT_MS = 5000;
 
 // @public
+export interface FieldConstraintsOptions {
+    readonly constrain?: ((input: ConstrainInput) => ConstrainResult) | undefined;
+    readonly count: (reason: string, delta?: number) => void;
+    readonly diagnostics?: PrivacyDiagnosticsSink | undefined;
+    // (undocumented)
+    readonly limits: FieldLimits;
+    readonly masker: Masker;
+}
+
+// @public
+export interface FieldLimits {
+    // (undocumented)
+    readonly maxAttachmentBytes: number;
+    // (undocumented)
+    readonly maxContextKeys: number;
+    // (undocumented)
+    readonly maxDimensionKeys: number;
+    // (undocumented)
+    readonly maxDimensionValueLength: number;
+    // (undocumented)
+    readonly maxEventBodyBytes: number;
+    // (undocumented)
+    readonly maxMetricKeys: number;
+    // (undocumented)
+    readonly maxTruncatedPaths: number;
+}
+
+// @public
 export interface FieldSpec<TValue, TRequired extends boolean = boolean> {
     readonly required: TRequired;
     readonly type: TValue;
@@ -519,6 +903,9 @@ export function isCacheFresh(entry: CachedConfig, clock: ClockPort): boolean;
 
 // @public
 export function isConsentState(value: unknown): value is ConsentState;
+
+// @public
+export function isEssentialEvent(event: KernelEvent): boolean;
 
 // @public
 export function isNonEmptyString(value: unknown): value is string;
@@ -635,10 +1022,36 @@ export interface LocationSource {
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 // @public
+export const MASK_RULE_BUDGET: {
+    readonly builtin: 7;
+    readonly extra: 40;
+    readonly total: 50;
+};
+
+// @public
+export interface Masker {
+    apply(text: string): string;
+    ruleCount(): number;
+}
+
+// @public
+export interface MaskRule {
+    readonly builtin: boolean;
+    readonly flags?: string | undefined;
+    // (undocumented)
+    readonly name: string;
+    readonly pattern: string;
+    readonly replacement?: string | undefined;
+}
+
+// @public
 export function matchesSemverRange(version: string, range: string): boolean;
 
 // @public
 export function matchFirstRule(rules: readonly SamplingRule[], event: SamplingEvent): RuleOutcome;
+
+// @public
+export const MAX_CLOCK_ROUND_TRIP_MS = 2000;
 
 // @public
 export const MAX_DIMENSION_VALUE_LENGTH = 256;
@@ -674,6 +1087,9 @@ export interface MergeResult {
 }
 
 // @public
+export function mergeSensitiveHeaders(extra: readonly string[]): readonly string[];
+
+// @public
 export type MetricFields<TDefinition> = ShapeOf<MetricFieldsOf<TDefinition>>;
 
 // @public
@@ -691,6 +1107,29 @@ export type OptionalFieldKeys<TFields> = Exclude<keyof TFields, RequiredFieldKey
 export type OptionalShape<TFields> = {
     readonly [K in OptionalFieldKeys<TFields>]?: FieldValue<TFields[K]>;
 };
+
+// @public
+export interface PageTracker {
+    enrich(event: KernelEvent): KernelEvent;
+    isSamePage(pageId: string | undefined): boolean;
+    noteLocation(url: string | undefined, explicitViewId?: string): void;
+    setPage(pageId: string | undefined): void;
+    snapshot(): ContextSnapshot;
+}
+
+// @public
+export interface PageTrackerOptions {
+    // (undocumented)
+    readonly createId: () => string;
+    readonly now?: (() => number) | undefined;
+    // (undocumented)
+    readonly pageId?: string | undefined;
+    // (undocumented)
+    readonly url?: string | undefined;
+}
+
+// @public
+export function parseUrlParts(url: string): UrlParts;
 
 // @public
 export type PermissiveDictionary = {
@@ -847,7 +1286,40 @@ export interface PrestartQueuePush {
 }
 
 // @public
+export const PRIVACY_REASON_CODES: {
+    readonly invalidFieldKey: "invalid_field_key";
+    readonly nonFiniteMetric: "non_finite_metric";
+    readonly eventTooLarge: "event_too_large";
+    readonly truncatedDimension: "truncated_dimension";
+    readonly truncatedDimensionKeys: "truncated_dimension_keys";
+    readonly truncatedMetricKeys: "truncated_metric_keys";
+    readonly truncatedAttachment: "truncated_attachment";
+    readonly consentDenied: "consent_denied";
+    readonly consentBufferCleared: "consent_buffer_cleared";
+};
+
+// @public
+export type PrivacyDiagnosticsSink = (record: {
+    readonly reason_code: string;
+    readonly kind: string;
+    readonly event_name?: string | undefined;
+    readonly dropped: 'event' | 'field';
+    readonly field?: string | undefined;
+}) => void;
+
+// @public
+export type PrivacyReasonCode = (typeof PRIVACY_REASON_CODES)[keyof typeof PRIVACY_REASON_CODES];
+
+// @public
 export type Processor = (event: KernelEvent, context: ProcessorContext) => ProcessorResult;
+
+// @public
+export const PROCESSOR_IDS: {
+    readonly fieldConstraints: "c04_field_constraints";
+    readonly eventSize: "c04_event_size";
+    readonly contextEnrich: "c04_context_enrich";
+    readonly consentGate: "c04_consent_gate";
+};
 
 // @public
 export interface ProcessorContext {
@@ -872,7 +1344,7 @@ export interface ProcessOutcome {
 }
 
 // @public
-export const PUBLIC_METHODS: readonly ["init", "track", "log", "captureError", "setUser", "clearUser", "setContext", "removeContext", "setPage", "setConsent", "flush", "destroy"];
+export const PUBLIC_METHODS: readonly ["init", "track", "log", "captureError", "setUser", "clearUser", "setContext", "removeContext", "setPage", "setConsent", "configureView", "flush", "destroy"];
 
 // @public
 export type PublicMethod = (typeof PUBLIC_METHODS)[number];
@@ -890,6 +1362,7 @@ export interface QueuedCommand {
     readonly pageId?: string | undefined;
     // (undocumented)
     readonly url?: string | undefined;
+    readonly viewId?: string | undefined;
 }
 
 // @public
@@ -1060,10 +1533,19 @@ export interface SamplingRule {
 }
 
 // @public
+export function sanitizeUrl(url: string, allowlist: readonly string[], masker: Masker, maxLength?: number): string;
+
+// @public
 export type Sdk<TDictionary extends EventDictionary = PermissiveDictionary> = Client<TDictionary>;
 
 // @public
 export const SDK_VERSION = "0.0.0";
+
+// @public
+export const SESSION_ID_KEY = "wr_session_id";
+
+// @public
+export const SESSION_IDLE_MS = 1800000;
 
 // @public
 export const SESSION_KEY_PREFIX = "wr_session:";
@@ -1092,11 +1574,44 @@ export interface SessionSamplingOptions {
 }
 
 // @public
+export interface SessionState {
+    // (undocumented)
+    readonly deviceId: string;
+    readonly deviceIdPersistent: boolean;
+    // (undocumented)
+    readonly sessionId: string;
+}
+
+// @public
 export interface SessionStorePort {
     // (undocumented)
     read(key: string): string | undefined;
     // (undocumented)
     write(key: string, value: string): void;
+}
+
+// @public
+export interface SessionTracker {
+    current(): SessionState;
+    onConsentChange(state: ConsentState, mode: ConsentMode): void;
+    purge(): void;
+    touch(nowMs: number): SessionState;
+}
+
+// @public
+export interface SessionTrackerOptions {
+    // (undocumented)
+    readonly createId: () => string;
+    // (undocumented)
+    readonly limits: {
+        readonly sessionIdleMs: number;
+    };
+    readonly mode?: ConsentMode | undefined;
+    // (undocumented)
+    readonly now: () => number;
+    readonly persistentStorage?: ContextStoragePort | undefined;
+    readonly sessionStorage?: ContextStoragePort | undefined;
+    readonly state?: ConsentState | undefined;
 }
 
 // @public
@@ -1140,6 +1655,9 @@ export const SUPPORTED_FORMAT_VERSION = 1;
 export function teardownForSampledOutSession(kernel: Kernel, config: ConfigReader): PluginToggleSignal | undefined;
 
 // @public
+export function toBatchConsent(state: ConsentState): BatchConsent;
+
+// @public
 export interface TransportSettings {
     // (undocumented)
     readonly idle_flush_ms?: number | undefined;
@@ -1157,6 +1675,18 @@ export interface TransportSettings {
 export function truncate(value: string, maxLength: number): string;
 
 // @public
+export function truncateUtf16Safe(text: string, maxLength: number): string;
+
+// @public
+export interface UrlParts {
+    readonly hash: string | undefined;
+    readonly origin: string;
+    // (undocumented)
+    readonly pathname: string;
+    readonly query: readonly (readonly [string, string])[];
+}
+
+// @public
 export interface UserInput {
     readonly hashed?: boolean | undefined;
     // (undocumented)
@@ -1170,6 +1700,9 @@ export interface UserLike {
     // (undocumented)
     readonly id: string;
 }
+
+// @public
+export function utf8Bytes(text: string): number;
 
 // @public
 export function validateEnvelopeShape(envelope: Readonly<Record<string, unknown>>): ValidationResult;
@@ -1194,6 +1727,15 @@ export interface VerifyResult {
     readonly ok: boolean;
     // (undocumented)
     readonly reason: string | undefined;
+}
+
+// @public
+export const VIEW_CAPABILITY = "sdk.view";
+
+// @public
+export interface ViewOptions {
+    readonly url?: string | undefined;
+    readonly view_id?: string | undefined;
 }
 
 // @public

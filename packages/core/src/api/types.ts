@@ -5,13 +5,31 @@
  * 事件出口（`EventSink`）与调试输出（`DiagnosticsSink`）都是注入点，模块顶层不访问 `window`。
  */
 import type { GlobalRegistry, Kernel, KernelEvent } from '../kernel';
+import type { MaskRule } from '../privacy/types';
+import type { ViewOptions } from '../context/ports';
 import type { EventDictionary, EventRequestOf, PermissiveDictionary } from './typed-events';
 
 /** 事件接收端口：C06 传输层就绪前由接入方或测试注入；抛错只计数，不影响业务。 */
 export type EventSink = (event: KernelEvent) => void;
 
-/** 同意状态。`granted` 为缺省值（D002：远程配置不得把它改成 `full`）。 */
-export type ConsentState = 'granted' | 'denied' | 'buffer';
+/**
+ * 同意状态（Q5；D002）。
+ *
+ * `unknown` 是**初始态**：Q5 规定「初始化时为 `unknown`，接入方可以在初始化参数中传入已知状态」。
+ * 2026-10-13 经负责人签字把缺省值由 `'granted'` 修正为 `'unknown'`（Q5 一致性修正：
+ * 默认「已授权」意味着未经同意即采集，属合规问题）。`'buffer'` 表示「先缓存、不发送」。
+ */
+export type ConsentState = 'granted' | 'denied' | 'buffer' | 'unknown';
+
+/**
+ * 生效的 `consent_mode`（配置面；`full` 只能来自初始化参数，见 D002）。
+ *
+ * 权威定义在 C03 的 `config/types.ts`；这里**再导出**，避免公共面出现两个同名联合
+ * （API Extractor 会因此报 `ae-forgotten-export` / `ConsentMode_2`）。
+ */
+import type { ConsentMode } from '../config/types';
+
+export type { ConsentMode };
 
 /** 日志级别。 */
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -76,6 +94,16 @@ export interface ClientState {
   readonly user: UserInput | undefined;
   readonly pageId: string | undefined;
   readonly contexts: Readonly<Record<string, string>>;
+  /** 当前页面访问标识（C04-F2；AC-01/AC-03 的可观测性）。 */
+  readonly viewId: string | undefined;
+  /** 生效的 `consent_mode`（AC-10/AC-19 的可观测性）。 */
+  readonly consentMode: ConsentMode | undefined;
+  /** `buffer` 模式下当前缓冲的事件条数（AC-11/AC-18 的可观测性）。 */
+  readonly bufferSize: number;
+  /** `buffer` 溢出被淘汰的事件条数（**不占契约原因码**）。 */
+  readonly bufferEvicted: number;
+  /** 第 51 个及之后被拒绝写入的 `context` 键次数（**不占契约原因码**）。 */
+  readonly contextKeysBeyondLimit: number;
 }
 
 /** 公共 API 方法名。销毁后调用其中任何一个都计数 `destroyed`（C01-AC-03、C02-AC-14）。 */
@@ -90,6 +118,7 @@ export const PUBLIC_METHODS = [
   'removeContext',
   'setPage',
   'setConsent',
+  'configureView',
   'flush',
   'destroy',
 ] as const;
@@ -144,6 +173,14 @@ export interface Client<TDictionary extends EventDictionary = PermissiveDictiona
   removeContext(key: string): undefined;
   setPage(pageId: string): undefined;
   setConsent(state: ConsentState): undefined;
+  /**
+   * 通知页面导航（装配根/路由插件在路由变化时调用；C04 不监听 History）。
+   *
+   * 存在的必要性：AC-03 要求「路由变化时 `view_id` 重新生成」，而 C04 的采集面不含
+   * History/popstate（属 C05/T18）。没有这个注入点，同 `page_id` 下的 SPA 导航
+   * （URL 变化）无法被感知，`url` 也会停留在旧值。
+   */
+  configureView(options?: ViewOptions): undefined;
   flush(): undefined;
   destroy(): undefined;
 }
@@ -172,8 +209,24 @@ export interface ClientInitOptions {
   readonly env?: string | undefined;
   /** 接入方应用版本。 */
   readonly release?: string | undefined;
-  /** 初始同意状态，缺省 `granted`。 */
+  /** 初始同意状态，缺省 `unknown`（Q5；2026-10-13 负责人签字修正）。 */
   readonly consent?: ConsentState | undefined;
+  /**
+   * 生效的 `consent_mode`（D002：`full` **只能**在这里设置，远程配置不接受）。
+   * 缺省 `essential_only`；装配根注入 C03 的配置运行时后，生效值以远程配置为准。
+   */
+  readonly consent_mode?: ConsentMode | undefined;
+  /** 初始化时的自定义上下文（键名按 `setContext` 的同一规则校验）。 */
+  readonly context?: Readonly<Record<string, string>> | undefined;
+  /**
+   * URL 查询参数白名单（`privacy.url_query_allowlist`）。
+   *
+   * 白名单之外的参数**一律删除**；为空时删除全部查询参数（`remote-config.md` 5.4）。
+   * 装配根在 T18 接入 C03 的配置运行时后，生效值以远程配置为准（这里只是注入面）。
+   */
+  readonly url_query_allowlist?: readonly string[] | undefined;
+  /** 追加的脱敏规则（`privacy.extra_mask_rules`；只能追加，不能删除内置 7 条）。 */
+  readonly extra_mask_rules?: readonly MaskRule[] | undefined;
   /** 手动路由模式下的当前页面标识。 */
   readonly pageId?: string | undefined;
   /** 位置来源注入点；缺省按 `globalThis.window.location` 解析。 */

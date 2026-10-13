@@ -96,7 +96,9 @@ const collectEvents = async (
       events.push(asRecord(event, 'C01 产出的事件'));
     },
   });
-  client.init(initOptions);
+  // Q5 一致性修正（2026-10-13）后同意缺省为 `unknown`（+ `essential_only` 会拦下非必要事件），
+  // 因此这里显式注入 `granted`；调用方可用 `consent` 覆盖以验证同意相关行为。
+  client.init({ consent: 'granted', ...initOptions });
   drive(client);
   client.flush();
   client.destroy();
@@ -128,7 +130,10 @@ describe('产出校验：C06 批次组装器的真实批次产出', () => {
     // 两个事件来自同一假 location，page_id / url 取值相同 → 被提升到批次 common
     expect(asArray(batch['events'], 'batch.events')).toHaveLength(2);
     expect(asRecord(batch['common'], 'batch.common')['page_id']).toBe('/task/:id');
-    expect(asRecord(batch['common'], 'batch.common')['url']).toBe(FAKE_LOCATION.href);
+    // C04（T14）落地后 URL 经过脱敏：查询参数不在白名单里的一律删除
+    // （本用例没有配置 `url_query_allowlist`，因此 `?q=demo` 被删除）。
+    // 见 `packages/core/README.md` 第 28 节与 `docs/contracts/remote-config.md` 5.4。
+    expect(asRecord(batch['common'], 'batch.common')['url']).toBe('https://example.test/task/42');
     expect(batch['batch_id']).toBe(BATCH_ID);
     expect(batch['sent_at']).toBe(SENT_AT);
   });

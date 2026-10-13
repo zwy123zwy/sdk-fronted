@@ -151,7 +151,7 @@ describe('C01 加载桩', () => {
   it('C01-AC-06 主包延迟加载期间缓存的调用按原顺序回放到主包实例', () => {
     const { sdk } = loadStub();
 
-    sdk.init({ appId: 'app-a' });
+    sdk.init({ appId: 'app-a', consent: 'granted' });
     sdk.track('task_complete', { dimensions: { task_id: 't-1' } });
     sdk.setUser('user-1');
     expect(sdk.getQueueLength()).toBe(3);
@@ -185,7 +185,7 @@ describe('C01 加载桩', () => {
   it('C01-AC-06 缓存期间抛出的 JS 错误与 track 都被上报', () => {
     const { sdk } = loadStub();
 
-    sdk.init({ appId: 'app-a' });
+    sdk.init({ appId: 'app-a', consent: 'granted' });
     sdk.track('page_before_error');
     sdk.captureError(new Error('首屏错误'));
     sdk.track('page_after_error');
@@ -208,7 +208,7 @@ describe('C01 加载桩', () => {
 
     // 主包 404：没有任何后续脚本，只有加载桩生效
     expect(() => {
-      sdk.init({ appId: 'app-a' });
+      sdk.init({ appId: 'app-a', consent: 'granted' });
       for (let index = 0; index < 250; index += 1) {
         sdk.track(`queue_event_${String(index)}`);
       }
