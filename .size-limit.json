@@ -1,15 +1,15 @@
 [
   {
-    "name": "browser（核心 + 默认插件，指南第 6 节预算）",
+    "name": "browser（当前为 core 全导出面的 re-export 壳；⚠ 装配根 T18 落地后应改量实际发货的 bundle）——2026-10-13 经负责人批准由 10 KB 提到 13 KB",
     "path": "packages/browser/dist/index.js",
     "import": "*",
-    "limit": "10 KB"
+    "limit": "13 KB"
   },
   {
-    "name": "core（C01/C02 内核与 API + C03 配置与采样；2026-10-13 经负责人批准由 10 KB 提到 16 KB：C03 落地后实测 13.07 kB，且 C04/T14 紧接着还要加进 core）",
+    "name": "core（C01/C02 内核与 API + C03 配置与采样 + C04 上下文/脱敏/同意；2026-10-13 经负责人批准 10 KB → 16 KB → 21 KB：C03 后 13.07 kB、C04 后 18.35 kB）",
     "path": "packages/core/dist/index.js",
     "import": "*",
-    "limit": "16 KB"
+    "limit": "21 KB"
   },
   {
     "name": "plugins（全量，T18 预算）",
