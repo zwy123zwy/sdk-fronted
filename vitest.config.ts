@@ -18,6 +18,15 @@ export default defineConfig({
           environment: 'node',
         },
       },
+      {
+        // T31（安全与隐私测试）的所有权目录是 `tests/security/`；若无此 project，该目录不会被任
+        // 何 project 收集、测试根本不会执行。2026-10-13 经负责人批准新增。
+        test: {
+          name: 'security',
+          include: ['tests/security/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
     ],
     coverage: {
       provider: 'v8',
