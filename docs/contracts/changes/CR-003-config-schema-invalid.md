@@ -84,3 +84,8 @@
 - [x] `tests/acceptance/C03.md` 新增 `C03-AC-24`；`docs/tasks/T13.md` 验收范围更新为 AC-24；
 - [x] `docs/contracts/README.md` 状态表标注；`docs/review-log.md` R-015 留档；
 - [ ] 接收方看板可选增加 `config_schema_invalid` 一列（不在本项目内）。
+
+## 6. 落地过程中的两个教训（供后续契约变更参考）
+
+1. **新增原因码会连带改变公共 API。** `packages/transport/src/monitor/reason-codes.ts` 的 `DROP_REASON_CODES` / `COUNT_REASON_CODES` 是 `as const` 的 readonly 字面量元组，**其类型属于公共 API**（见 `etc/transport.api.md` 里那一长行元组字面量）。因此每次按契约新增原因码，除改契约与 `sdk_health.schema.json` 外，**还必须跑 `pnpm api:update`**，否则 `api:check` 阻断。已在本次落地中被门禁抓到。
+2. **有一条自动化的契约漂移检测器在盯着这件事。** `packages/transport/src/monitor/reason-codes.test.ts` 有一条「`count_` 清单与 Schema 的 `patternProperties` 完全一致（含顺序）」的双向比对用例——它在我只改了契约与 Schema、未同步实现清单时立即变红（1 failed）。这是 T17 当初按编排方要求建的守卫，**它按设计工作**；后续任何原因码变更都应预期这条用例先红，再去同步实现。
