@@ -150,29 +150,16 @@ export const BATCH_HEADER_CAPABILITY = 'sdk.batch_header';
 /** SDK 包名（批次头 `sdk_name`；装配根在 T18 可覆盖为 true 的包名）。 */
 const SDK_NAME = '@web-report-sdk/core';
 
-/** 解析上下文存储：localStorage 优先，不可用时退回内存（不触碰业务键）。 */
+/**
+ * 解析上下文/会话存储端口。
+ *
+ * **默认只驻留内存**（2026-10-13 经负责人裁定）：core **不自行读写 `window.localStorage`**——
+ * 这与 `context/ports.ts` 的声明一致（「core 不读 `window`/`localStorage`，由装配根注入实现」），
+ * 也符合 D004 的实测结论（`localStorage` 的写入不是同步持久化，硬杀窗口内会整段丢失）与
+ * 「不把标识符默认写到磁盘」的隐私取向。需要跨页面持久的接入方，由装配根（T18）注入一个
+ * 持久化实现（`ContextStoragePort` 本就是注入端口）。
+ */
 function resolveContextStorage(): ContextStoragePort {
-  const scope = globalThis as { localStorage?: { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void } | undefined };
-  const store = scope.localStorage;
-  if (store !== undefined) {
-    return {
-      read: (key) => store.getItem(key) ?? undefined,
-      write: (key, value) => {
-        try {
-          store.setItem(key, value);
-        } catch {
-          // 隐私模式/配额不足：静默降级为内存语义
-        }
-      },
-      remove: (key) => {
-        try {
-          store.removeItem(key);
-        } catch {
-          // 同上
-        }
-      },
-    };
-  }
   const map = new Map<string, string>();
   return {
     read: (key) => map.get(key),
