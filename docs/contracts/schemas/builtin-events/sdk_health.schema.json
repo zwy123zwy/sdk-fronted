@@ -61,10 +61,11 @@
     },
     "metrics": {
       "type": "object",
-      "description": "键名、含义见 reason-codes.md 第 4 节。固定项 + drop_<原因码> + count_<原因码> + 1% 会话的三个 p99；计数类指标值为 0 时不上报，所以 minimum 为 1",
+      "description": "键名、含义见 reason-codes.md 第 4 节。固定项 + drop_<原因码> + count_<原因码> + 1% 会话的三个 p99；计数类指标值为 0 时不上报，所以 minimum 为 1。CR-001：exposure_window_ms 必须与 exposure_window_events 同时出现（dependentRequired）。",
       "required": ["window_ms"],
       "additionalProperties": false,
       "maxProperties": 50,
+      "dependentRequired": { "exposure_window_ms": ["exposure_window_events"] },
       "propertyNames": { "$ref": "#/$defs/fieldKey" },
       "properties": {
         "calls_total": { "type": "integer", "minimum": 1, "description": "窗口内公共方法调用次数" },

@@ -35,9 +35,11 @@ D004 第 1 条要求：硬杀场景下「**事件已产生但 IndexedDB 事务�
 在既有 `metrics` 列表中（`calls_total`、…、`window_ms`、`drop_<原因码>`、`count_<原因码>`）追加：
 
 - `exposure_window_events`：本次会话内经暴露窗口丢失的事件数（与 `drop_prewrite_commit_lost` 同源，便于看板直接取用而不必解析原因码命名）；
-- `exposure_window_ms`：观测到的暴露窗口时长（自事件产生到判定未落盘的最长间隔），单位毫秒。
+- `exposure_window_ms`：观测到的暴露窗口时长（自事件产生到判定未落盘的最长间隔），单位毫秒。**仅在 `exposure_window_events` 同时出现时上报**——该依赖关系已用 JSON Schema 2020-12 的 `dependentRequired` 写进机器可读定义（见下方补正），不再只是 `description` 里的文字约定。
 
 理由：D004 要求按「条数**与窗口时长**」计量，仅有原因码计数不足以表达时长。
+
+**补正（2026-10-13，同日）**：初版只把「`exposure_window_ms` 仅在事件数 ≥1 时上报」写在 `description` 里，**机器并不校验**（该 Schema 的 `metrics` 没有 `if/then`）。执行 T17 的 Agent 在写 Ajv 负向对照时发现「ms 单独出现仍被判合法」，据实上报而非顺着错误的假设做假自证。已补上 `"dependentRequired": { "exposure_window_ms": ["exposure_window_events"] }`，并实测：ms 单独出现 → 拒绝（`dependentRequired`）；ms + events → 合法；仅 events → 合法；`events: 0` → 拒绝（`minimum: 1`）。这是对**本次已批准语义**的强制化（把已批准的规则变成可机器校验），不是新增语义。
 
 ### 2.3 `tests/acceptance/C07.md` 需新增 `C07-AC-28`（由 A09 提供）
 
@@ -87,7 +89,7 @@ D004 第 1 条要求：硬杀场景下「**事件已产生但 IndexedDB 事务�
 - [x] `reason-codes.md` 第 1 节新增 `prewrite_commit_lost`（验收用例列指向 C07-AC-28）；
 - [x] `reason-codes.md` 第 4 节 `metrics` 新增 `exposure_window_events`、`exposure_window_ms`；
 - [x] `reason-codes.md` 第 5 节新增「0.2（兼容追加）」变更记录行；
-- [x] `schemas/builtin-events/sdk_health.schema.json`：新增两个指标属性（`exposure_window_*` 为 `integer`、`minimum: 1`）并把 `prewrite_commit_lost` 加入 `drop_` 的 `patternProperties`（**该 Schema 是 `additionalProperties: false`，不同步扩充会导致 SDK 自监控事件被自己的契约拒绝**）；
+- [x] `schemas/builtin-events/sdk_health.schema.json`：新增两个指标属性（`exposure_window_*` 为 `integer`、`minimum: 1`）并把 `prewrite_commit_lost` 加入 `drop_` 的 `patternProperties`（**该 Schema 是 `additionalProperties: false`，不同步扩充会导致 SDK 自监控事件被自己的契约拒绝**）；同日补正：加 `dependentRequired` 使「ms 必须与 events 同现」可机器校验（见 §2.2 补正）；
 - [x] `docs/contracts/README.md` 状态表标注；
 - [x] `tests/acceptance/C07.md` 新增 `C07-AC-28`；
 - [x] `docs/tasks/T16.md` 验收范围更新为 AC-28；
