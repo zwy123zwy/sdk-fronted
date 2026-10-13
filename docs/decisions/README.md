@@ -14,7 +14,8 @@
 |---|---|---|---|---|
 | [D001](D001-scope.md) | 项目范围：只做浏览器 SDK | 已确认 | — | 全部 |
 | [D002](D002-consent-full-mode.md) | `consent_mode: full` 只能在初始化参数中设置 | 已确认 | — | T07、T13、T14、T25、T34 |
-| [D003](D003-critical-reliability-tiered-target.md) | critical 可靠性目标分层（硬杀场景改为 best-effort） | 已确认 | — | T16、T20、T32、T35、接收方容量建议 |
+| [D003](D003-critical-reliability-tiered-target.md) | critical 可靠性目标分层（硬杀场景改为 best-effort） | 已确认（**结论第 2 条已被 D004 取代**，其余条款继续有效） | — | T16、T20、T32、T35、接收方容量建议 |
+| [D004](D004-hard-kill-exposure-window.md) | 硬杀场景改为按暴露窗口计量（强制 T16 用 IndexedDB） | 已确认 | — | T16、T20、T32、T35、接收方容量建议 |
 | [Q1](Q1-scale.md) | 规模假设（缩小为浏览器矩阵与客户端负载） | 已确认 | — | T15、T20、T30、T32 |
 | [Q2](Q2-pilot-apps.md) | 首期试点应用与对接人 | 待确认 | 只阻塞 T33 | T33 |
 | [Q3](Q3-critical-events.md) | 哪些事件归为 critical | 已确认 | — | T06、T16、T22、T32 |
