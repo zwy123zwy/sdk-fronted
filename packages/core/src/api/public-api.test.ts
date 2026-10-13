@@ -55,7 +55,7 @@ const ORDERED_METHODS = [
  * 返回值类型由 `expectTypeOf` 在编译期断言（见 C01-AC-01）。
  */
 function callAll(client: TestClient): void {
-  client.init({ appId: 'app-a' });
+  client.init({ appId: 'app-a', consent: 'granted' });
   client.track('task_complete');
   client.log('info', 'hello');
   client.captureError(new Error('x'));
@@ -93,7 +93,7 @@ describe('C01 公共 API', () => {
     expectTypeOf<ReturnType<TestClient['flush']>>().toEqualTypeOf<undefined>();
     expectTypeOf<ReturnType<TestClient['destroy']>>().toEqualTypeOf<undefined>();
 
-    client.init({ appId: 'app-a', env: 'production', release: '1.0.0' });
+    client.init({ appId: 'app-a', consent: 'granted', env: 'production', release: '1.0.0' });
     client.track('task_complete', { dimensions: { task_id: 't-1' }, metrics: { duration_ms: 12 } });
     client.log('warn', '磁盘将满', { dimensions: { disk: 'root' } });
     // captureError 的 dimensions 只接受 web_js_error 的 4 个内置键
@@ -122,7 +122,7 @@ describe('C01 公共 API', () => {
   it('C01-AC-02 处理器抛错时不冒泡到业务并计数 processor_error', () => {
     const sink = createSink();
     const client = makeClient(sink);
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
     client.kernel.registerProcessor('enrich', () => {
       throw new Error('处理器内部错误');
     });
@@ -135,7 +135,7 @@ describe('C01 公共 API', () => {
 
   it('C01-AC-03 销毁后调用全部公共方法不抛错且计数 destroyed', () => {
     const client = makeClient(createSink());
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
     client.destroy();
 
     expect(() => {
@@ -147,7 +147,7 @@ describe('C01 公共 API', () => {
 
   it('C01-AC-03 销毁后每个公共方法都单独计数 destroyed', () => {
     const client = makeClient(createSink());
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
     client.destroy();
     const baseline = client.kernel.counters.get('destroyed');
 
@@ -161,7 +161,7 @@ describe('C01 公共 API', () => {
     };
 
     expectCounted('init', () => {
-      client.init({ appId: 'app-a' });
+      client.init({ appId: 'app-a', consent: 'granted' });
     });
     expectCounted('track', () => {
       client.track('task_complete');
@@ -212,14 +212,14 @@ describe('C01 公共 API', () => {
     clientB.track('task_complete', { dimensions: { tenant: 'b' } });
     clientB.setContext('tenant', 'b');
 
-    clientA.init({ appId: 'app-a' });
+    clientA.init({ appId: 'app-a', consent: 'granted' });
     clientA.flush();
 
     expect(sinkB).toHaveLength(0);
     expect(sinkA).toHaveLength(1);
     expect(stateOf(clientA).app_id).toBe('app-a');
 
-    clientB.init({ appId: 'app-b' });
+    clientB.init({ appId: 'app-b', consent: 'granted' });
     clientB.flush();
 
     expect(sinkA).toHaveLength(1);
@@ -240,7 +240,8 @@ describe('C01 公共 API', () => {
     const clientA = makeClient(createSink(), { appId: 'app-a' });
     const clientB = makeClient(createSink(), { appId: 'app-b' });
 
-    clientA.init({ appId: 'app-a' });
+    clientA.init({ appId: 'app-a', consent: 'granted' });
+    // clientB 刻意不传 consent：本用例同时守住「未设置时初始态为 unknown」（Q5）与实例隔离。
     clientB.init({ appId: 'app-b' });
     clientA.setUser('user-a');
     clientB.setUser('user-b');
@@ -254,7 +255,9 @@ describe('C01 公共 API', () => {
     expect(stateOf(clientA).contexts).toEqual({ tenant: 'a' });
     expect(stateOf(clientB).contexts).toEqual({ tenant: 'b' });
     expect(stateOf(clientA).consent).toBe('denied');
-    expect(stateOf(clientB).consent).toBe('granted');
+    // 2026-10-13 负责人签字的 Q5 一致性修正：未设置同意时，初始态是 `unknown`（原为 `granted`）。
+    // Q5 原文：「初始化时为 `unknown`，接入方可以在初始化参数中传入已知状态」。
+    expect(stateOf(clientB).consent).toBe('unknown');
     expect(stateOf(clientA).pageId).toBe('/a');
     expect(stateOf(clientB).pageId).toBeUndefined();
     expect(stateOf(clientA).app_id).toBe('app-a');
@@ -283,8 +286,8 @@ describe('C01 公共 API', () => {
 
     expect(registry.stats().nativeListeners).toBe(1);
 
-    clientA.init({ appId: 'app-a' });
-    clientB.init({ appId: 'app-b' });
+    clientA.init({ appId: 'app-a', consent: 'granted' });
+    clientB.init({ appId: 'app-b', consent: 'granted' });
 
     let handledA = 0;
     let handledB = 0;
@@ -346,7 +349,7 @@ describe('C01 命令队列', () => {
     client.track('task_t2');
     const after = Date.now();
 
-    client.init({ appId: 'app-a', pageId: '/p/current' });
+    client.init({ appId: 'app-a', consent: 'granted', pageId: '/p/current' });
     client.flush();
 
     expect(sink.map((event) => event['event_name'])).toEqual(['task_t0', 'task_t1', 'task_t2']);
@@ -373,7 +376,7 @@ describe('C01 命令队列', () => {
   it('C01-AC-04 就绪后设置的页面标识会出现在之后的事件上', () => {
     const sink = createSink();
     const client = makeClient(sink, { appId: 'app-a' });
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
     client.setPage('/task/:id');
     client.track('task_complete');
     client.flush();
@@ -391,7 +394,7 @@ describe('C01 命令队列', () => {
     }
 
     expect(client.kernel.counters.get('command_queue_overflow')).toBe(50);
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
     client.flush();
 
     expect(sink).toHaveLength(200);
@@ -427,7 +430,7 @@ describe('C01 参数校验与调试输出', () => {
   it('C01-AC-11 非法事件名、非对象维度与 NaN 指标被静默丢弃并计数原因码', () => {
     const sink = createSink();
     const client = makeClient(sink);
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     // 非法事件名（含保留前缀）：整条丢弃
     client.track('1bad-name');
@@ -464,7 +467,9 @@ describe('C01 参数校验与调试输出', () => {
     loose.setPage('');
     loose.setUser('');
     loose.setContext('Bad-Key', 'v');
-    expect(client.kernel.counters.get('invalid_args')).toBe(6);
+    // 2026-10-13 契约一致性迁移：非法**键名**归 C04 的 `invalid_field_key`（不再是 `invalid_args`）。
+    expect(client.kernel.counters.get('invalid_args')).toBe(5);
+    expect(client.kernel.counters.get('invalid_field_key')).toBe(1);
     client.destroy();
   });
 
@@ -475,7 +480,7 @@ describe('C01 参数校验与调试输出', () => {
       token: 'top-secret-token',
       debug: (record) => records.push(record),
     });
-    client.init({ appId: 'app-a', token: 'top-secret-token' });
+    client.init({ appId: 'app-a', consent: 'granted', token: 'top-secret-token' });
 
     client.track('sdk_health');
     client.track('task_complete', { metrics: { duration_ms: Number.NaN } });
@@ -502,7 +507,7 @@ describe('C01 参数校验与调试输出', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     try {
       const client = createClient({ debug: true, onEvent: () => undefined });
-      client.init({ appId: 'app-a', token: 'top-secret-token' });
+      client.init({ appId: 'app-a', consent: 'granted', token: 'top-secret-token' });
 
       client.track('sdk_health');
       client.track('task_complete', { metrics: { duration_ms: Number.NaN } });
@@ -524,7 +529,7 @@ describe('C01 参数校验与调试输出', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     try {
       const client = createClient({ onEvent: () => undefined });
-      client.init({ appId: 'app-a' });
+      client.init({ appId: 'app-a', consent: 'granted' });
       client.track('sdk_health');
       client.track('task_complete', { metrics: { duration_ms: Number.NaN } });
       expect(warn).not.toHaveBeenCalled();
@@ -545,7 +550,7 @@ describe('C01 参数校验与调试输出', () => {
     });
 
     expect(() => {
-      client.init({ appId: 'app-a' });
+      client.init({ appId: 'app-a', consent: 'granted' });
       client.track('task_complete');
       client.track('task_complete', { metrics: { duration_ms: Number.NaN } });
       client.flush();

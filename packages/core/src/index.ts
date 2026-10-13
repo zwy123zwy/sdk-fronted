@@ -5,8 +5,8 @@
  * API Extractor 因此报「package documentation 标签位置错误」（`pnpm api:check` 失败）。
  */
 
-/** SDK 版本号，构建时由 package.json 注入前保持占位。 */
-export const SDK_VERSION = '0.0.0';
+/** SDK 版本号（唯一来源见 `./version.ts`）：构建时由 package.json 注入前保持占位。 */
+export { SDK_VERSION } from './version';
 
 // C02 内核：生命周期、六段处理管线、插件宿主、预启动队列与全局注册表。
 // 这些内部接口供 T12–T18 使用，签名变更需要先通知 A00 冻结相关下游任务。
@@ -211,3 +211,89 @@ export type {
   SessionStorePort,
   UserLike,
 } from './sampling';
+
+// C04 上下文、脱敏、同意管理与字段约束（T14）。
+// 交接产物：富化处理器、隐私处理器、脱敏规则清单（见 README 第 28 节）、
+// 以及 `setContext`/`setUser`/`setConsent` 的实现路径。
+export {
+  C04_LIMITS,
+  BUILTIN_MASK_RULES,
+  BUILTIN_SENSITIVE_HEADERS,
+  MASK_RULE_BUDGET,
+  PRIVACY_REASON_CODES,
+  PROCESSOR_IDS,
+  compileMaskRules,
+  createConsentFilterProcessor,
+  createContextEnrichProcessor,
+  createFieldConstraintsProcessor,
+  createMasker,
+  decideConsent,
+  isEssentialEvent,
+  mergeSensitiveHeaders,
+  parseUrlParts,
+  sanitizeUrl,
+  truncateUtf16Safe,
+  utf8Bytes,
+  constrainEvent,
+} from './privacy';
+export type {
+  BuiltinMaskRule,
+  CompiledMaskRule,
+  ConsentDecision,
+  ConsentGatePort,
+  ContextEnrichPort,
+  ConstrainInput,
+  ConstrainResult,
+  FieldConstraintsOptions,
+  FieldLimits,
+  MaskRule,
+  Masker,
+  PrivacyDiagnosticsSink,
+  PrivacyReasonCode,
+  UrlParts,
+} from './privacy';
+export {
+  CLOCK_OFFSET_LIMIT_MS,
+  CONSENT_BUFFER_MAX_BYTES,
+  CONSENT_BUFFER_MAX_EVENTS,
+  CONTEXT_CAPABILITY,
+  DEVICE_ID_KEY,
+  MAX_CLOCK_ROUND_TRIP_MS,
+  SESSION_ID_KEY,
+  SESSION_IDLE_MS,
+  VIEW_CAPABILITY,
+  clampOffset,
+  createBatchHeaderProvider,
+  createClockCalibration,
+  createConsentManager,
+  createConsentProcessor,
+  createContextStore,
+  createEnrichProcessor,
+  createPageTracker,
+  createSessionTracker,
+  toBatchConsent,
+} from './context';
+export type {
+  BatchConsent,
+  BatchHeaderProviderOptions,
+  C04BatchHeader,
+  ClockCalibration,
+  ClockSample,
+  ClockState,
+  ConsentGateSource,
+  ConsentManager,
+  ConsentManagerOptions,
+  ContextSnapshot,
+  ContextStoragePort,
+  ContextStore,
+  ContextStoreOptions,
+  ContextStoreState,
+  ContextUser,
+  ErasePort,
+  PageTracker,
+  PageTrackerOptions,
+  SessionState,
+  SessionTracker,
+  SessionTrackerOptions,
+  ViewOptions,
+} from './context';

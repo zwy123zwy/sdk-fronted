@@ -26,6 +26,8 @@ export interface QueuedCommand {
   /** 调用当时的位置快照；缺省时回放阶段再解析。 */
   readonly pageId?: string | undefined;
   readonly url?: string | undefined;
+  /** 调用当时的 `view_id`（C04-F2；入队绑定，AC-03）。 */
+  readonly viewId?: string | undefined;
 }
 
 /** 命令队列接口。 */

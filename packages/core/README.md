@@ -562,3 +562,114 @@ pnpm exec eslint packages/core/src/config packages/core/src/sampling packages/co
 契约自证：`packages/core/src/config/contract.test.ts` 直接 import
 `docs/contracts/schemas/remote-config.schema.json` 与真实样例，用 Ajv 2020-12 做正/负向对照、
 **运行时手写校验器 ↔ Ajv 同语料交叉验证**（D002 归一化例外显式化），并单列 CR-003 的 semver 超集用例。
+
+---
+
+# C04 上下文、脱敏、同意管理与字段约束（T14 交接产物）
+
+面向 **T18 装配根**与 **T31 安全测试**。实现见 `packages/core/src/context/`、`packages/core/src/privacy/`；
+契约依据 `docs/contracts/event-standard.md` 第 1/2/4 节、`docs/contracts/remote-config.md` 2.1 与 5.4、
+`docs/contracts/reason-codes.md`、`docs/decisions/Q5-consent.md` 与 `D002-consent-full-mode.md`。
+
+## 28. 脱敏规则清单（契约 `remote-config.md` 5.4 的实现口径）
+
+**内置脱敏规则（7 条，不可删除、不可禁用、不可被配置覆盖）**，按下列顺序执行（顺序是语义的一部分，
+重叠命中时先到者生效）；作用于**维度值、`context` 值、`message`、`attachment`、URL 路径与查询参数值**：
+
+| 顺序 | 名称 | 匹配内容（契约原文） | 替换为 | 本实现的 pattern |
+|---|---|---|---|---|
+| 1 | `email` | 电子邮箱 | `***@***` | `[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){0,4}\.[A-Za-z]{2,24}` |
+| 2 | `cn_mobile` | 中国大陆手机号（11 位，1 开头） | `1**********` | `(?<!\d)1[3-9]\d{9}(?!\d)` |
+| 3 | `cn_id_card` | 18 位身份证号（末位可为 X） | `******************` | `(?<!\d)\d{17}[\dXx](?!\d)` |
+| 4 | `bank_card` | 13–19 位连续数字 | `****` | `(?<!\d)\d{13,19}(?!\d)` |
+| 5 | `jwt` | `eyJ` 开头的三段 base64url | `***` | `eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*` |
+| 6 | `bearer_token` | `Bearer` 后的令牌 | `Bearer ***` | `[Bb]earer\s+[A-Za-z0-9._~+/-]+=*` |
+| 7 | `ipv4` | IPv4 地址 | `0.0.0.0` | `(?<!\d)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?!\d)` |
+
+- **命中行为是「替换」而不是「丢弃」**：事件继续发送，命中只计原因码（`truncated_*` 之外没有新码）。
+- **正则写法约束**：全部是**结构上安全的线性写法**（边界用定长 lookaround，不用嵌套量词、不让相邻量词共享字符类）。
+  对抗性输入的有界耗时测试见 `privacy/mask-adversarial.test.ts`（含 7 类 2 万字符长串 + 规则数达上限的
+  最坏组合 + 生产上界 256 字符），另有一条无墙钟的结构性守卫。
+- **大小写**：`bearer_token` 用显式字符类 `[Bb]` 表达大小写不敏感（JS 的 `RegExp` 没有内联 `(?i)` 标志，
+  内置规则也不依赖外部 flags）。
+
+**内置敏感请求头（9 条，不区分大小写，HTTP 插件不采集其值）**：
+`authorization`、`proxy-authorization`、`cookie`、`set-cookie`、`x-write-token`、`x-api-key`、
+`x-auth-token`、`x-csrf-token`、`x-xsrf-token`。
+`mergeSensitiveHeaders(extra)` **只做并集**（统一小写去重），不提供删除通道。
+
+**URL 查询参数**：`privacy.url_query_allowlist` 之外的参数**一律删除**；白名单为空时删除**全部**查询参数
+（未装配 C03 配置运行时时就是这一状态）。井号片段一律丢弃。
+
+**规则数量上限**：内置 7 条 + `extra_mask_rules`（远程 schema 上限 40 条）≤ 总数 50。
+算术前提由 `privacy/registry.test.ts` 的断言固定（`7 + 40 ≤ 50`），运行时规则表（含注入场景）
+超过 50 时按顺序保留前 50。
+
+> **脱敏范围是契约 5.4 的有意超集**（2026-10-13 经安全负责人批准）：契约列的是「维度值、`message`、
+> `attachment`、URL 路径」，本实现**再加 `context` 值与 `page_id`** —— 业务同样可能通过
+> `setContext`/`setPage` 塞入个人信息，属**隐私安全方向的收紧**，不削弱任何契约要求。
+
+**「不能整体关闭」如何体现**：内置 7 条是冻结常量，合并逻辑只做「内置 ∪ 追加」；
+`privacy` 不接受运行时覆盖（C03 的 `mergeConfig` 保证），公共 API 也没有任何关闭/清空脱敏的入口。
+哨兵用例见 `privacy/mask.test.ts` 的「C04-AC-09」分组（空追加、试图覆盖内置、同名追加、顺序）。
+
+## 29. C04 对外的端口与装配点（面向 T18）
+
+```ts
+// 富化（enrich 段）：补齐 page_id / view_id / url / context，已有值不覆盖
+kernel.registerProcessor('enrich', createContextEnrichProcessor(contextStore));
+// 字段约束 + 单条 16 KB（validate 段，必须在最前）
+kernel.registerProcessor('validate', createFieldConstraintsProcessor({ limits: C04_LIMITS, masker, count }));
+// 同意门（filter 段）：放行 / 缓冲 / stopPipeline('consent_denied')
+kernel.registerProcessor('filter', createConsentFilterProcessor(consentManager));
+
+kernel.getCapability('sdk.context_store');   // ContextStore：setContext/setUser/setPage/configureView/state
+kernel.getCapability('sdk.view');            // (options?: ViewOptions) => void：导航通知
+kernel.getCapability('sdk.batch_header');    // () => C04BatchHeader：接到 C06 的 BatchHeaderSource
+```
+
+- **批次头**：`C04BatchHeader` 是**结构类型**（core 不 import transport），逐字段对齐
+  `packages/transport/src/batch/types.ts` 的 `BatchHeader`。`device_id_persistent` **只有确定已授权才为 true**
+  （`granted`，或初始化参数声明已授权的 `full`）；`unknown`/`denied` 一律 `false`（**不依赖 Schema 的默认 true**）。
+  `consent` 只有 `granted`/`denied`/`unknown` 三态（`buffer` 映射为 `unknown`）。
+- **时钟**：`createClockCalibration()` 提供 `noteServerTime(sample)` 与 `current()`；`X-Server-Time` 的**解析归 T16**
+  （`parseServerTime`），C04 不解析响应头。往返 > 2000 ms 放弃校准，偏移钳制 ±24 h（批次 Schema 上下限）。
+  **AC-16 在本任务里只做端口级验证**，端到端接线归 T18、真实浏览器归 T29。
+- **同意驱动的清理**：`denied` 时 C04 清除自己的设备标识；离线数据（C07）与会话随机数（C03）通过
+  注入的 `ErasePort` 通知 —— 装配根负责把两个模块的清理函数接进去。
+- **同意缓冲**：**仅内存**（同意前不落盘），上限 2,000 条 / 5 MB（对齐 T16 的离线上限）；
+  溢出淘汰最早的 normal，只记 `ClientState.bufferEvicted` 观测量，**不占契约原因码**。
+- **入队快照**：`page_id` / `view_id` / `url` 在**调用当时**写进命令（`api/client.ts` 的 `submit()`），
+  这是 AC-03 的唯一正确实现方式；`enrich` 只补缺失值。
+
+## 30. C04 的原因码与口径
+
+| 原因码 | 触发 | 归属 |
+|---|---|---|
+| `invalid_field_key` | 维度/上下文键名不符合 `fieldKey` | C04（**非法参数**仍是 C01 的 `invalid_args`，两者不合并） |
+| `non_finite_metric` | 指标值为 NaN/Infinity，该字段丢弃 | C04 |
+| `truncated_dimension` / `truncated_dimension_keys` / `truncated_metric_keys` / `truncated_attachment` | 值/键数/附件被截断或裁剪 | C04 |
+| `event_too_large` | 截断阶梯跑完仍超过 16 KB，整条丢弃 | C04（**格式合法**的输入通常不可达，保留为契约兜底） |
+| `consent_denied` | 同意状态不允许采集或发送该事件 | C04 |
+| `consent_buffer_cleared` | `buffer` 模式下设置 `denied`，缓存被清空（**单位：事件条数**） | C04 |
+
+- **16 KB 口径**：单条事件体的 **UTF-8 序列化字节**，不含批次头与 `common`；截断阶梯为
+  「压值 → 按键丢弃 → 丢未声明字段 → 整条丢弃」。
+- **幂等**：所有截断分支都是「先判定是否超限、再动作」，因此对 C01 已按 Schema 兜底截断过的事件
+  **零计数、零写入**（幂等用例见 `privacy/constraints.test.ts` 的「与 C01 的幂等」分组）。
+- **`truncated`**：去重、上限 60（Schema 的 `maxItems`），超 60 只保留前 60，**不新增原因码**。
+
+## 31. C04 本地自检
+
+```bash
+pnpm exec vitest run --project unit packages/core/src/context packages/core/src/privacy
+pnpm exec tsc -p packages/core/tsconfig.json
+pnpm exec eslint packages/core/src/context packages/core/src/privacy packages/core/src/index.ts
+```
+
+契约自证：`packages/core/src/privacy/contract.test.ts` 直接 import 真实
+`docs/contracts/schemas/batch.schema.json`（按 `$id` 注册后引用 `$defs/event`），
+对「富化 + 脱敏 + 截断」后的产出做正向校验，并含 7 类负向对照与一条**非空转对照**。
+
+非功能口径：`privacy/perf.test.ts` 只做**中位数护栏**（5 轮 × 2,000 次，阈值 0.20 ms，实测约 0.005–0.02 ms）；
+任务卡的「富化 + 脱敏单条 P99 ≤ 0.03 ms」是**契约目标值，不是本门禁的阈值**，权威验证归 **T20**。

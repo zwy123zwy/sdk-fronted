@@ -131,7 +131,7 @@ describe('C01 类型化事件', () => {
       onEvent: (event) => events.push({ ...event }),
       dictionary: TEST_DICTIONARY,
     });
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     client.track('task_complete', {
       dimensions: { task_id: 't-1', tenant: 'acme', channel: 'web' },
@@ -157,7 +157,7 @@ describe('C01 类型化事件', () => {
       onEvent: (event) => events.push({ ...event }),
       dictionary: TEST_DICTIONARY,
     });
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     client.track('task_complete', {
       dimensions: { task_id: 't-1', tenant: 'acme' },
@@ -173,7 +173,7 @@ describe('C01 类型化事件', () => {
   it('C01-AC-09 未登记事件走宽松路径：schema_version 1、priority normal', () => {
     const events: Record<string, unknown>[] = [];
     const client = createClient({ onEvent: (event) => events.push({ ...event }) });
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     client.track('any_event_name', { dimensions: { any_key: 'v' }, metrics: { any_metric: 1 } });
 
@@ -186,7 +186,7 @@ describe('C01 类型化事件', () => {
   it('C01-AC-09 运行时仍按命名规则拒绝非法事件名与保留前缀', () => {
     const events: string[] = [];
     const client = createClient({ onEvent: (event) => events.push(event.event_name) });
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     client.track('single');
     client.track('sdk_health');
@@ -202,7 +202,7 @@ describe('C01 类型化事件', () => {
       onEvent: (event) => events.push({ ...event }),
       dictionary: CONVENIENCE_DICTIONARY,
     });
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
     client.track('user_signup', { dimensions: { plan: 'free', source: 'landing' } });
 
     expect(events[0]?.['dimensions']).toEqual({ plan: 'free', source: 'landing' });

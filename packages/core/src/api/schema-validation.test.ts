@@ -64,7 +64,7 @@ describe('C01 契约自证（Ajv 2020-12）', () => {
         },
       },
     });
-    client.init({ appId: 'app-a', pageId: '/task/:id' });
+    client.init({ appId: 'app-a', consent: 'granted', pageId: '/task/:id' });
 
     client.track('task_complete', {
       dimensions: { task_id: 't-1', tenant: 'acme' },
@@ -104,7 +104,7 @@ describe('C01 契约自证（Ajv 2020-12）', () => {
   it('web_js_error 事件单独通过内置事件 Schema（dimensions 4 键 + metrics.count）', () => {
     const events: KernelEvent[] = [];
     const client = createClient({ onEvent: (event) => events.push(event) });
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
 
     client.captureError(new TypeError('无法读取属性'), { metrics: { count: 3, line: 12, column: 4 } });
     client.flush();
@@ -139,8 +139,8 @@ describe('C01 契约自证（Ajv 2020-12）', () => {
     const eventsB: KernelEvent[] = [];
     const clientA = createClient({ onEvent: (event) => eventsA.push(event) });
     const clientB = createClient({ onEvent: (event) => eventsB.push(event) });
-    clientA.init({ appId: 'app-a' });
-    clientB.init({ appId: 'app-b' });
+    clientA.init({ appId: 'app-a', consent: 'granted' });
+    clientB.init({ appId: 'app-b', consent: 'granted' });
 
     clientA.track('page_view', { dimensions: { route: '/a' } });
     clientB.track('page_view', { dimensions: { route: '/b' } });

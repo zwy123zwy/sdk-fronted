@@ -26,7 +26,7 @@ describe('C01 非功能目标', () => {
   it('单次 track 同步耗时（中位数回归护栏；契约 P99 目标由 T20 验证）', () => {
     const events: KernelEvent[] = [];
     const client = createClient({ appId: 'app-perf', debug: false, onEvent: (event) => events.push(event) });
-    client.init({ appId: 'app-perf' });
+    client.init({ appId: 'app-perf', consent: 'granted' });
 
     const track = (index: number): void => {
       client.track('task_complete', {

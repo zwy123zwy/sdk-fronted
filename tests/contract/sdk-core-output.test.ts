@@ -64,7 +64,9 @@ const startClient = (core: RealCoreModule, initOptions: Record<string, unknown>,
       events.push(asRecord(event, 'C01 产出的事件'));
     },
   });
-  client.init(initOptions);
+  // Q5 一致性修正（2026-10-13）后同意缺省为 `unknown`（+ `essential_only` 会拦下非必要事件），
+  // 因此这里显式注入 `granted`；调用方可用 `consent` 覆盖以验证同意相关行为。
+  client.init({ consent: 'granted', ...initOptions });
   return { events, client };
 };
 
@@ -213,7 +215,7 @@ describe('产出校验：C01 公共 API 的真实事件产出', () => {
     client.captureError(new Error('入队错误'));
     expect(events).toEqual([]);
 
-    client.init({ appId: 'app-a' });
+    client.init({ appId: 'app-a', consent: 'granted' });
     client.flush();
     client.destroy();
 
@@ -253,8 +255,8 @@ describe('产出校验：C01 公共 API 的真实事件产出', () => {
       },
     });
 
-    clientA.init({ appId: 'app-a' });
-    clientB.init({ appId: 'app-b' });
+    clientA.init({ appId: 'app-a', consent: 'granted' });
+    clientB.init({ appId: 'app-b', consent: 'granted' });
     clientA.track('page_view', { dimensions: { route: '/a' } });
     clientB.track('page_view', { dimensions: { route: '/b' } });
     clientA.flush();
@@ -354,7 +356,7 @@ describe('反向对照：T12 首轮的历史契约违反逐个被拒（证明门
         logs.push(asRecord(event, 'sdk_log 事件'));
       },
     });
-    logClient.init({ appId: 'app-a' });
+    logClient.init({ appId: 'app-a', consent: 'granted' });
     logClient.log('warn', '磁盘将满');
     logClient.flush();
     logClient.destroy();

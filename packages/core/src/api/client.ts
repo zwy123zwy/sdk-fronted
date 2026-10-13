@@ -13,6 +13,37 @@
  *   `app_id` 是批次头字段，**不出现在事件体**（由 C04/C06/C07 组装批次时提供）。
  * - 模块顶层无副作用：不注册监听、不访问 `window`（位置来源首次使用时解析）。
  */
+import {
+  C04_LIMITS,
+  createConsentFilterProcessor,
+  createContextEnrichProcessor,
+  createFieldConstraintsProcessor,
+  createMasker,
+  decideConsent,
+  sanitizeUrl,
+} from '../privacy';
+import {
+  CONTEXT_CAPABILITY,
+  CONSENT_BUFFER_MAX_BYTES,
+  CONSENT_BUFFER_MAX_EVENTS,
+  SESSION_IDLE_MS,
+  VIEW_CAPABILITY,
+  createBatchHeaderProvider,
+  createClockCalibration,
+  createConsentManager,
+  createContextStore,
+  createPageTracker,
+  createSessionTracker,
+} from '../context';
+import type {
+  ConsentManager,
+  ContextStoragePort,
+  ContextStore,
+  PageTracker,
+  SessionTracker,
+} from '../context';
+import type { ConsentMode, Masker } from '../privacy/types';
+import { SDK_VERSION } from '../version';
 import { createKernel } from '../kernel';
 import type { Kernel, KernelEvent } from '../kernel';
 import { createCommandQueue } from './command-queue';
@@ -31,7 +62,6 @@ import type {
   LocationSource,
   LogLevel,
   StubCommand,
-  UserInput,
 } from './types';
 import type { EventDictionary, PermissiveDictionary } from './typed-events';
 import {
@@ -114,6 +144,62 @@ function resolveDiagnostics(debug: boolean | DiagnosticsSink | undefined): Diagn
   return NOOP_DIAGNOSTICS_SINK;
 }
 
+/** 批次头 provider 的能力名（T18 装配根读取后接到 C06 的 `BatchHeaderSource`）。 */
+export const BATCH_HEADER_CAPABILITY = 'sdk.batch_header';
+
+/** SDK 包名（批次头 `sdk_name`；装配根在 T18 可覆盖为 true 的包名）。 */
+const SDK_NAME = '@web-report-sdk/core';
+
+/** 解析上下文存储：localStorage 优先，不可用时退回内存（不触碰业务键）。 */
+function resolveContextStorage(): ContextStoragePort {
+  const scope = globalThis as { localStorage?: { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void } | undefined };
+  const store = scope.localStorage;
+  if (store !== undefined) {
+    return {
+      read: (key) => store.getItem(key) ?? undefined,
+      write: (key, value) => {
+        try {
+          store.setItem(key, value);
+        } catch {
+          // 隐私模式/配额不足：静默降级为内存语义
+        }
+      },
+      remove: (key) => {
+        try {
+          store.removeItem(key);
+        } catch {
+          // 同上
+        }
+      },
+    };
+  }
+  const map = new Map<string, string>();
+  return {
+    read: (key) => map.get(key),
+    write: (key, value) => {
+      map.set(key, value);
+    },
+    remove: (key) => {
+      map.delete(key);
+    },
+  };
+}
+
+/** 事件体的 UTF-8 字节数（同意缓冲的容量判定；与 C04 的 16 KB 同口径）。 */
+function byteLengthOf(event: KernelEvent): number {
+  try {
+    const text = JSON.stringify(event);
+    let ascii = 0;
+    for (let index = 0; index < text.length; index += 1) {
+      if (text.charCodeAt(index) > 0x7f) return new TextEncoder().encode(text).length;
+      ascii += 1;
+    }
+    return ascii;
+  } catch {
+    return 0;
+  }
+}
+
 /** 事件参数的公共部分。 */
 interface ReadEventInput {
   readonly dimensions: Record<string, string> | undefined;
@@ -127,6 +213,7 @@ interface EventSnapshot {
   readonly occurredAt: number;
   readonly eventId: string;
   readonly pageId: string | undefined;
+  readonly viewId: string | undefined;
   readonly url: string | undefined;
 }
 
@@ -147,10 +234,76 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   let finished = false;
   let appId: string | undefined;
   let currentPageId: string | undefined;
-  let consent: ConsentState = 'granted';
-  let user: UserInput | undefined;
+  // Q5 一致性修正（2026-10-13 负责人签字）：初始同意态为 `unknown`，不是 `granted`。
+  // 默认「已授权」意味着未经同意即采集（合规问题）；`unknown` 下是否采集/持久化由 `consent_mode` 决定。
+  let consent: ConsentState = 'unknown';
+  // 旧的 `contexts` Map 仅用于 C01 的阅读路径（`state().contexts` 现在由 C04 store 提供），
+  // 保留它只为兼容既有 C01 测试的读取口径；写入以 C04 store 为准。
   const contexts = new Map<string, string>();
   const queue = createCommandQueue();
+
+  // ---- C04（T14）：脱敏、字段约束、上下文、同意与时钟 ----
+  let consentMode: ConsentMode = options.consent_mode ?? 'essential_only';
+  // 查询参数白名单与追加脱敏规则：来自初始化参数或 C03 的生效配置（装配根注入）；
+  // 未装配时白名单为空 = 默认删除全部查询参数（比规则匹配更强的兜底）。
+  const urlQueryAllowlist: string[] = [...(options.url_query_allowlist ?? [])];
+  const masker: Masker = createMasker(options.extra_mask_rules ?? []);
+  const storage = resolveContextStorage();
+  const sessionTracker: SessionTracker = createSessionTracker({
+    createId: createUuid,
+    now: () => Date.now(),
+    state: consent,
+    mode: consentMode,
+    persistentStorage: storage,
+    sessionStorage: storage,
+    limits: { sessionIdleMs: SESSION_IDLE_MS },
+  });
+  const pageTracker: PageTracker = createPageTracker({
+    createId: createUuid,
+    ...(options.pageId === undefined ? {} : { pageId: options.pageId }),
+    ...(options.location?.href === undefined ? {} : { url: options.location.href }),
+  });
+  const consentManager: ConsentManager = createConsentManager({
+    mode: consentMode,
+    state: consent,
+    count: (reason, delta) => { counters.count(reason, delta); },
+    // 补发的缓冲事件直接交给管线出口（与正常路径同一个 sink）。
+    emit: (event) => { kernel.report(event); },
+    sizeOf: (event) => byteLengthOf(event),
+    limits: { maxEvents: CONSENT_BUFFER_MAX_EVENTS, maxBytes: CONSENT_BUFFER_MAX_BYTES },
+  });
+  const contextStore: ContextStore = createContextStore({
+    page: pageTracker,
+    consent: consentManager,
+    consentMode,
+    ...(options.context === undefined ? {} : { initialContext: options.context }),
+  });
+  // 批次头 provider：装配根在 T18 通过 `headerProvider()` 接到 C06 的 `BatchHeaderSource`。
+  // 这里把它注册为能力，保证接线前就有单一来源，且不会被 tree-shaking 掉。
+  /**
+   * 脱敏 URL：查询参数白名单之外的参数一律删除（白名单为空时删除全部）、
+   * 路径与保留的参数值过脱敏规则、结果不超过 2048。
+   *
+   * 白名单来源是 C03 的生效配置（`privacy.url_query_allowlist`）；未装配配置运行时时为空数组
+   * （即「默认删除全部查询参数」，比规则匹配更强的兜底）。
+   */
+  function maskUrl(url: string | undefined): string | undefined {
+    if (url === undefined) return undefined;
+    return sanitizeUrl(url, urlQueryAllowlist, masker);
+  }
+
+  const clock = createClockCalibration();
+  const headerProvider = createBatchHeaderProvider({
+    appId: '',
+    sdkName: SDK_NAME,
+    sdkVersion: SDK_VERSION,
+    ...(options.env === undefined ? {} : { env: options.env }),
+    ...(options.release === undefined ? {} : { release: options.release }),
+    session: () => sessionTracker.current(),
+    user: () => contextStore.user(),
+    consent: () => consentManager.headerConsent(),
+    clock: () => clock.current(),
+  });
 
   // 只读状态快照通过内核能力暴露（C02 与测试用，不占用公共 API 方法位）。
   kernel.registerCapability(STATE_CAPABILITY, (): ClientState => snapshotState());
@@ -171,14 +324,20 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
 
   /** 只读状态快照（供内核能力 `STATE_CAPABILITY` 与测试读取）。 */
   function snapshotState(): ClientState {
+    const contextState = contextStore.state();
     return {
       app_id: appId,
       initialized,
       destroyed: finished,
       consent,
-      user: user === undefined ? undefined : { ...user },
-      pageId: currentPageId,
-      contexts: Object.fromEntries(contexts),
+      user: contextState.user === undefined ? undefined : { ...contextState.user },
+      pageId: contextState.pageId,
+      contexts: contextState.contexts,
+      viewId: contextState.viewId,
+      consentMode,
+      bufferSize: contextState.bufferSize,
+      bufferEvicted: contextState.bufferEvicted,
+      contextKeysBeyondLimit: contextState.contextKeysBeyondLimit,
     };
   }
 
@@ -187,6 +346,29 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     if (!finished) return false;
     counters.count(API_REASON_CODES.destroyed);
     return true;
+  }
+
+  /**
+   * 采集前的同意判定（C04-F5 的客户端侧入口）。
+   *
+   * 为什么要在这里判一次（而不是只靠管线的同意门）：内核的 `Processor` 只有
+   * 「继续 / stopPipeline(reason)」两种返回值，而缓冲态需要「停止但**不**计原因码」。
+   * 因此客户端在入队前完成判定：
+   * - `emit` → `kernel.report`（管线里仍保留同意门作为旁路兜底）；
+   * - `buffer` → 进内存缓冲，不进入内核（因此也不会有网络请求、不会计入丢弃码）；
+   * - `deny` → 计数 `consent_denied`。
+   */
+  function submitToPipeline(event: KernelEvent): void {
+    const decision = decideConsent(consent, consentMode, event);
+    if (decision.action === 'emit') {
+      kernel.report(event);
+      return;
+    }
+    if (decision.action === 'buffer') {
+      consentManager.buffer(event);
+      return;
+    }
+    counters.count(decision.reason ?? 'consent_denied');
   }
 
   /** 事件出口；sink 抛错只计数 `processor_error`，不影响业务。 */
@@ -205,6 +387,7 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
       occurredAt: command.occurredAt,
       eventId: command.eventId,
       pageId: command.pageId ?? currentPageId ?? resolved.pageId,
+      viewId: command.viewId ?? contextStore.snapshot().view_id,
       url: command.url ?? resolved.href,
     };
   }
@@ -226,6 +409,7 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
       occurred_at: snapshot.occurredAt,
     };
     if (snapshot.pageId !== undefined) event['page_id'] = snapshot.pageId;
+    if (snapshot.viewId !== undefined) event['view_id'] = snapshot.viewId;
     if (snapshot.url !== undefined) event['url'] = snapshot.url;
     return event;
   }
@@ -333,7 +517,7 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     if (input.dimensions !== undefined) event['dimensions'] = input.dimensions;
     if (input.metrics !== undefined) event['metrics'] = input.metrics;
     if (input.attachment !== undefined) event['attachment'] = input.attachment;
-    kernel.report(event);
+    submitToPipeline(event);
   }
 
   function performLog(command: QueuedCommand): void {
@@ -354,7 +538,7 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
       event['attachment'] = clampAndTrack(input.attachment, WEB_JS_ERROR_LIMITS.attachment, 'attachment', truncatedPaths);
     }
     if (truncatedPaths.length > 0) event['truncated'] = truncatedPaths;
-    kernel.report(event);
+    submitToPipeline(event);
   }
 
   /**
@@ -437,9 +621,14 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
       event['attachment'] = clampAndTrack(attachment, WEB_JS_ERROR_LIMITS.attachment, 'attachment', truncatedPaths);
     }
     if (truncatedPaths.length > 0) event['truncated'] = truncatedPaths;
-    kernel.report(event);
+    submitToPipeline(event);
   }
 
+  /**
+   * `setUser`：只进批次头（`user_id`/`user_id_hashed`），绝不进事件体。
+   * 超过 128 字符（批次 Schema 上限）时**丢弃整个字段**并计 `invalid_args`（不截断 ——
+   * 截断后的哈希值是无意义的错误标识）。参数合法性归 C01（`invalid_args`）。
+   */
   function performSetUser(command: QueuedCommand): void {
     const args = command.args ?? [];
     const id = args[0];
@@ -448,23 +637,31 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
       return;
     }
     const hashed = isPlainRecord(args[1]) && args[1]['hashed'] === true;
-    user = hashed ? { id, hashed: true } : { id };
+    contextStore.setUser(id, { hashed });
   }
 
   function performSetContext(command: QueuedCommand): void {
     const args = command.args ?? [];
     const key = args[0];
     const value = args[1];
-    if (!hasValidFieldKey(key) || typeof value !== 'string') {
+    if (typeof value !== 'string') {
+      // 值类型非法属 C01 的参数校验（`invalid_args`）；键名格式非法属 C04（`invalid_field_key`）。
       counters.count(API_REASON_CODES.invalidArgs);
       return;
     }
+    if (!hasValidFieldKey(key)) {
+      counters.count('invalid_field_key');
+      return;
+    }
     contexts.set(key, value);
+    contextStore.setContext(key, value);
   }
 
   function performRemoveContext(command: QueuedCommand): void {
     const key = (command.args ?? [])[0];
-    if (typeof key === 'string') contexts.delete(key);
+    if (typeof key !== 'string') return;
+    contexts.delete(key);
+    contextStore.removeContext(key);
   }
 
   function performSetPage(command: QueuedCommand): void {
@@ -474,6 +671,7 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
       return;
     }
     currentPageId = pageId;
+    contextStore.setPage(pageId);
   }
 
   function performSetConsent(command: QueuedCommand): void {
@@ -483,6 +681,26 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
       return;
     }
     consent = state;
+    consentManager.setState(state);
+    sessionTracker.onConsentChange(state, consentMode);
+    // `denied`：清除持久化/内存中的设备标识（离线数据与会话随机数由清理端口通知，见 ErasePort）。
+    if (state === 'denied') sessionTracker.purge();
+  }
+
+  /** `configureView`：导航通知（路由变化时轮换 `view_id`，并更新 `url`）。 */
+  function performConfigureView(command: QueuedCommand): void {
+    const viewOptions = (command.args ?? [])[0];
+    if (viewOptions === undefined) return;
+    if (!isPlainRecord(viewOptions)) {
+      counters.count(API_REASON_CODES.invalidArgs);
+      return;
+    }
+    const url = typeof viewOptions['url'] === 'string' ? viewOptions['url'] : undefined;
+    const viewId = typeof viewOptions['view_id'] === 'string' ? viewOptions['view_id'] : undefined;
+    contextStore.configureView({
+      ...(url === undefined ? {} : { url }),
+      ...(viewId === undefined ? {} : { view_id: viewId }),
+    });
   }
 
   function performInit(command: QueuedCommand): void {
@@ -494,12 +712,44 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     }
     if (initialized) return;
     appId = initOptions.appId;
+    const previousConsent = consent;
     if (isConsentState(initOptions.consent)) consent = initOptions.consent;
     if (isNonEmptyString(initOptions.pageId)) currentPageId = initOptions.pageId;
     if (initOptions.debug !== undefined) diagnosticsSink = resolveDiagnostics(initOptions.debug);
     if (initOptions.onEvent !== undefined) eventSink = initOptions.onEvent;
-    if (initOptions.location !== undefined) locationSource = initOptions.location;
+    if (initOptions.location !== undefined) {
+      locationSource = initOptions.location;
+      if (initOptions.location.href !== undefined && command.url === undefined) {
+        // 只有「新初始化的直接调用」才用 init 的 location 更新追踪器；
+        // 从命令队列回放的任务带着自己的入队快照，不能被当前页面覆盖。
+        pageTracker.noteLocation(initOptions.location.href);
+      }
+    }
     if (initOptions.dictionary !== undefined) dictionary = initOptions.dictionary;
+    if (initOptions.consent_mode !== undefined) {
+      consentMode = initOptions.consent_mode;
+      consentManager.setMode(consentMode);
+      contextStore.setConsentMode(consentMode);
+    }
+    if (initOptions.url_query_allowlist !== undefined) {
+      urlQueryAllowlist.splice(0, urlQueryAllowlist.length, ...initOptions.url_query_allowlist);
+    }
+    if (initOptions.pageId !== undefined && command.url === undefined) pageTracker.setPage(initOptions.pageId);
+    if (initOptions.context !== undefined) contextStore.setInitialContext(initOptions.context);
+    // 同意状态在初始化参数里显式给出时，同步到状态机与会话追踪器（缺省保持 `unknown`）。
+    // 注意：上面对 `consent` 的赋值会覆盖旧值，因此这里必须与**赋值前**的值比较。
+    if (consent !== previousConsent) {
+      consentManager.setState(consent);
+      sessionTracker.onConsentChange(consent, consentMode);
+    }
+    // C04 的管线处理器：validate（字段约束 + 16 KB）→ enrich（上下文）→ filter（同意门）。
+    kernel.registerProcessor(
+      'validate',
+      createFieldConstraintsProcessor({ limits: C04_LIMITS, masker, count: (reason, delta) => { counters.count(reason, delta); } }),
+      { id: 'c04_field_constraints' },
+    );
+    kernel.registerProcessor('enrich', createContextEnrichProcessor(contextStore), { id: 'c04_context_enrich' });
+    kernel.registerProcessor('filter', createConsentFilterProcessor(consentManager), { id: 'c04_consent_gate' });
     kernel.init();
     kernel.start();
     initialized = true;
@@ -515,10 +765,11 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     ready = false;
     queue.clear();
     contexts.clear();
-    user = undefined;
     currentPageId = undefined;
     eventSink = NO_EVENT_SINK;
     diagnosticsSink = NOOP_DIAGNOSTICS_SINK;
+    contextStore.destroy();
+    sessionTracker.purge();
     kernel.destroy();
   }
 
@@ -541,7 +792,7 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
         performSetUser(command);
         return;
       case 'clearUser':
-        user = undefined;
+        contextStore.clearUser();
         return;
       case 'setContext':
         performSetContext(command);
@@ -554,6 +805,9 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
         return;
       case 'setConsent':
         performSetConsent(command);
+        return;
+      case 'configureView':
+        performConfigureView(command);
         return;
       case 'flush':
         return;
@@ -592,13 +846,18 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   /** 公共方法入口：销毁后计数并忽略，否则生成命令并派发。 */
   function submit(kind: string, submitArgs: readonly unknown[]): void {
     if (isFinished()) return;
-    const snapshot = resolveLocation();
+    const location = resolveLocation();
+    // 先把追踪器同步到**调用当时**的位置，再取快照 —— 顺序反了就会把上一次的 URL 写进命令。
+    if (location.href !== undefined) contextStore.configureView({ url: location.href });
+    // 入队当时的页面归属快照（AC-03 的唯一落点）：page_id/view_id/url 在此定下来。
+    const context = contextStore.snapshot();
     const command: QueuedCommand = {
       kind,
       eventId: createUuid(),
       occurredAt: Date.now(),
-      pageId: currentPageId ?? snapshot.pageId,
-      url: snapshot.href,
+      pageId: context.page_id ?? location.pageId,
+      url: maskUrl(context.url ?? location.href),
+      ...(context.view_id === undefined ? {} : { viewId: context.view_id }),
     };
     if (kind === 'track') {
       const name = submitArgs[0];
@@ -629,6 +888,12 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   }
 
   kernel.registerCapability(STUB_BRIDGE_CAPABILITY, acceptStubCommand);
+  // C04 的对外句柄（供 T18 装配根与测试读取；不属于公共 API 方法）。
+  kernel.registerCapability(CONTEXT_CAPABILITY, contextStore);
+  kernel.registerCapability(BATCH_HEADER_CAPABILITY, headerProvider);
+  kernel.registerCapability(VIEW_CAPABILITY, (viewOptions?: { readonly url?: string | undefined; readonly view_id?: string | undefined }): void => {
+    contextStore.configureView(viewOptions ?? {});
+  });
 
   const implementation = {
     kernel,
@@ -694,6 +959,10 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     },
     setConsent(state: ConsentState): undefined {
       submit('setConsent', [state]);
+      return undefined;
+    },
+    configureView(viewOptions?: { readonly url?: string | undefined; readonly view_id?: string | undefined }): undefined {
+      submit('configureView', [viewOptions]);
       return undefined;
     },
     flush(): undefined {
