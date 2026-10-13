@@ -17,9 +17,15 @@
 | 评审记录 | `docs/review-log.md` R-001～R-016 |
 | 看板 | `docs/tasks/board.md`（含约 30 条升级/义务记录，**接手前先通读**） |
 
-## 1. 最关键的一件事：T18 是主干枢纽
+## 1. 最关键的一件事：装配与采集插件（T18）
 
-**T18（C05 采集插件 + 装配根，8 人日，依赖 T11、T14 均已合入）** 是「SDK 能否真的发出数据」的分界点。它有多项已挂账的接线义务，**缺任何一项，接入方拿到的仍是一个不会上报的库**：
+> **2026-10-13 更正**：本节原写「T18 是装配根」，属**过度归属**。核对任务卡后的事实是：
+> - **T18 的范围是 C05 四个采集插件**（`packages/plugins/src/{error,perf,route,http}`，卡上「文件所有权」），**不含** `packages/browser/src`；
+> - **没有任何任务卡把装配根（`packages/browser` 的接线）列为所有权**——它在任务卡体系里**归属空缺**。
+>   因此"把 C01–C08 装配成能端到端上报的包"这件事**需要先立项/指定归属**（建议：由负责人指定，
+>   或作为 T18 的显式所有权扩展写进卡里）。下面 8 项义务本身不变，只是**归属待定**。
+
+**装配（把各模块接起来）** 是「SDK 能否真的发出数据」的分界点。它有多项已挂账的接线义务，**缺任何一项，接入方拿到的仍是一个不会上报的库**：
 
 1. **调用 `captureNativeHttpRefs()`**：必须在**安装任何插件之前**、在装配根调用一次（幂等、只捕获一次、捕获后冻结）。**C05 插件不得在自己的 `install()` 里捕获**（那依赖安装顺序，太脆）。
 2. **接 C08 的计数与计时**：把 `createQueueMetricsSource`、`createSubmitMetricsSource`、`createCallCounter`、`createLatencyDecorators` 的包装后句柄装到实际对象上；把 `createHealthReporter` 的 `emit`/`timer`/`dimensions` 接到 C01/C02/C06。**未接线前 `calls_total`/`events_enqueued`/`queue_length_max`/三个 p99 恒为 0 且不上报。**
