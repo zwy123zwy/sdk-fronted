@@ -148,11 +148,11 @@ A03 设计 C05 插件和公共 API 之前，先在 `docs/use-cases.md` 中列出
 | `pnpm build` | 构建所有包，产出 ESM、类型声明，以及 browser 包的 IIFE |
 | `pnpm size` | 体积预算（brotli）；browser 入口与 core 不超过 10 KB，plugins 全量不超过 20 KB，超出时阻断 |
 | `pnpm api:check` | API Extractor 公共 API 审计，与各包 `etc/*.api.md` 比对；有未登记的变更时阻断。有意变更时运行 `pnpm api:update` 并在合入请求中说明 |
-| `pnpm test:contract` | 契约测试；T10 之前只检查 Schema 版本和样例合法性，T10 补齐双向校验 |
+| `pnpm test:contract` | 契约测试；T10 已补齐双向校验：既检查 Schema 版本与样例合法性，也校验 SDK 真实产出（`tests/contract/sdk-core-output.test.ts`、`sdk-batch-output.test.ts`） |
 | `pnpm examples:build`、`pnpm examples:test` | 接入兼容性：Vite 构建、`<script>` 引入 IIFE、Vitest 与 Jest 中直接导入 |
 | `pnpm test:e2e` | Playwright（Chromium、Firefox、WebKit）；在 CI 中运行，本地可选 |
 | `pnpm gates:selftest` | 门禁自检：逐个注入违规样例，确认 lint、typecheck、size、api:check 都会失败 |
-| `pnpm gates` | 按 CI 顺序运行除 E2E 之外的全部门禁。**不得使用 `pnpm ci`**：pnpm 11 的内置 `clean-install` 会抢占该名字，它只做干净安装、不执行任何门禁，却返回退出码 0 |
+| `pnpm gates` | 按 CI 顺序运行除 E2E 之外的全部门禁：`lint → build → typecheck → test → size → api:check → examples:build → examples:test`。**`build` 必须先于 `typecheck`**：`examples/vite` 的 typecheck 需要解析 `@web-report-sdk/browser` 的 `dist` 类型，新工作树或新克隆若先跑 typecheck 会以 `TS2307` 失败（2026-10-13 修正）。**不得使用 `pnpm ci`**：pnpm 11 的内置 `clean-install` 会抢占该名字，它只做干净安装、不执行任何门禁，却返回退出码 0 |
 
 门禁失败时修复代码，不要通过修改门禁配置、跳过测试、添加 `--no-verify`、`eslint-disable`、`@ts-ignore`、`it.skip` 等方式绕过。如果确实需要豁免，在交付报告中说明，由人类负责人决定。
 
@@ -341,3 +341,4 @@ A00 按此模板在 `docs/tasks/Txx.md` 发布任务卡。缺少带“*”的字
 | 0.4 | 2026-10-09 | 按 D001 缩小为只做浏览器 SDK：新增 K01、K02、M01 与 `tools/`；删除服务端角色、约束与切片；Q2 只阻塞 T33 |
 | 0.5 | 2026-10-10 | T08 完成：第 3 节冻结包名、工具链版本与发布渠道；第 6 节冻结门禁命令；第 13 节前置条件全部满足。批准：wenye.zhang 授权代行 |
 | 0.6 | 2026-10-12 | 第 6 节全量门禁脚本由 `ci` 改名为 `gates`：pnpm 11 的内置 `clean-install` 会抢占 `pnpm ci`，使其不执行任何门禁却返回 0。同步修订 AGENTS.md 与 README.md。批准：wenye.zhang（项目负责人） |
+| 0.7 | 2026-10-13 | 第 6 节：`gates` 顺序改为 `lint → build → typecheck → …`（`build` 必须先于 `typecheck`，否则新工作树/新克隆会因 `examples/vite` 解析不到 `packages/browser/dist` 而以 `TS2307` 失败）；同步修正 `pnpm test:contract` 一行的过期描述（T10 已补齐双向校验）。批准：wenye.zhang（项目负责人） |

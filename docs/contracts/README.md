@@ -15,10 +15,10 @@ SDK 与接收方、SDK 与开发工具（K01、K02、M01）之间只通过本目
 | [dictionary-compat.md](dictionary-compat.md) | T06、T22 | 0.2 | 已冻结 |
 | [remote-config.md](remote-config.md) | T07 | 0.2 | 已冻结 |
 | [schemas/remote-config.schema.json](schemas/remote-config.schema.json) | T07 | 0.2 | 已冻结 |
-| [reason-codes.md](reason-codes.md) | T05、T17 | 0.2 | 已冻结 |
+| [reason-codes.md](reason-codes.md) | T05、T17 | 0.2（兼容追加 2026-10-13，经 CR-001） | 已冻结 |
 | [receiver-requirements.md](receiver-requirements.md) | T05 | 0.2 | 已冻结 |
 | [examples/](examples/) | T05–T07 | 0.2 | 已冻结 |
-| [schemas/builtin-events/](schemas/builtin-events/) | T06、T18 | 0.2（兼容追加） | 已提供（2026-10-12，不递增文档版本号） |
+| [schemas/builtin-events/](schemas/builtin-events/) | T06、T18 | 0.2（兼容追加） | 已提供（2026-10-12；2026-10-13 经 CR-001 追加 `prewrite_commit_lost` 与 `exposure_window_*`，不递增文档版本号） |
 | [examples/builtin-events/](examples/builtin-events/) | T06、T10 | 0.2（兼容追加） | 已提供（2026-10-12） |
 | [examples/compat-pairs/](examples/compat-pairs/) | T06、T10、T22 | 0.2（兼容追加） | 已提供（2026-10-12） |
 

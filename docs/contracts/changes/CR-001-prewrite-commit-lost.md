@@ -1,6 +1,6 @@
 # CR-001 新增原因码 `prewrite_commit_lost` 与 `sdk_health` 暴露窗口计数
 
-- 状态：**草案（待架构负责人批准）**
+- 状态：**已批准（2026-10-13）**，改动已应用到 `reason-codes.md`、`schemas/builtin-events/sdk_health.schema.json` 与 `docs/contracts/README.md` 状态表
 - 起草人：A01（编排方代行）；起草日期：2026-10-13
 - 依据：`docs/decisions/D004-hard-kill-exposure-window.md`；`docs/poc/POC-1-storage.md`
 - 流程依据：`docs/contracts/README.md`「契约冻结后，修改走契约变更请求：A01 起草，架构负责人批准，并按『版本与兼容规则』递增版本」
@@ -80,4 +80,15 @@ D004 第 1 条要求：硬杀场景下「**事件已产生但 IndexedDB 事务�
 | 角色 | 姓名 | 结论 | 日期 |
 |---|---|---|---|
 | 起草 | A01（编排方代行） | 提交草案 | 2026-10-13 |
-| 架构负责人 | （待签署） | — | — |
+| 架构负责人 | wenye.zhang | **批准**（按兼容变更处理，不递增文档版本号） | 2026-10-13 |
+
+批准后的落地情况：
+
+- [x] `reason-codes.md` 第 1 节新增 `prewrite_commit_lost`（验收用例列指向 C07-AC-28）；
+- [x] `reason-codes.md` 第 4 节 `metrics` 新增 `exposure_window_events`、`exposure_window_ms`；
+- [x] `reason-codes.md` 第 5 节新增「0.2（兼容追加）」变更记录行；
+- [x] `schemas/builtin-events/sdk_health.schema.json`：新增两个指标属性（`exposure_window_*` 为 `integer`、`minimum: 1`）并把 `prewrite_commit_lost` 加入 `drop_` 的 `patternProperties`（**该 Schema 是 `additionalProperties: false`，不同步扩充会导致 SDK 自监控事件被自己的契约拒绝**）；
+- [x] `docs/contracts/README.md` 状态表标注；
+- [x] `tests/acceptance/C07.md` 新增 `C07-AC-28`；
+- [x] `docs/tasks/T16.md` 验收范围更新为 AC-28；
+- [ ] 接收方看板同步（**不在本项目内**，需前端负责人与接收方对接人确认；本 CR 只给出建议口径）。

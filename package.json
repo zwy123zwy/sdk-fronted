@@ -20,7 +20,7 @@
     "examples:build": "pnpm -r --filter \"./examples/**\" run build",
     "examples:test": "pnpm -r --filter \"./examples/**\" run test",
     "gates:selftest": "node scripts/gate-selftest.mjs",
-    "gates": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm size && pnpm api:check && pnpm examples:build && pnpm examples:test"
+    "gates": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm size && pnpm api:check && pnpm examples:build && pnpm examples:test"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

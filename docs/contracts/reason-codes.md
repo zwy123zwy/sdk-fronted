@@ -29,6 +29,7 @@
 | `offline_evicted` | C07 | 离线存储超过 5 MB 或 2,000 批，或超过 7 天 | C07-AC-16 |
 | `offline_incompatible` | C07 | 离线数据格式版本与当前 SDK 不兼容，被清理 | C07-AC-22 |
 | `retry_exhausted` | C07 | 重试次数用完且离线存储不可用 | C07-AC-23 |
+| `prewrite_commit_lost` | C07 | critical 事件已发起离线预写，但 IndexedDB 事务在 `oncomplete` 之前被中断（页面或进程被强杀），该事件未落盘且无法补发；按 D004 单独计数，**不得与优雅路径的丢失混算** | C07-AC-28 |
 | `rejected_400` / `rejected_401` / `rejected_403` / `rejected_413` | C07 | 接收方拒绝，见 `ingest-protocol.md` 3.1；`rejected_413` 只在单条事件仍超限时计数 | C07-AC-05、AC-06、AC-24、AC-07 |
 | `destroyed` | C02 | SDK 销毁后仍有调用 | C01-AC-03、C02-AC-14 |
 
@@ -79,7 +80,7 @@ C08 每 60 秒聚合一次，作为 `sdk_health` 事件上报（C08-F3），且�
 
 | 位置 | 内容 |
 |---|---|
-| `metrics` | `calls_total`、`events_enqueued`、`events_sent`、`batches_sent`、`batches_failed`、`offline_written`、`offline_replayed`、`queue_length_max`、`window_ms`，以及第 1 节每个原因码一个 `drop_<原因码>`、第 2 节每个原因码一个 `count_<原因码>` |
+| `metrics` | `calls_total`、`events_enqueued`、`events_sent`、`batches_sent`、`batches_failed`、`offline_written`、`offline_replayed`、`queue_length_max`、`window_ms`、`exposure_window_events`、`exposure_window_ms`，以及第 1 节每个原因码一个 `drop_<原因码>`、第 2 节每个原因码一个 `count_<原因码>` |
 | `metrics`（1% 会话） | `track_p99_ms`、`pipeline_p99_ms`、`serialize_p99_ms`（C08-F2） |
 | `dimensions` | `sdk_version`、`state`（生命周期状态）、`config_version` |
 
@@ -97,3 +98,4 @@ C08 每 60 秒聚合一次，作为 `sdk_health` 事件上报（C08-F3），且�
 |---|---|---|
 | 0.1 | 2026-10-09 | 草案 |
 | 0.2 | 2026-10-10 | 删除 S04 死信原因码，网关 `error` 改为接收方建议取值；每个原因码对应验收用例；新增 `plugin_dependency_missing`、`plugin_install_failed`、`consent_buffer_cleared`、`offline_incompatible`、`config_version_stale`、`config_scope_mismatch`、`config_parse_failed`、`config_consent_mode_rejected`；`processor_error`、`storage_unavailable` 移到只计数；冻结 |
+| 0.2（兼容追加） | 2026-10-13 | 经 CR-001 与架构负责人批准（2026-10-13）：第 1 节新增 `prewrite_commit_lost`（C07，硬杀导致的预写未落盘）；第 4 节 `metrics` 新增 `exposure_window_events`、`exposure_window_ms`。属兼容变更，**不递增文档版本号**（沿用 2026-10-12 对内置事件 Schema 与样例的先例）；`offline_evicted`、`storage_unavailable` 的既有语义不变 |

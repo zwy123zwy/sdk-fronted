@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:web-report-sdk:contracts:builtin-event:sdk_health:0.2",
   "title": "内置事件 sdk_health（event_type: sdk_internal）",
-  "description": "契约文档版本 0.2（2026-10-12 按兼容变更追加，不递增文档版本号）。校验对象是单个事件体，即 batch.schema.json $defs/event 那一层。字段依据 event-standard.md 第 6 节 sdk_health 行与 reason-codes.md 第 4 节：metrics 为固定计数与耗时、第 1 节每个原因码一个 drop_<原因码>、第 2 节每个原因码一个 count_<原因码>，1% 会话另带三个 p99 耗时；dimensions 为 sdk_version、state、config_version。已写入 reason-codes.md 第 4 节的两条约束：（1）值为 0 的计数不上报，因此除耗时类指标外 minimum 为 1；（2）一个窗口内非零指标超过 50 个时拆成多条事件，因此 metrics 的 maxProperties 为 50（与 batch.schema.json 一致），拆出的每条带相同的 window_ms 与 dimensions。Q3 结论第 4 条要求 SDK 自监控事件固定 priority: normal。新增原因码（兼容变更）需要同步扩充本 Schema 的两个 patternProperties。",
+  "description": "契约文档版本 0.2（2026-10-12 按兼容变更追加，不递增文档版本号；2026-10-13 经 CR-001 再追加 prewrite_commit_lost 与 exposure_window_* 两个指标，同样不递增）。校验对象是单个事件体，即 batch.schema.json $defs/event 那一层。字段依据 event-standard.md 第 6 节 sdk_health 行与 reason-codes.md 第 4 节：metrics 为固定计数与耗时、第 1 节每个原因码一个 drop_<原因码>、第 2 节每个原因码一个 count_<原因码>，1% 会话另带三个 p99 耗时；dimensions 为 sdk_version、state、config_version。已写入 reason-codes.md 第 4 节的两条约束：（1）值为 0 的计数不上报，因此除耗时类指标外 minimum 为 1；（2）一个窗口内非零指标超过 50 个时拆成多条事件，因此 metrics 的 maxProperties 为 50（与 batch.schema.json 一致），拆出的每条带相同的 window_ms 与 dimensions。Q3 结论第 4 条要求 SDK 自监控事件固定 priority: normal。新增原因码（兼容变更）需要同步扩充本 Schema 的两个 patternProperties。",
   "type": "object",
   "required": [
     "event_id",
@@ -78,10 +78,12 @@
         "window_ms": { "type": "integer", "minimum": 1, "description": "本窗口的长度（毫秒），常规为 60000；拆成多条时每条相同" },
         "track_p99_ms": { "type": "number", "minimum": 0, "description": "1% 会话才上报（C08-AC-03）：track 阶段 P99 耗时" },
         "pipeline_p99_ms": { "type": "number", "minimum": 0, "description": "1% 会话才上报（C08-AC-03）：处理管道 P99 耗时" },
-        "serialize_p99_ms": { "type": "number", "minimum": 0, "description": "1% 会话才上报（C08-AC-03）：序列化 P99 耗时" }
+        "serialize_p99_ms": { "type": "number", "minimum": 0, "description": "1% 会话才上报（C08-AC-03）：序列化 P99 耗时" },
+        "exposure_window_events": { "type": "integer", "minimum": 1, "description": "CR-001（D004）：窗口内经暴露窗口丢失的 critical 事件数（与 drop_prewrite_commit_lost 同源，便于看板直接取用）；为 0 时不上报" },
+        "exposure_window_ms": { "type": "integer", "minimum": 1, "description": "CR-001（D004）：观测到的暴露窗口时长（毫秒，自事件产生到判定未落盘的最长间隔）；仅在 exposure_window_events ≥ 1 时上报" }
       },
       "patternProperties": {
-        "^drop_(invalid_args|invalid_event_name|invalid_field_key|non_finite_metric|event_too_large|command_queue_overflow|prestart_queue_overflow|plugin_dependency_missing|plugin_install_failed|sampled_out_session|sampled_out_rule|disabled_by_rule|killed|consent_denied|consent_buffer_cleared|filtered_by_plugin|queue_evicted|offline_evicted|offline_incompatible|retry_exhausted|rejected_400|rejected_401|rejected_403|rejected_413|destroyed)$": {
+        "^drop_(invalid_args|invalid_event_name|invalid_field_key|non_finite_metric|event_too_large|command_queue_overflow|prestart_queue_overflow|plugin_dependency_missing|plugin_install_failed|sampled_out_session|sampled_out_rule|disabled_by_rule|killed|consent_denied|consent_buffer_cleared|filtered_by_plugin|queue_evicted|offline_evicted|offline_incompatible|retry_exhausted|prewrite_commit_lost|rejected_400|rejected_401|rejected_403|rejected_413|destroyed)$": {
           "type": "integer",
           "minimum": 1,
           "description": "reason-codes.md 第 1 节原因码对应的丢弃计数；值为 0 时不上报"
