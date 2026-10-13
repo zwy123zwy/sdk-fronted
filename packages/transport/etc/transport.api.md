@@ -156,7 +156,7 @@ export interface CompressorPort {
 }
 
 // @public
-export const COUNT_REASON_CODES: readonly ["processor_error", "truncated_dimension", "truncated_dimension_keys", "truncated_metric_keys", "truncated_attachment", "retry_429", "retry_5xx", "retry_network", "split_413", "circuit_open", "replayed", "storage_unavailable", "config_fetch_failed", "config_signature_invalid", "config_version_stale", "config_scope_mismatch", "config_format_unsupported", "config_parse_failed", "config_cache_expired", "config_signature_unavailable", "config_consent_mode_rejected"];
+export const COUNT_REASON_CODES: readonly ["processor_error", "truncated_dimension", "truncated_dimension_keys", "truncated_metric_keys", "truncated_attachment", "retry_429", "retry_5xx", "retry_network", "split_413", "circuit_open", "replayed", "storage_unavailable", "config_fetch_failed", "config_signature_invalid", "config_version_stale", "config_scope_mismatch", "config_format_unsupported", "config_parse_failed", "config_schema_invalid", "config_cache_expired", "config_signature_unavailable", "config_consent_mode_rejected"];
 
 // @public
 export type Counted<T> = {
