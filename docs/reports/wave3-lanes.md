@@ -137,3 +137,79 @@ C08 落地后门禁口径实测 **14.82 kB / 15 kB，余量仅 0.18 kB（1.2%）
 3. **CR-002**：把 `sdk_health` 字段清单写入 `receiver-requirements.md` 附录 A（任务卡原指派给无契约写权限的 T17，改由 A01 起草）。
 4. **T31**：「离线实现不得引用 `localStorage`」的永久源级扫描守卫（承自 T16）。
 5. **接收方看板**：CR-001 的新原因码与指标需接收方同步（不在本项目内）。
+
+---
+
+# T13（C03 配置合并、缓存、采样、kill switch）
+
+- 合入：`62f70f8`（实现提交 `36b85c9`；前置：core 体积预算提高到 16 KB `6f7de98`、CR-003、CR-004）
+- 门禁（实测）：**`pnpm gates` exit 0，94 个测试文件 / 969 个测试**（T17 收口时 73 / 806；本任务净增 21 个文件 / 163 个用例）
+- 覆盖率（门禁口径，`packages/core/src/**`）：行 **91.61%** / 分支 **81.34%**（阈值 90/80）
+- 体积：core **13.32 kB / 16 kB**（C03 净增约 6.8 kB；返工 +0.23 kB）
+
+## 交付内容
+
+新增（均在授权范围内）：
+
+- `packages/core/src/config/`：`types`、`constants`、`reason-codes`、`defaults`、`signature`、`validate`、`merge`、`fetch`、`cache`、`kill-switch`、`store`、`index` + 11 个测试
+- `packages/core/src/sampling/`：`types`、`session`、`rules`、`processor`、`teardown`、`index` + 5 个测试
+- 已批准的三处越界：`src/index.ts`（导出）、`etc/core.api.md`（`api:update`）、`README.md` 第 21–27 节（订阅接口、**C03 内建默认表**、失败原因码顺序、缓存/会话、采样/kill switch、护栏、自检）
+
+## 关键实现
+
+1. **三级合并**：builtin < remote（含 `overrides.patch` 深合并）< runtime（只能 `transport`/`debug`，且只能**关**插件）；产物为不可变 `EffectiveConfig`。
+2. **不阻塞初始化**：`start()` 同步返回、内部异步拉取；5 分钟定时 + `visibilitychange`。
+3. **签名**：ES256/IEEE P1363/base64url；公钥仅来自 `config_public_keys`、`key_id` 精确查表、**JWK 含私钥 `d` 则拒绝**（额外成员忽略）、公钥数上限 16、**无任何豁免分支**。
+4. **安全项 8（缓存读回必须重新验签）**：缓存只存**发布物本体**；拉取 / 网络失败降级 / **304 路径**三处共用同一 `processEnvelope()`——**全仓 `verifyEnvelope` 只有一处调用**；验签失败计 `config_signature_invalid` + 按 CR-004 通则 + 删除该条目。
+5. **WebCrypto 不可用 = 唯一例外**：直接保守默认，**不使用缓存**（契约第 54 行）。
+6. **失败求值**：固定顺序、**只计首个原因码**；缓存路径版本允许相等、拉取严格递增。
+7. **CR-003 的 semver 子集**严格按 `remote-config.md` 5.1 实现；未列出语法 → 整份 `config_schema_invalid`。
+8. **完全不用 `localStorage`**（缓存 IDB 主 + 内存回退；会话随机数 `sessionStorage`，同意前仅内存）。
+
+## 测试先行证据（本会话最强的一次）
+
+先落接口桩再写用例、**立即执行**：**`44 failed | 6 passed`，全部是断言级失败**（`expected undefined to be 5`、`expected 'builtin' to be 'remote'` …），**不是 `Failed to resolve import`**；6 条通过均为负/中性对照（验签负向、Ajv 拒绝真实非法样例、采样率组合）。对照 T16（138 个 lint 错误）与 T17（事后补跑得到 import 失败），这一次的取证形态是达标的。
+
+## 安全返工（编排方读代码复核发现）
+
+**问题**：初版 `CachedConfig` 只存 `{config_version, published_at, body, etag, stored_at}`（**不含签名/发布物**），`buildFromCache()` 直接采用 `body`，`degrade()` 与 `handleNotModified()`（304）读缓存后**都不验签**——实现的是"写入时验过一次即信任"。而 **IndexedDB 对同源脚本可读写**，缓存是可篡改输入；且当时**连重新验签所需的原料都没存**。该条属批准的**安全裁定 #8**，但未出现在其 M6 一致性核对范围内（那份核对只覆盖了 CR-004 的失败表）。
+
+**返工**：缓存改为只存 `envelope`；补 `remove()`；抽出唯一入口 `processEnvelope(envelope, mode)` 供三路共用；补 5 条 `cache-verify` 用例（正向对照、篡改 payload、篡改 signature、**304 旁路**、篡改后再拉到合法新版本）。
+
+**编排方独立复现判别力**：把缓存路径验签旁路（模拟旧行为）→ **4 条篡改用例全红、正向对照仍绿**（证明不是"一律拒绝缓存"）；恢复后 5/5 绿。
+
+## 契约自证
+
+直接 import **真实** `remote-config.schema.json` 与样例（非副本），Ajv 2020-12 正/负向 + **运行时手写校验器 ↔ Ajv 的同语料交叉验证 20 条**（含 D002 归一化例外）+ **非空转对照** + **CR-003 超集用例**（`1.2.3 - 2.0.0`、`>=1.2.3-beta.1`：Ajv 接受、C03 必须拒）+ 发布物负向（`alg=ES384`、缺 `signature`）。
+
+## 逐模块体积明细（tsup metafile 口径，供将来重推预算表）
+
+bundle 源码合计 195,827 B；**C03 共 85,574 B（43.7%）** = config 72,027 B + sampling 13,547 B。
+
+| config 模块 | 字节 | 占 bundle | | sampling 模块 | 字节 | 占 bundle |
+|---|---|---|---|---|---|---|
+| `validate`（手写 Schema 校验器 + semver 支持性） | 13,787 | 7.0% | | `session` | 4,727 | 2.4% |
+| `merge` | 12,587 | 6.4% | | `types` | 2,601 | 1.3% |
+| `store`（编排） | 12,533 | 6.4% | | `processor` | 2,093 | 1.1% |
+| `kill-switch`（semver） | 8,355 | 4.3% | | `rules` | 2,032 | 1.0% |
+| `types` | 6,770 | 3.5% | | `teardown` | 1,480 | 0.8% |
+| `signature` | 4,654 | 2.4% | | `index` | 614 | 0.3% |
+| `cache`（IDB + 内存） | 4,317 | 2.2% | | | | |
+| `defaults` / `fetch` / `constants` / `index` | 3,065 / 2,315 / 1,824 / 1,820 | 1.6 / 1.2 / 0.9 / 0.9% | | | | |
+
+口径提醒：这是**源码字节占比**，不等于 brotli 占比（C03 源码 43.7%、brotli 净增约 52%）。严格 brotli 归因需把 `config/` 拆成独立入口包（会改变公共导出面），**建议另立任务**。
+
+## 未执行 / 未验证（如实声明）
+
+1. **真实浏览器项归 T29**：真实 IDB/`sessionStorage` 持久化与刷新、真实 `visibilitychange` 与 5 分钟节奏、真实网络/超时/ETag、**Chromium 验签**（`fake-indexeddb` 只做逻辑验证）。
+2. **P99/吞吐与异步白名单哈希耗时归 T20**（任务卡的「采样判定 P99 ≤ 0.01 ms」按既定政策改为中位数护栏，权威验证归 T20）。
+3. `pnpm size` / 全量 `pnpm gates` 未由执行方运行（按派工约束，由编排方在工作树与 main 上跑）。
+
+## 与 T13 相关的契约变更（同日）
+
+| CR | 内容 | 触发者 |
+|---|---|---|
+| **CR-003** | 新增原因码 `config_schema_invalid`（区分"合法 JSON 但违反 Schema"与"非合法 JSON"）+ 明确 `sdk_versions` 的 semver 语法子集（不支持语法须**整份拒绝**，不得静默当作不命中） | T13 的 Q1/Q13 |
+| **CR-004** | 统一失败表的"生效配置"语义（有当前配置则保持、无则保守默认）+ **把 WebCrypto 不可用显式化为唯一例外** + 失败表第一行（有未过期缓存）纳入同一口径 | T13 的失败表逐行核对 |
+
+**这两次契约修改都源于执行 agent 逐条对照契约时发现的问题**，而非测试发现——测试只能验证"我已经想到的东西"。
