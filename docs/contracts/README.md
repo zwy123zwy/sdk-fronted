@@ -13,7 +13,7 @@ SDK 与接收方、SDK 与开发工具（K01、K02、M01）之间只通过本目
 | [event-standard.md](event-standard.md) | T06 | 0.2 | 已冻结 |
 | [schemas/event-definition.schema.json](schemas/event-definition.schema.json) | T06 | 0.2 | 已冻结 |
 | [dictionary-compat.md](dictionary-compat.md) | T06、T22 | 0.2 | 已冻结 |
-| [remote-config.md](remote-config.md) | T07 | 0.2（兼容追加 2026-10-13，经 CR-003 明确 `sdk_versions` 的 semver 语法子集） | 已冻结 |
+| [remote-config.md](remote-config.md) | T07 | 0.2（兼容追加 2026-10-13：CR-003 明确 `sdk_versions` 的 semver 语法子集；CR-004 统一失败表的生效配置语义并显式化 WebCrypto 例外） | 已冻结 |
 | [schemas/remote-config.schema.json](schemas/remote-config.schema.json) | T07 | 0.2 | 已冻结 |
 | [reason-codes.md](reason-codes.md) | T05、T17 | 0.2（兼容追加 2026-10-13：CR-001 新增 `prewrite_commit_lost` 与暴露窗口指标；CR-003 新增 `config_schema_invalid`） | 已冻结 |
 | [receiver-requirements.md](receiver-requirements.md) | T05、T17 | 0.2（兼容追加 2026-10-13，经 CR-002 补全附录 A） | 已冻结 |

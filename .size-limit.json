@@ -6,10 +6,10 @@
     "limit": "10 KB"
   },
   {
-    "name": "core",
+    "name": "core（C01/C02 内核与 API + C03 配置与采样；2026-10-13 经负责人批准由 10 KB 提到 16 KB：C03 落地后实测 13.07 kB，且 C04/T14 紧接着还要加进 core）",
     "path": "packages/core/dist/index.js",
     "import": "*",
-    "limit": "10 KB"
+    "limit": "16 KB"
   },
   {
     "name": "plugins（全量，T18 预算）",

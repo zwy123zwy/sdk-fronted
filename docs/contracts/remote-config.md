@@ -44,14 +44,18 @@ kill switch、采样规则、脱敏规则不能被运行时覆盖。`consent_mod
 | 情况 | 行为 | 原因码 | 验收用例 |
 |---|---|---|---|
 | 网络失败、5xx，有未过期缓存 | 使用本地缓存 | `config_fetch_failed` | C03-AC-05 |
-| 网络失败、5xx，没有缓存 | 使用保守默认 | `config_fetch_failed` | C03-AC-06 |
+| 网络失败、5xx，没有缓存 | 拒绝本次配置：**有当前生效配置则保持，无则使用保守默认** | `config_fetch_failed` | C03-AC-06 |
 | 签名校验失败、`key_id` 不在公钥列表中 | 拒绝本次配置，继续使用当前生效配置；没有可用配置时使用保守默认 | `config_signature_invalid` | C03-AC-07、C03-AC-16 |
 | `config_version` 不大于当前生效版本 | 拒绝本次配置，保持当前配置 | `config_version_stale` | C03-AC-08 |
 | `app_id`、`env` 与请求路径不一致 | 同签名校验失败 | `config_scope_mismatch` | C03-AC-17 |
 | `format_version` 主版本不认识 | 同签名校验失败 | `config_format_unsupported` | C03-AC-09 |
 | 发布物或正文不是合法 JSON | 同签名校验失败 | `config_parse_failed` | C03-AC-18 |
 | 本地缓存超过 24 小时 | 视为没有缓存 | `config_cache_expired` | C03-AC-19 |
-| 运行环境不支持 WebCrypto | 不校验签名，只使用保守默认 | `config_signature_unavailable` | C03-AC-20 |
+| 运行环境不支持 WebCrypto | **唯一例外**：不校验签名，**即使存在缓存或当前生效配置也只使用保守默认** | `config_signature_unavailable` | C03-AC-20 |
+
+**生效配置语义的通则（2026-10-13 经 CR-004 明确）**：除上表最后一行（WebCrypto 不可用）这一**唯一例外**外，本表所有「拒绝本次配置」的行统一遵循——**有当前生效配置时保持该配置不变；只有没有任何可用配置时才使用保守默认**。
+
+明确这一点的原因：若把「有当前配置也退回保守默认」当作字面实现，则**推送一份非法配置、或制造一次网络抖动，就能把 SDK 打回最保守模式、停掉上报**（对数据管道构成拒绝服务）。保守默认只在"本来就没有任何可用配置"时作为起点使用。
 
 **保守默认**：只保留 critical 事件和 JS 错误采集，采样率 1，其他插件关闭，`consent_mode` 取初始化参数的值，没有时为 `essential_only`。
 
