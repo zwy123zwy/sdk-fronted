@@ -21,7 +21,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 
-import { createMasker } from '../../packages/core/dist/index.js';
+import { createMasker, sanitizeUrl } from '../../packages/core/dist/index.js';
 import { repoRoot, repoPath } from '../contract/lib/fs-json';
 
 /** 本仓库的 SDK 包与工具清单（供应链检查的对象）。 */
@@ -179,5 +179,34 @@ describe('T31 隐私：端上脱敏（独立样本，断言敏感值不再出现
   test('无规则注入时也默认启用内置脱敏（脱敏默认开启）', () => {
     const output = createMasker().apply('13800138000');
     expect(output.includes('13800138000')).toBe(false);
+  });
+});
+
+describe('T31 令牌与隐私：上报 URL 的查询参数处理（独立样本）', () => {
+  /** 伪造的令牌值（格式合法、非真实令牌）。 */
+  const FAKE_TOKEN = 'tok_live_9f8e7d6c5b4a3210';
+
+  test('不在白名单内的查询参数被删除——令牌不会随 URL 上报', () => {
+    const output = sanitizeUrl(`https://a.example/p?token=${FAKE_TOKEN}&tab=1`, ['tab'], createMasker());
+    expect(output.includes(FAKE_TOKEN), `令牌出现在上报 URL 中：${output}`).toBe(false);
+    expect(output).toBe('https://a.example/p?tab=1');
+  });
+
+  test('白名单为空时删除全部查询参数（更强的兜底）', () => {
+    const output = sanitizeUrl(`https://a.example/p?token=${FAKE_TOKEN}&a=1&b=2`, [], createMasker());
+    expect(output.includes(FAKE_TOKEN)).toBe(false);
+    expect(output).toBe('https://a.example/p');
+  });
+
+  test('URL 路径里的敏感值同样被掩码（规则的适用范围含路径）', () => {
+    const phone = '13800138000';
+    const output = sanitizeUrl(`https://a.example/u/${phone}/detail`, [], createMasker());
+    expect(output.includes(phone), `URL 路径中的手机号未被掩码：${output}`).toBe(false);
+  });
+
+  test('URL 片段（#）不进入上报 URL', () => {
+    const output = sanitizeUrl('https://a.example/p?tab=1#secret', ['tab'], createMasker());
+    expect(output.includes('secret')).toBe(false);
+    expect(output).toBe('https://a.example/p?tab=1');
   });
 });
