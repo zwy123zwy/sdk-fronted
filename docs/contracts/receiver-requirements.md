@@ -61,7 +61,42 @@
 
 ## 附录 A：`sdk_health` 字段
 
-字段结构见 `reason-codes.md` 第 4 节；完整字段清单由 T17 冻结后补充到这里。
+（2026-10-13 由 CR-002 补全；T17/C08 已交付）
+
+子章节编号 A.1–A.6 为 2026-10-13 经 CR-002 追加，属兼容变更（不递增文档版本号）。
+
+### A.1 事件形态
+
+`sdk_health` 是普通上报事件：走同一条批次通道、同一个 `app_id`+`event_id` 去重键（RR-04、RR-05 同样适用）。顶层含 `event_id`、`event_name`（`sdk_health`）、`event_type`（`sdk_internal`）、`schema_version`、`occurred_at`、`priority`（固定 `normal`，Q3 结论第 4 条）、`dimensions`、`metrics`。
+
+**字段的权威定义是机器可读的 [`schemas/builtin-events/sdk_health.schema.json`](schemas/builtin-events/sdk_health.schema.json)**；本附录**不复制字段表**，以免与 Schema 漂移。接收方建看板应以该 Schema 为准，并可用 [`examples/builtin-events/sdk_health.valid.json`](examples/builtin-events/sdk_health.valid.json) 做实现自测。字段含义见 `reason-codes.md` 第 4 节。
+
+### A.2 `dimensions`
+
+`sdk_version`（semver，产生本窗口数据的 SDK 版本）、`state`（`initialized`｜`running`｜`paused`｜`destroyed`；SDK 的「未初始化」态不上报）、`config_version`（十进制字符串；无生效配置时省略）。
+
+### A.3 `metrics` 的读数口径（接收方最容易读错的地方）
+
+1. **计数类指标值为 0 时不上报。** 因此「某个 `drop_*` / `count_*` 键不出现」等价于「该窗口内为 0」，**不要当成缺数据或上报失败**。
+2. **`offline_written` / `offline_replayed` 的单位是「批次数」，不是事件数**（事件数另有本地观测量，不进契约指标）。接收方按批次数建看板。
+3. **`exposure_window_ms` 必须与 `exposure_window_events` 同时出现**（Schema 的 `dependentRequired`，机器可校验）；`exposure_window_events` 为 0 时两者都不上报。
+4. **`batches_sent` 与 `batches_failed` 不互补。** 前者只计常规通道成功提交的批次；后者含熔断（`circuit_open`，未尝试发送）与终态 4xx 拒绝；两者都**不含**离开通道与补发批次（补发计 `offline_replayed`，避免同一批次被两个指标各记一次）。**不要用 `sent + failed` 反推提交总数。**
+5. **`queue_length_max` 是窗口内的队列长度峰值**，在非自监控事件的入队时刻采样。
+6. 三个 `*_p99_ms` **只在 1% 会话上报**（见 `sample_rate`）。
+
+### A.4 上报节奏与分片
+
+窗口常规为 60 秒（`window_ms`）。**一个窗口内非零指标超过 50 个时，SDK 会拆成多条 `sdk_health`**（Schema 的 `maxProperties: 50`），每条带**相同的 `window_ms` 与 `dimensions`**、各自的 `event_id`。
+
+**接收方聚合时必须把「同 `window_ms` + 同 `dimensions`」的多条事件视为同一窗口**，否则会把一个窗口拆成多行、把计数当成多份。
+
+### A.5 流量占比
+
+自监控流量占业务流量的实测口径与结果（T17，确定性计数）：1 条 `sdk_health`（12 个指标、约 480 B）对 1000 条业务事件（约 467,000 B）→ **计数比 0.100%、体积比 0.1028%**（均 ≤1%，符合 C08 的非功能目标）。接收方按此估算容量。
+
+### A.6 调试模式
+
+调试模式是**纯本地输出**（接入方控制台或 logger），**不产生额外的上报事件**，因此不改变接收方侧的数据形态。
 
 ## 变更记录
 
@@ -69,3 +104,4 @@
 |---|---|---|
 | 0.1 | 2026-10-09 | 草案 |
 | 0.2 | 2026-10-10 | RR-04 补解压防护与编码结论；RR-13 补 `auth` 删除与 IP 截断（原 I-03）；补 RR 与 M01 用例对照；冻结 |
+| 0.2（兼容追加） | 2026-10-13 | 经 CR-002 与架构负责人批准：**补全附录 A**（A.1 事件形态 / A.2 `dimensions` / A.3 `metrics` 读数口径六条 / A.4 上报节奏与分片 / A.5 流量占比 / A.6 调试模式）。字段定义**指向机器可读 Schema 而不复制字段表**（避免漂移）。已有正文的 RR 条目未改动，**不递增文档版本号** |

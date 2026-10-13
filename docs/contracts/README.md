@@ -16,7 +16,7 @@ SDK 与接收方、SDK 与开发工具（K01、K02、M01）之间只通过本目
 | [remote-config.md](remote-config.md) | T07 | 0.2 | 已冻结 |
 | [schemas/remote-config.schema.json](schemas/remote-config.schema.json) | T07 | 0.2 | 已冻结 |
 | [reason-codes.md](reason-codes.md) | T05、T17 | 0.2（兼容追加 2026-10-13，经 CR-001） | 已冻结 |
-| [receiver-requirements.md](receiver-requirements.md) | T05 | 0.2 | 已冻结 |
+| [receiver-requirements.md](receiver-requirements.md) | T05、T17 | 0.2（兼容追加 2026-10-13，经 CR-002 补全附录 A） | 已冻结 |
 | [examples/](examples/) | T05–T07 | 0.2 | 已冻结 |
 | [schemas/builtin-events/](schemas/builtin-events/) | T06、T18 | 0.2（兼容追加） | 已提供（2026-10-12；2026-10-13 经 CR-001 追加 `prewrite_commit_lost` 与 `exposure_window_*`，不递增文档版本号） |
 | [examples/builtin-events/](examples/builtin-events/) | T06、T10 | 0.2（兼容追加） | 已提供（2026-10-12） |
@@ -30,7 +30,7 @@ SDK 与接收方、SDK 与开发工具（K01、K02、M01）之间只通过本目
 |---|---|---|---|
 | 2026-10-10 | 0.2 | 上表中所有标为“已冻结”的文件 | wenye.zhang（项目负责人）于 2026-10-09 在对话中授权，代行架构负责人批准；架构负责人可以补签 |
 
-已知未完成项（不阻塞冻结，按兼容变更追加）：`receiver-requirements.md` 附录 A（T17）。
+已知未完成项（不阻塞冻结，按兼容变更追加）：**无**（`receiver-requirements.md` 附录 A 已于 2026-10-13 经 CR-002 补全）。
 
 2026-10-12 的兼容澄清（均不递增文档版本号，冻结记录不变；详见 `docs/review-log.md` R-010 至 R-012）：
 - `schemas/builtin-events/` 由 T06 按兼容变更补齐（只细化 `event-standard.md` 第 6 节已列出的字段，不改变该节内容）。

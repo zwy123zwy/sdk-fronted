@@ -1,6 +1,6 @@
 # CR-002 `receiver-requirements.md` 追加附录 A：SDK 自监控（`sdk_health`）字段清单
 
-- 状态：**草案（待架构负责人批准）**
+- 状态：**已批准（2026-10-13）**，附录 A 已补全到 `docs/contracts/receiver-requirements.md`（A.1–A.6），契约 README 的「已知未完成项」已清空
 - 起草人：A01（编排方代行）；起草日期：2026-10-13
 - 依据：T17（C08 自监控与调试）任务卡的交接产物——「`sdk_health` 事件的字段清单（写入 `receiver-requirements.md` 附录 A，供接收方建看板；给 T32、T33 对账）」。**任务卡把这份清单指派给 T17 书写，但同一张卡的「文件所有权」只允许 T17 写 `packages/transport/src/{monitor,debug}/`，而 `receiver-requirements.md` 是冻结契约** —— 该矛盾由编排方按契约变更流程处理，内容取自 T17 的交付报告。
 - 流程依据：`docs/contracts/README.md`「契约冻结后，修改走契约变更请求：A01 起草，架构负责人批准」
@@ -65,4 +65,11 @@ T17 的字段清单只留在其交付报告里；接收方需自行从机器可�
 | 角色 | 姓名 | 结论 | 日期 |
 |---|---|---|---|
 | 起草 | A01（编排方代行） | 提交草案（内容取自 T17 交付报告，字段定义指向机器可读 Schema 以避免漂移） | 2026-10-13 |
-| 架构负责人 | （待签署） | — | — |
+| 架构负责人 | wenye.zhang | **批准**（按兼容变更处理，不递增文档版本号） | 2026-10-13 |
+
+批准后的落地情况：
+
+- [x] `receiver-requirements.md` 附录 A 由占位符补全为 A.1–A.6（原占位文字「完整字段清单由 T17 冻结后补充到这里」已替换）；
+- [x] 该文件变更记录新增「0.2（兼容追加）」行；
+- [x] `docs/contracts/README.md`：`receiver-requirements.md` 状态行标注 + 「已知未完成项」清空；
+- [x] `docs/review-log.md` R-014 留档。
