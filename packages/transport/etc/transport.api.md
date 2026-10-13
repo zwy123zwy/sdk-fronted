@@ -65,9 +65,55 @@ export interface BatchHeaderSource {
 }
 
 // @public
+export interface BatchSender {
+    isCircuitOpen(): boolean;
+    isPaused(): boolean;
+    // (undocumented)
+    send(batch: BatchEnvelope): Promise<SendResult>;
+    // (undocumented)
+    stats(): SenderStats;
+    readonly transport: TransportPort;
+}
+
+// @public
 export interface BatchSubmitPort {
     // (undocumented)
     submit(batch: BatchEnvelope, context: SubmitContext): void;
+}
+
+// @public
+export interface BroadcastChannelLike {
+    // (undocumented)
+    addEventListener(type: 'message', listener: (event: {
+        data: unknown;
+    }) => void): void;
+    // (undocumented)
+    close(): void;
+    // (undocumented)
+    postMessage(message: unknown): void;
+    // (undocumented)
+    removeEventListener(type: 'message', listener: (event: {
+        data: unknown;
+    }) => void): void;
+}
+
+// @public (undocumented)
+export interface BroadcastPort {
+    // (undocumented)
+    open(name: string): BroadcastChannelLike | null;
+}
+
+// @public
+export function captureNativeHttpRefs(target?: object): NativeHttpRefs;
+
+// @public
+export interface CommitLossReport {
+    // (undocumented)
+    readonly events: number;
+    // (undocumented)
+    readonly sessionIds: readonly string[];
+    // (undocumented)
+    readonly windowMs: number;
 }
 
 // @public
@@ -85,6 +131,14 @@ export interface CommonFields {
 }
 
 // @public
+export interface CompressorPort {
+    // (undocumented)
+    available(): boolean;
+    // (undocumented)
+    compress(text: string): Promise<Uint8Array<ArrayBuffer>>;
+}
+
+// @public
 export interface CountersPort {
     count(reason: string, delta?: number): void;
 }
@@ -93,16 +147,84 @@ export interface CountersPort {
 export function createBatchAssembler(options: BatchAssemblerOptions): BatchAssembler;
 
 // @public
+export function createDefaultBroadcastPort(): BroadcastPort | null;
+
+// @public
+export function createDefaultLocksPort(): LocksPort | null;
+
+// @public
+export function createDelivery(options: DeliveryOptions): Delivery;
+
+// @public (undocumented)
+export function createDomPageEventsSource(target: DomPageEventsTarget): PageEventsPort;
+
+// @public
 export function createDomPageLeaveSource(target: PageLifecycleDocument): PageLeaveSource;
+
+// @public
+export function createIdbBackend(options?: IdbBackendOptions): OfflineBackend;
+
+// @public
+export function createLeaderElection(options?: LeaderElectionOptions): LeaderElection;
 
 // @public
 export function createMemoryQueue(options?: MemoryQueueOptions): MemoryQueue;
 
 // @public
+export function createOfflineStore(options: OfflineStoreOptions): OfflineStore;
+
+// @public
+export function createReplayController(options: ReplayControllerOptions): ReplayController;
+
+// @public
 export function createTransportQueue(options: TransportQueueOptions): TransportQueue;
+
+// @public (undocumented)
+export interface CredentialsPort {
+    current(): CredentialsSnapshot | null;
+}
+
+// @public
+export interface CredentialsSnapshot {
+    // (undocumented)
+    readonly appId: string;
+    // (undocumented)
+    readonly endpoint: string;
+    // (undocumented)
+    readonly revision: number;
+    // (undocumented)
+    readonly writeToken: string;
+}
+
+// @public
+export interface CriticalFlushQueue {
+    // (undocumented)
+    enqueue(event: QueueEvent): unknown;
+    // (undocumented)
+    flush(reason?: FlushReason): unknown;
+}
+
+// Warning: (ae-forgotten-export) The symbol "BackoffOptions" needs to be exported by the entry point index.d.ts
+//
+// @public
+export const DEFAULT_BACKOFF: BackoffOptions;
+
+// @public (undocumented)
+export const DEFAULT_CHANNEL_NAME = "web-report-sdk:leader";
+
+// Warning: (ae-forgotten-export) The symbol "CircuitOptions" needs to be exported by the entry point index.d.ts
+//
+// @public
+export const DEFAULT_CIRCUIT: CircuitOptions;
+
+// @public
+export const DEFAULT_DEAD_SESSION_MS = 90000;
 
 // @public
 export const DEFAULT_IDLE_FLUSH_MS = 1000;
+
+// @public (undocumented)
+export const DEFAULT_LOCK_NAME = "web-report-sdk:replay";
 
 // @public
 export const DEFAULT_MAX_BATCH_BYTES: number;
@@ -112,6 +234,9 @@ export const DEFAULT_MAX_BATCH_EVENTS = 20;
 
 // @public
 export const DEFAULT_MAX_WAIT_MS = 5000;
+
+// @public
+export const DEFAULT_OFFLINE_LIMITS: OfflineLimits;
 
 // @public
 export const DEFAULT_REPLAY_BATCHES_PER_SECOND = 1;
@@ -128,8 +253,130 @@ export const DEFAULT_WEAK_IDLE_FLUSH_MS_MULTIPLIER = 2;
 // @public
 export const DEFAULT_WEAK_NETWORK_POLICY: WeakNetworkPolicy;
 
+// @public (undocumented)
+export interface Delivery {
+    // (undocumented)
+    attachQueue(queue: QueueControlPort): void;
+    // (undocumented)
+    clearOffline(): Promise<void>;
+    // (undocumented)
+    dispose(): void;
+    exposureMetrics(): readonly {
+        readonly name: string;
+        readonly value: number;
+    }[];
+    // (undocumented)
+    metrics(): DeliveryMetrics;
+    // (undocumented)
+    readonly offline: OfflineStore;
+    // (undocumented)
+    replay(reason?: ReplayReason): Promise<ReplayRoundResult>;
+    // (undocumented)
+    readonly sender: BatchSender;
+    // (undocumented)
+    start(): () => void;
+    // (undocumented)
+    readonly submit: BatchSubmitPort;
+    wireEnqueue(queue: CriticalFlushQueue): (event: {
+        readonly priority?: string | undefined;
+    }) => void;
+}
+
+// @public
+export type DeliveryChannel = 'default' | 'page_leave';
+
+// @public (undocumented)
+export interface DeliveryMetrics {
+    // (undocumented)
+    readonly batchesFailed: number;
+    // (undocumented)
+    readonly batchesSent: number;
+    // (undocumented)
+    readonly circuitOpen: boolean;
+    // (undocumented)
+    readonly eventsSent: number;
+    // (undocumented)
+    readonly exposure: ExposureStats;
+    // (undocumented)
+    readonly lastReplayReason: ReplayReason;
+    // (undocumented)
+    readonly leader: {
+        readonly mode: LeaderMode;
+        readonly leader: boolean;
+    };
+    // (undocumented)
+    readonly leave: LeaveStats;
+    // (undocumented)
+    readonly offlineEvicted: number;
+    // (undocumented)
+    readonly offlineReplayed: number;
+    // (undocumented)
+    readonly offlineWritten: number;
+    // (undocumented)
+    readonly paused: boolean;
+    // (undocumented)
+    readonly retry: {
+        readonly attempts: number;
+        readonly ratio: number;
+    };
+}
+
+// @public (undocumented)
+export interface DeliveryOptions {
+    // (undocumented)
+    readonly appId: string;
+    // (undocumented)
+    readonly broadcast?: BroadcastPort | null | undefined;
+    // (undocumented)
+    readonly counters?: CountersPort | undefined;
+    // (undocumented)
+    readonly credentials: CredentialsPort;
+    // (undocumented)
+    readonly header?: BatchHeaderSource | undefined;
+    // (undocumented)
+    readonly http?: NativeHttpRefs | undefined;
+    // (undocumented)
+    readonly keepaliveSupported?: (() => boolean) | undefined;
+    // (undocumented)
+    readonly leaveBudget?: Partial<LeaveBudget> | undefined;
+    // (undocumented)
+    readonly locks?: LocksPort | null | undefined;
+    // (undocumented)
+    readonly now?: (() => number) | undefined;
+    // (undocumented)
+    readonly offline?: OfflineStore | Omit<OfflineStoreOptions, 'appId' | 'sessionId'> | undefined;
+    // (undocumented)
+    readonly onServerTime?: ((serverTimeMs: number) => void) | undefined;
+    // (undocumented)
+    readonly pageEvents?: PageEventsPort | undefined;
+    // (undocumented)
+    readonly queue?: (() => QueueControlPort | null) | undefined;
+    // (undocumented)
+    readonly random?: (() => number) | undefined;
+    // (undocumented)
+    readonly sessionId: string;
+    // (undocumented)
+    readonly settleMs?: number | undefined;
+    // (undocumented)
+    readonly sleep?: ((ms: number) => Promise<void>) | undefined;
+    // (undocumented)
+    readonly timeoutMs?: number | undefined;
+    // (undocumented)
+    readonly transport?: TransportPort | undefined;
+}
+
 // @public
 export type Dimensions = Readonly<Record<string, string>>;
+
+// @public
+export interface DomPageEventsTarget {
+    // (undocumented)
+    addEventListener(type: string, listener: () => void): void;
+    // (undocumented)
+    removeEventListener(type: string, listener: () => void): void;
+    // (undocumented)
+    readonly visibilityState?: string | undefined;
+}
 
 // @public
 export interface EffectiveLimits {
@@ -153,6 +400,23 @@ export function estimateEventBytes(event: QueueEvent): number;
 export type EventPriority = 'normal' | 'critical';
 
 // @public
+export interface ExposureStats {
+    // (undocumented)
+    readonly commitLatencyP50Ms: number | null;
+    // (undocumented)
+    readonly commitLatencyP95Ms: number | null;
+    readonly commitLostEvents: number;
+    // (undocumented)
+    readonly commitLostWindowMs: number | null;
+    // (undocumented)
+    readonly oldestPendingMs: number | null;
+    // (undocumented)
+    readonly pendingBatches: number;
+    // (undocumented)
+    readonly pendingEvents: number;
+}
+
+// @public
 export type FlushReason = 'events' | 'bytes' | 'idle' | 'max_wait' | 'manual' | 'page_leave' | 'resume';
 
 // @public
@@ -166,6 +430,87 @@ export interface FlushResult {
 
 // @public
 export type FlushStatus = 'submitted' | 'empty' | 'in_flight' | 'circuit_open';
+
+// @public (undocumented)
+export interface IdbBackendOptions {
+    // (undocumented)
+    readonly dbName?: string | undefined;
+    // (undocumented)
+    readonly dbVersion?: number | undefined;
+    readonly idbFactory?: IDBFactory | null | undefined;
+}
+
+// @public (undocumented)
+export interface LeaderElection {
+    lastLeader(): boolean;
+    mode(): LeaderMode;
+    run<T>(task: () => Promise<T>): Promise<LeaderRunResult<T>>;
+}
+
+// @public (undocumented)
+export interface LeaderElectionOptions {
+    // (undocumented)
+    readonly broadcast?: BroadcastPort | null | undefined;
+    // (undocumented)
+    readonly channelName?: string | undefined;
+    // (undocumented)
+    readonly counters?: CountersPort | undefined;
+    // (undocumented)
+    readonly lockName?: string | undefined;
+    // (undocumented)
+    readonly locks?: LocksPort | null | undefined;
+    // (undocumented)
+    readonly now?: (() => number) | undefined;
+    readonly settleMs?: number | undefined;
+    // (undocumented)
+    readonly sleep?: ((ms: number) => Promise<void>) | undefined;
+    readonly tabId?: string | undefined;
+}
+
+// @public
+export type LeaderMode = 'locks' | 'broadcast' | 'none';
+
+// @public (undocumented)
+export interface LeaderRunResult<T> {
+    // (undocumented)
+    readonly leader: boolean;
+    // (undocumented)
+    readonly mode: LeaderMode;
+    // (undocumented)
+    readonly result: T | undefined;
+}
+
+// @public
+export const LEAVE_BUDGET: {
+    readonly maxBytes: number;
+    readonly maxEvents: 200;
+    readonly maxBatches: 4;
+    readonly maxMs: 50;
+};
+
+// @public
+export interface LeaveBudget {
+    // (undocumented)
+    readonly maxBatches: number;
+    // (undocumented)
+    readonly maxBytes: number;
+    // (undocumented)
+    readonly maxEvents: number;
+    // (undocumented)
+    readonly maxMs: number;
+}
+
+// @public (undocumented)
+export interface LeaveStats {
+    // (undocumented)
+    readonly bytes: number;
+    // (undocumented)
+    readonly requests: number;
+    // (undocumented)
+    readonly sent: number;
+    // (undocumented)
+    readonly skipped: number;
+}
 
 // @public
 export const LIMIT_RANGES: {
@@ -186,6 +531,12 @@ export const LIMIT_RANGES: {
         readonly max: 60000;
     };
 };
+
+// @public
+export interface LocksPort {
+    // (undocumented)
+    tryAcquire(name: string, task: () => Promise<void>): Promise<boolean>;
+}
 
 // @public
 export interface MemoryQueue {
@@ -209,6 +560,33 @@ export interface MemoryQueueOptions {
 }
 
 // @public
+export interface MetaEntry {
+    // (undocumented)
+    readonly key: string;
+    // (undocumented)
+    readonly value: string;
+}
+
+// @public
+export const METRIC_EXPOSURE_WINDOW_EVENTS = "exposure_window_events";
+
+// @public
+export const METRIC_EXPOSURE_WINDOW_MS = "exposure_window_ms";
+
+// @public
+export const MIN_SETTLE_MS = 50;
+
+// @public
+export interface NativeHttpRefs {
+    // (undocumented)
+    readonly fetch?: typeof fetch | undefined;
+    // (undocumented)
+    readonly sendBeacon?: ((url: string, data: BodyInit) => boolean) | undefined;
+    // (undocumented)
+    readonly xhr?: typeof XMLHttpRequest | undefined;
+}
+
+// @public
 export interface NetworkInfoPort {
     // (undocumented)
     snapshot(): NetworkSnapshot;
@@ -223,13 +601,186 @@ export interface NetworkSnapshot {
 }
 
 // @public
+export const OFFLINE_DB_NAME = "web-report-sdk-offline";
+
+// @public
+export const OFFLINE_FORMAT_VERSION = 1;
+
+// @public
+export interface OfflineBackend {
+    // (undocumented)
+    clear(): Promise<void>;
+    // (undocumented)
+    close(): void;
+    commit(records: readonly OfflineRecord[], metas?: readonly MetaEntry[]): Promise<void>;
+    // (undocumented)
+    deleteMeta(keys: readonly string[]): Promise<void>;
+    // (undocumented)
+    listMeta(prefix: string): Promise<readonly MetaEntry[]>;
+    // (undocumented)
+    open(): Promise<OfflineOpenResult>;
+    // (undocumented)
+    putMeta(entry: MetaEntry): Promise<void>;
+    putSummaries(summaries: readonly OfflineRecordSummary[]): Promise<void>;
+    // (undocumented)
+    read(batchId: string): Promise<OfflineRecord | null>;
+    // (undocumented)
+    readMeta(key: string): Promise<MetaEntry | null>;
+    // (undocumented)
+    readSummaries(limit: number): Promise<readonly OfflineRecordSummary[]>;
+    // (undocumented)
+    remove(batchIds: readonly string[]): Promise<void>;
+    reset(): Promise<void>;
+}
+
+// @public (undocumented)
+export interface OfflineLimits {
+    readonly commitBatchSize: number;
+    readonly commitIntervalMs: number;
+    // (undocumented)
+    readonly maxAgeMs: number;
+    // (undocumented)
+    readonly maxBatches: number;
+    // (undocumented)
+    readonly maxBytes: number;
+    // (undocumented)
+    readonly maxEvents: number;
+}
+
+// @public (undocumented)
+export type OfflineOpenResult = 'ok' | 'incompatible' | 'unavailable';
+
+// @public
+export interface OfflineRecord {
+    // (undocumented)
+    readonly app_id: string;
+    // (undocumented)
+    readonly attempt_count: number;
+    readonly batch: BatchEnvelope;
+    // (undocumented)
+    readonly batch_id: string;
+    // (undocumented)
+    readonly bytes: number;
+    // (undocumented)
+    readonly committed_at: number;
+    // (undocumented)
+    readonly critical_count: number;
+    readonly enqueued_at: number;
+    // (undocumented)
+    readonly event_count: number;
+    readonly format_version: number;
+    // (undocumented)
+    readonly has_critical: boolean;
+    // (undocumented)
+    readonly last_attempt_at: number | null;
+    // (undocumented)
+    readonly session_id: string;
+}
+
+// @public
+export interface OfflineRecordSummary {
+    // (undocumented)
+    readonly attempt_count: number;
+    // (undocumented)
+    readonly batch_id: string;
+    // (undocumented)
+    readonly bytes: number;
+    // (undocumented)
+    readonly critical_count: number;
+    // (undocumented)
+    readonly enqueued_at: number;
+    // (undocumented)
+    readonly event_count: number;
+    readonly format_version: number;
+    // (undocumented)
+    readonly has_critical: boolean;
+    // (undocumented)
+    readonly last_attempt_at: number | null;
+}
+
+// @public
 export interface OfflineSpillPort {
     // (undocumented)
     spill(event: QueueEvent, reason: 'queue_overflow'): boolean;
 }
 
+// @public (undocumented)
+export interface OfflineStats {
+    // (undocumented)
+    readonly available: boolean;
+    // (undocumented)
+    readonly evictedBatches: number;
+    // (undocumented)
+    readonly evictedEvents: number;
+    // (undocumented)
+    readonly exposure: ExposureStats;
+    // (undocumented)
+    readonly ready: boolean;
+    // (undocumented)
+    readonly storedBatches: number;
+    // (undocumented)
+    readonly storedBytes: number;
+    // (undocumented)
+    readonly storedEvents: number;
+    // (undocumented)
+    readonly writeFailures: number;
+}
+
+// @public
+export interface OfflineStore {
+    clear(): Promise<void>;
+    commitLoss(): CommitLossReport;
+    // (undocumented)
+    dispose(): void;
+    drain(): Promise<void>;
+    list(limit: number): Promise<readonly OfflineRecordSummary[]>;
+    markAttempt(batchId: string): Promise<void>;
+    prewrite(batch: BatchEnvelope): PrewriteHandle;
+    // (undocumented)
+    quota(): Promise<{
+        readonly usage: number;
+        readonly quota: number;
+    } | null>;
+    // (undocumented)
+    read(batchId: string): Promise<BatchEnvelope | null>;
+    ready(): Promise<void>;
+    remove(batchIds: readonly string[]): Promise<void>;
+    spill(event: QueueEvent, reason: 'queue_overflow'): boolean;
+    // (undocumented)
+    stats(): OfflineStats;
+}
+
+// @public (undocumented)
+export interface OfflineStoreOptions {
+    // (undocumented)
+    readonly appId: string;
+    // (undocumented)
+    readonly backend?: OfflineBackend | undefined;
+    // (undocumented)
+    readonly counters?: CountersPort | undefined;
+    // (undocumented)
+    readonly dbName?: string | undefined;
+    readonly dbVersion?: number | undefined;
+    readonly deadSessionMs?: number | undefined;
+    // (undocumented)
+    readonly formatVersion?: number | undefined;
+    readonly header?: BatchHeaderSource | undefined;
+    readonly idbFactory?: IDBFactory | null | undefined;
+    // (undocumented)
+    readonly limits?: Partial<OfflineLimits> | undefined;
+    // (undocumented)
+    readonly now?: (() => number) | undefined;
+    readonly sessionId: string;
+}
+
 // @public
 export const PACKAGE_NAME = "@web-report-sdk/transport";
+
+// @public (undocumented)
+export interface PageEventsPort {
+    // (undocumented)
+    subscribe(handler: (reason: PageResumeReason) => void): () => void;
+}
 
 // @public
 export type PageLeaveSignal = 'hidden' | 'pagehide';
@@ -249,11 +800,55 @@ export interface PageLifecycleDocument {
     readonly visibilityState: string;
 }
 
+// @public (undocumented)
+export type PageResumeReason = 'online' | 'visible' | 'pageshow';
+
+// @public
+export interface PrewriteHandle {
+    // (undocumented)
+    readonly batchId: string;
+    // (undocumented)
+    readonly bytes: number;
+    // (undocumented)
+    readonly criticalCount: number;
+    // (undocumented)
+    readonly eventCount: number;
+    // (undocumented)
+    readonly settled: Promise<PrewriteOutcome>;
+}
+
+// @public (undocumented)
+export type PrewriteOutcome = {
+    readonly status: 'durable';
+} | {
+    readonly status: 'rejected';
+    readonly reason: PrewriteRejection;
+} | {
+    readonly status: 'aborted';
+};
+
+// @public (undocumented)
+export type PrewriteRejection = 'quota' | 'unavailable' | 'incompatible' | 'overflow';
+
 // @public
 export const QUEUE_MAX_BYTES: number;
 
 // @public
 export const QUEUE_MAX_EVENTS = 500;
+
+// @public
+export interface QueueControlPort {
+    // (undocumented)
+    inFlight(): boolean;
+    // (undocumented)
+    isCircuitOpen(): boolean;
+    // (undocumented)
+    limits(): {
+        readonly replayBatchesPerSecond: number;
+    };
+    // (undocumented)
+    setCircuitOpen(open: boolean): void;
+}
 
 // @public
 export interface QueueEvent {
@@ -296,10 +891,49 @@ export interface QueueSlice {
 export const REASON_CIRCUIT_OPEN = "circuit_open";
 
 // @public
+export const REASON_OFFLINE_EVICTED = "offline_evicted";
+
+// @public
+export const REASON_OFFLINE_INCOMPATIBLE = "offline_incompatible";
+
+// @public
+export const REASON_PREWRITE_COMMIT_LOST = "prewrite_commit_lost";
+
+// @public
 export const REASON_PROCESSOR_ERROR = "processor_error";
 
 // @public
 export const REASON_QUEUE_EVICTED = "queue_evicted";
+
+// @public
+export const REASON_REJECTED_400 = "rejected_400";
+
+// @public (undocumented)
+export const REASON_REJECTED_401 = "rejected_401";
+
+// @public (undocumented)
+export const REASON_REJECTED_403 = "rejected_403";
+
+// @public (undocumented)
+export const REASON_REJECTED_413 = "rejected_413";
+
+// @public (undocumented)
+export const REASON_REPLAYED = "replayed";
+
+// @public (undocumented)
+export const REASON_RETRY_429 = "retry_429";
+
+// @public (undocumented)
+export const REASON_RETRY_5XX = "retry_5xx";
+
+// @public (undocumented)
+export const REASON_RETRY_EXHAUSTED = "retry_exhausted";
+
+// @public (undocumented)
+export const REASON_RETRY_NETWORK = "retry_network";
+
+// @public (undocumented)
+export const REASON_SPLIT_413 = "split_413";
 
 // @public
 export const REASON_STORAGE_UNAVAILABLE = "storage_unavailable";
@@ -307,8 +941,115 @@ export const REASON_STORAGE_UNAVAILABLE = "storage_unavailable";
 // @public
 export const REPLAY_BATCHES_PER_SECOND_MAX = 2;
 
+// @public (undocumented)
+export interface ReplayController {
+    maxRoundEvents(): number;
+    // (undocumented)
+    run(): Promise<ReplayRoundResult>;
+}
+
+// @public (undocumented)
+export interface ReplayControllerOptions {
+    // (undocumented)
+    readonly counters: CountersPort;
+    // (undocumented)
+    readonly leader: LeaderElection;
+    // (undocumented)
+    readonly maxBatchEvents?: number | undefined;
+    // (undocumented)
+    readonly maxRoundEvents?: number | undefined;
+    // (undocumented)
+    readonly now?: (() => number) | undefined;
+    // (undocumented)
+    readonly offline: OfflineStore;
+    readonly rate: () => number;
+    // (undocumented)
+    readonly sender: BatchSender;
+    // (undocumented)
+    readonly sleep?: ((ms: number) => Promise<void>) | undefined;
+}
+
+// @public (undocumented)
+export type ReplayReason = 'startup' | 'online' | 'visible' | 'pageshow' | 'manual';
+
+// @public
+export interface ReplayRoundResult {
+    // (undocumented)
+    readonly batches: number;
+    // (undocumented)
+    readonly events: number;
+    // (undocumented)
+    readonly leader: boolean;
+    // (undocumented)
+    readonly mode: LeaderMode;
+    // (undocumented)
+    readonly skipped: number;
+}
+
 // @public
 export function resolveLimits(settings: TransportSettings, network: NetworkSnapshot, policy?: WeakNetworkPolicy): EffectiveLimits;
+
+// @public (undocumented)
+export interface SenderOptions {
+    // (undocumented)
+    readonly backoff?: Partial<BackoffOptions> | undefined;
+    // (undocumented)
+    readonly circuit?: Partial<CircuitOptions> | undefined;
+    // (undocumented)
+    readonly compressor?: CompressorPort | undefined;
+    // (undocumented)
+    readonly counters?: CountersPort | undefined;
+    // (undocumented)
+    readonly credentials: CredentialsPort;
+    // (undocumented)
+    readonly http?: NativeHttpRefs | undefined;
+    // (undocumented)
+    readonly keepaliveSupported?: (() => boolean) | undefined;
+    // (undocumented)
+    readonly now?: (() => number) | undefined;
+    // (undocumented)
+    readonly onServerTime?: ((serverTimeMs: number) => void) | undefined;
+    // (undocumented)
+    readonly random?: (() => number) | undefined;
+    // (undocumented)
+    readonly sleep?: ((ms: number) => Promise<void>) | undefined;
+    // (undocumented)
+    readonly timeoutMs?: number | undefined;
+    // (undocumented)
+    readonly transport?: TransportPort | undefined;
+}
+
+// @public (undocumented)
+export interface SenderStats {
+    // (undocumented)
+    readonly attempts: number;
+    // (undocumented)
+    readonly circuitOpen: boolean;
+    // (undocumented)
+    readonly circuitOpens: number;
+    // (undocumented)
+    readonly dropped: number;
+    // (undocumented)
+    readonly paused: boolean;
+    // (undocumented)
+    readonly probes: number;
+    // (undocumented)
+    readonly retries: number;
+    readonly retryRatio: number;
+    // (undocumented)
+    readonly sent: number;
+}
+
+// @public
+export interface SendResult {
+    // (undocumented)
+    readonly attempts: number;
+    readonly reason?: string | undefined;
+    // (undocumented)
+    readonly status: 'sent' | 'failed' | 'circuit_open';
+    // (undocumented)
+    readonly terminal: boolean;
+}
 
 // @public
 export type SubmitChannel = 'default' | 'page_leave';
@@ -325,9 +1066,18 @@ export interface SubmitContext {
 export type SubmitOutcome = 'sent' | 'failed' | 'circuit_open';
 
 // @public
+export function supportsFetchKeepalive(): boolean;
+
+// @public
 export interface TransportConfigPort {
     // (undocumented)
     transport(): TransportSettings;
+}
+
+// @public
+export interface TransportPort {
+    // (undocumented)
+    send(request: TransportRequest): Promise<TransportResponse>;
 }
 
 // @public
@@ -360,6 +1110,28 @@ export interface TransportQueueOptions {
     readonly pageLeave?: PageLeaveSource | undefined;
     readonly submit: BatchSubmitPort;
     readonly weakNetwork?: WeakNetworkPolicy | undefined;
+}
+
+// @public (undocumented)
+export interface TransportRequest {
+    readonly body: string;
+    readonly bodyBytes: Uint8Array<ArrayBuffer> | undefined;
+    // (undocumented)
+    readonly headers: Readonly<Record<string, string>>;
+    // (undocumented)
+    readonly keepalive: boolean;
+    // (undocumented)
+    readonly timeoutMs: number;
+    // (undocumented)
+    readonly url: string;
+}
+
+// @public (undocumented)
+export interface TransportResponse {
+    // (undocumented)
+    readonly headers: Readonly<Record<string, string>>;
+    // (undocumented)
+    readonly status: number;
 }
 
 // @public

@@ -179,3 +179,31 @@ C06-AC-09 用 `ajv`（Ajv2020）编译 `docs/contracts/schemas/batch.schema.json
 P99/均值在共享机器上由进程抢占主导，以契约目标值当门禁会必现误报，而以「有负载 P99 × 10」当门禁会超过 1 ms。
 护栏取中位数的 ≥10 倍余量，均 < 1 ms：入队 P50 < 0.1 ms（≥13 倍于有负载实测最大值，≈35 倍于空闲 P99）；
 组装+序列化 P50 < 0.6 ms（≥12 倍于有负载实测最大值，≈42 倍于空闲均值）。二者仍能拦住 10 倍量级的病态回归。
+
+## 6. C07 传输与可靠投递（T16）
+
+| 路径 | 内容 |
+|---|---|
+| `src/offline/` | IndexedDB 离线副本（`transaction.oncomplete` 为**唯一落盘点**、多上限淘汰、配额降级、格式不兼容清理、暴露窗口对账） |
+| `src/sender/` | 通道选择（fetch keepalive → XHR）、响应分类、退避、熔断、401/403 暂停、413 拆分、压缩、页面离开信标通道、装配层 `createDelivery` |
+| `src/leader/` | Web Locks 优先 / BroadcastChannel 降级（settle 强制 ≥50 ms）的选主与限速补发 |
+
+装配方式：`createDelivery({ appId, sessionId, credentials, transport?, http?, pageEvents?, offline? })`
+得到 `{ submit, offline, sender, attachQueue, wireEnqueue, replay, clearOffline, metrics, exposureMetrics, start, dispose }`。
+`submit` 直接交给 C06 的 `TransportQueueOptions.submit`；`attachQueue(queue)` 把 C06 的队列句柄回填给熔断器；
+`wireEnqueue(queue)` 返回给 C01 `EventSink` 的入口（critical 事件立即 `flush('events')`）。
+
+**原生引用（任务卡非功能目标）**：发送器只使用注入的引用；`captureNativeHttpRefs()` 每个 target 只捕获一次并冻结，
+调用点由 **T18（C05）在装配根、安装任何插件之前**完成——C05 插件不得在自己的 `install()` 里捕获。
+
+**落盘语义（D004）**：`PrewriteHandle.settled` 只在事务 `oncomplete` 后解析为 `durable`；
+信标通道与 `fetch keepalive` 的返回值**都不是送达信号**，离线副本只在常规通道 202 之后删除。
+
+### 6.1 非功能口径（本仓库政策）
+
+- **同步写入**：`prewrite` 的同步调用中位数护栏 < 0.5 ms（`src/offline/perf.test.ts`，**回归护栏、非契约目标值**）；
+  契约目标「单次写入阻塞 ≤1 ms」的权威验证归 **T20** 的受控基准。
+- **异步提交耗时**（p50 1–4 ms / p95 3–17 ms，POC-1 追加轮）只记录在 `stats().exposure.commitLatencyP50Ms/P95Ms`，**不做绝对断言**。
+- **补发限速** ≤2 批/秒（取配置值与契约上限的较小者）；**健康期重试流量 ≤5%** 用确定性计数断言。
+- **暴露窗口**（CR-001）：`prewrite_commit_lost` + `exposure_window_events` / `exposure_window_ms`
+  （后者仅在事件数 ≥1 时上报，值 ≥1）；真实浏览器的落盘语义负向对照归 **T29**。
