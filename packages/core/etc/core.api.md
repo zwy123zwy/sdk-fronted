@@ -17,6 +17,25 @@ export const API_REASON_CODES: {
 };
 
 // @public
+export function applyKillSwitch(kernel: Kernel, decision: KillSwitchDecision, stopRuntime: () => void): void;
+
+// @public
+export function buildConfigUrl(configEndpoint: string, appId: string, env: string): string;
+
+// @public (undocumented)
+export const CACHE_TTL_MS = 86400000;
+
+// @public
+export interface CachedConfig {
+    // (undocumented)
+    readonly envelope: ConfigEnvelope;
+    // (undocumented)
+    readonly etag: string | undefined;
+    // (undocumented)
+    readonly stored_at: number;
+}
+
+// @public
 export interface CapabilityRegistry {
     dispose(): void;
     get(name: string): unknown;
@@ -107,6 +126,18 @@ export interface ClientState {
 }
 
 // @public
+export interface ClockPort {
+    // (undocumented)
+    now(): number;
+}
+
+// @public
+export const COLLECTOR_PLUGIN_IDS: readonly string[];
+
+// @public
+export function combineSampleRate(sessionRate: number, ruleRate: number): number;
+
+// @public
 export const COMMAND_QUEUE_CAPACITY = 200;
 
 // @public
@@ -127,6 +158,133 @@ export interface CommandQueuePushResult {
 }
 
 // @public
+export const CONFIG_CAPABILITY = "sdk.config";
+
+// @public
+export const CONFIG_PATH_PREFIX = "/v1/config/";
+
+// @public
+export const CONFIG_REASON_CODES: {
+    readonly fetchFailed: "config_fetch_failed";
+    readonly signatureInvalid: "config_signature_invalid";
+    readonly versionStale: "config_version_stale";
+    readonly scopeMismatch: "config_scope_mismatch";
+    readonly formatUnsupported: "config_format_unsupported";
+    readonly parseFailed: "config_parse_failed";
+    readonly cacheExpired: "config_cache_expired";
+    readonly signatureUnavailable: "config_signature_unavailable";
+    readonly consentModeRejected: "config_consent_mode_rejected";
+    readonly schemaInvalid: "config_schema_invalid";
+};
+
+// @public
+export interface ConfigCachePort {
+    // (undocumented)
+    read(): Promise<CachedConfig | undefined>;
+    remove(): Promise<void>;
+    // (undocumented)
+    write(entry: CachedConfig): Promise<void>;
+}
+
+// @public
+export type ConfigConsentMode = 'essential_only' | 'buffer';
+
+// @public
+export interface ConfigEnvelope {
+    // (undocumented)
+    readonly alg: string;
+    // (undocumented)
+    readonly format_version: number;
+    // (undocumented)
+    readonly key_id: string;
+    readonly payload: string;
+    // (undocumented)
+    readonly signature: string;
+}
+
+// @public
+export type ConfigFetchPort = (request: ConfigFetchRequest) => Promise<ConfigFetchResponse>;
+
+// @public
+export interface ConfigFetchRequest {
+    // (undocumented)
+    readonly etag: string | undefined;
+    // (undocumented)
+    readonly url: string;
+}
+
+// @public
+export interface ConfigFetchResponse {
+    // (undocumented)
+    readonly body: string;
+    // (undocumented)
+    readonly etag: string | undefined;
+    // (undocumented)
+    readonly status: number;
+}
+
+// @public
+export interface ConfigReader {
+    // (undocumented)
+    current(): EffectiveConfig;
+    // (undocumented)
+    subscribe(listener: (next: EffectiveConfig, previous: EffectiveConfig) => void): Dispose;
+}
+
+// @public
+export type ConfigReasonCode = (typeof CONFIG_REASON_CODES)[keyof typeof CONFIG_REASON_CODES];
+
+// @public
+export interface ConfigRuntime extends ConfigReader {
+    // (undocumented)
+    isKilled(): boolean;
+    // (undocumented)
+    onPluginToggle(listener: (signal: PluginToggleSignal) => void): Dispose;
+    // (undocumented)
+    ready(): boolean;
+    refresh(): Promise<void>;
+    // (undocumented)
+    start(): void;
+    // (undocumented)
+    stop(): void;
+}
+
+// @public
+export interface ConfigRuntimeOptions {
+    // (undocumented)
+    readonly appId: string | undefined;
+    // (undocumented)
+    readonly cache?: ConfigCachePort | undefined;
+    // (undocumented)
+    readonly clock?: ClockPort | undefined;
+    // (undocumented)
+    readonly configEndpoint: string | undefined;
+    // (undocumented)
+    readonly consentMode: ConsentMode | undefined;
+    // (undocumented)
+    readonly env: string | undefined;
+    // (undocumented)
+    readonly fetch?: ConfigFetchPort | undefined;
+    // (undocumented)
+    readonly kernel: Kernel;
+    // (undocumented)
+    readonly publicKeys: Readonly<Record<string, JsonWebKey>>;
+    // (undocumented)
+    readonly runtimeOverrides?: RuntimeOverrides | undefined;
+    // (undocumented)
+    readonly sdkVersion: string;
+    // (undocumented)
+    readonly sessionRandom?: number | undefined;
+    readonly webcrypto?: WebCryptoLike | undefined;
+}
+
+// @public
+export type ConfigSource = 'builtin' | 'cache' | 'remote' | 'conservative';
+
+// @public
+export type ConsentMode = 'essential_only' | 'buffer' | 'full';
+
+// @public
 export type ConsentState = 'granted' | 'denied' | 'buffer';
 
 // @public
@@ -136,6 +294,9 @@ export interface Counters {
     reset(): void;
     snapshot(): Readonly<Record<string, number>>;
 }
+
+// @public
+export function createBuiltinConfig(consentMode: ConsentMode): EffectiveConfig;
 
 // @public
 export function createCapabilityRegistry(services: CapabilityRegistryServices): CapabilityRegistry;
@@ -149,16 +310,39 @@ export function createCommandQueue(options?: {
 }): CommandQueue;
 
 // @public
+export function createConfigCache(options: {
+    readonly indexedDb?: IDBFactory | null | undefined;
+}): ConfigCachePort;
+
+// @public
+export function createConfigRuntime(options: ConfigRuntimeOptions): ConfigRuntime;
+
+// @public
+export function createConservativeConfig(consentMode: ConsentMode): EffectiveConfig;
+
+// @public
 export function createCounters(): Counters;
 
 // @public
+export function createFetchPort(options: {
+    readonly timeoutMs: number;
+    readonly fetchImpl?: ((request: ConfigFetchRequest) => Promise<ConfigFetchResponse>) | undefined;
+}): ConfigFetchPort;
+
+// @public
 export function createGlobalRegistry(services: GlobalRegistryServices): GlobalRegistry;
+
+// @public
+export function createIndexedDbCache(factory: IDBFactory, fallback: ConfigCachePort): ConfigCachePort;
 
 // @public
 export function createKernel(config?: KernelConfig): Kernel;
 
 // @public
 export function createLifecycle(services: LifecycleServices): Lifecycle;
+
+// @public
+export function createMemoryCache(): ConfigCachePort;
 
 // @public
 export function createPipeline(services: PipelineServices): Pipeline;
@@ -170,7 +354,13 @@ export function createPluginHost(services: PluginHostServices): PluginHost;
 export function createPrestartQueue(options?: PrestartQueueOptions): PrestartQueue;
 
 // @public
+export function createSamplingProcessor(options: SamplingProcessorOptions): Dispose;
+
+// @public
 export function createSdk<TDictionary extends EventDictionary = PermissiveDictionary>(): Sdk<TDictionary>;
+
+// @public
+export function createSessionSampling(options: SessionSamplingOptions): SessionSampling;
 
 // @public
 export function createUuid(): string;
@@ -204,6 +394,35 @@ export type DimensionFieldsOf<TDefinition> = NonNullable<TDefinition> extends {
 
 // @public
 export type Dispose = () => void;
+
+// @public
+export interface EffectiveConfig {
+    readonly applied_overrides: number;
+    readonly config_version: number | undefined;
+    // (undocumented)
+    readonly debug: boolean | undefined;
+    // (undocumented)
+    readonly endpoints: Readonly<{
+        ingest?: string | undefined;
+    }>;
+    // (undocumented)
+    readonly kill_switch: ResolvedKillSwitch;
+    // (undocumented)
+    readonly plugins: Readonly<Record<PluginName, ResolvedPluginSetting>>;
+    // (undocumented)
+    readonly privacy: ResolvedPrivacy;
+    // (undocumented)
+    readonly published_at: number | undefined;
+    // (undocumented)
+    readonly sampling: ResolvedSampling;
+    // (undocumented)
+    readonly source: ConfigSource;
+    // (undocumented)
+    readonly transport: Readonly<TransportSettings>;
+}
+
+// @public
+export function evaluateKillSwitch(config: EffectiveConfig, sdkVersion: string): KillSwitchDecision;
 
 // @public
 export interface EventDefinitionShape {
@@ -245,6 +464,12 @@ export type EventRequestOf<TDictionary extends EventDictionary, TName extends ke
 
 // @public
 export type EventSink = (event: KernelEvent) => void;
+
+// @public
+export const FETCH_INTERVAL_MS = 300000;
+
+// @public (undocumented)
+export const FETCH_TIMEOUT_MS = 5000;
 
 // @public
 export interface FieldSpec<TValue, TRequired extends boolean = boolean> {
@@ -290,6 +515,9 @@ export function hasValidEventName(name: unknown): boolean;
 export function hasValidFieldKey(key: unknown): key is string;
 
 // @public
+export function isCacheFresh(entry: CachedConfig, clock: ClockPort): boolean;
+
+// @public
 export function isConsentState(value: unknown): value is ConsentState;
 
 // @public
@@ -297,6 +525,9 @@ export function isNonEmptyString(value: unknown): value is string;
 
 // @public
 export function isPlainRecord(value: unknown): value is Record<string, unknown>;
+
+// @public
+export function isSupportedSemverRange(range: string): boolean;
 
 // @public
 export interface Kernel {
@@ -356,6 +587,14 @@ export interface KernelEvent {
 }
 
 // @public
+export interface KillSwitchDecision {
+    // (undocumented)
+    readonly all: boolean;
+    // (undocumented)
+    readonly plugins: readonly string[];
+}
+
+// @public
 export interface Lifecycle {
     destroy(): boolean;
     init(): boolean;
@@ -396,7 +635,43 @@ export interface LocationSource {
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 // @public
+export function matchesSemverRange(version: string, range: string): boolean;
+
+// @public
+export function matchFirstRule(rules: readonly SamplingRule[], event: SamplingEvent): RuleOutcome;
+
+// @public
 export const MAX_DIMENSION_VALUE_LENGTH = 256;
+
+// @public
+export function mergeConfig(input: MergeInput): MergeResult;
+
+// @public
+export interface MergeInput {
+    readonly builtin: EffectiveConfig;
+    // (undocumented)
+    readonly configVersion: number | undefined;
+    // (undocumented)
+    readonly consentMode: ConsentMode | undefined;
+    // (undocumented)
+    readonly publishedAt: number | undefined;
+    readonly remote: Readonly<Record<string, unknown>> | undefined;
+    // (undocumented)
+    readonly runtime: RuntimeOverrides | undefined;
+    // (undocumented)
+    readonly sdkVersion: string;
+    // (undocumented)
+    readonly sessionRandom: number;
+    // (undocumented)
+    readonly source: 'remote' | 'cache' | 'builtin' | 'conservative';
+}
+
+// @public
+export interface MergeResult {
+    // (undocumented)
+    readonly config: EffectiveConfig;
+    readonly consentModeRejected: boolean;
+}
 
 // @public
 export type MetricFields<TDefinition> = ShapeOf<MetricFieldsOf<TDefinition>>;
@@ -405,6 +680,9 @@ export type MetricFields<TDefinition> = ShapeOf<MetricFieldsOf<TDefinition>>;
 export type MetricFieldsOf<TDefinition> = NonNullable<TDefinition> extends {
     readonly metrics?: infer TFields | undefined;
 } ? TFields : never;
+
+// @public (undocumented)
+export const MIN_FETCH_GAP_MS = 60000;
 
 // @public
 export type OptionalFieldKeys<TFields> = Exclude<keyof TFields, RequiredFieldKeys<TFields>>;
@@ -460,6 +738,9 @@ interface Plugin_2 {
     readonly install: (context: PluginContext) => void;
 }
 export { Plugin_2 as Plugin }
+
+// @public
+export const PLUGIN_NAMES: readonly ["error", "perf", "route", "http", "apm_dual_write"];
 
 // @public
 export interface PluginActionResult {
@@ -524,7 +805,18 @@ export interface PluginHostServices {
 }
 
 // @public
+export type PluginName = 'error' | 'perf' | 'route' | 'http' | 'apm_dual_write';
+
+// @public
 export type PluginStatus = 'installed' | 'already_installed' | 'uninstalled' | 'not_installed' | 'unknown_plugin' | 'dependency_missing' | 'dependency_failed' | 'install_failed' | 'unavailable';
+
+// @public
+export interface PluginToggleSignal {
+    // (undocumented)
+    readonly enabled: Readonly<Record<string, boolean>>;
+    // (undocumented)
+    readonly reason: 'config' | 'sampled_out_session' | 'kill_switch';
+}
 
 // @public
 export const PRESTART_QUEUE_CAPACITY = 500;
@@ -601,6 +893,9 @@ export interface QueuedCommand {
 }
 
 // @public
+export function randomUnit(): number;
+
+// @public
 export function readLocation(): LocationSource;
 
 // @public
@@ -636,10 +931,173 @@ export type RequiredShape<TFields> = {
 export const RESERVED_EVENT_PREFIXES: readonly ["sdk_", "web_"];
 
 // @public
+export function resolveConsentMode(remoteConsentMode: unknown, initConsentMode: ConsentMode | undefined): {
+    readonly mode: ConsentMode;
+    readonly rejected: boolean;
+};
+
+// @public
+export interface ResolvedKillSwitch {
+    // (undocumented)
+    readonly all: boolean;
+    // (undocumented)
+    readonly plugins: readonly PluginName[];
+    // (undocumented)
+    readonly sdk_versions: readonly string[];
+}
+
+// @public
+export interface ResolvedMaskRule {
+    // (undocumented)
+    readonly flags?: string | undefined;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly pattern: string;
+    // (undocumented)
+    readonly replacement?: string | undefined;
+}
+
+// @public
+export interface ResolvedPluginSetting {
+    // (undocumented)
+    readonly enabled: boolean;
+    // (undocumented)
+    readonly options?: Readonly<Record<string, unknown>> | undefined;
+}
+
+// @public
+export interface ResolvedPrivacy {
+    readonly consent_mode: ConsentMode;
+    // (undocumented)
+    readonly extra_mask_rules: readonly ResolvedMaskRule[];
+    // (undocumented)
+    readonly sensitive_headers: readonly string[];
+    // (undocumented)
+    readonly url_query_allowlist: readonly string[];
+}
+
+// @public
+export interface ResolvedSampling {
+    // (undocumented)
+    readonly allow_users: readonly string[];
+    // (undocumented)
+    readonly rules: readonly SamplingRule[];
+    // (undocumented)
+    readonly session_rate: number;
+}
+
+// @public
+export function resolveWebCrypto(): WebCryptoLike;
+
+// @public
+export function ruleMatches(rule: SamplingRule, event: SamplingEvent): boolean;
+
+// @public
+export interface RuleOutcome {
+    // (undocumented)
+    readonly index: number;
+    // (undocumented)
+    readonly matched: boolean;
+    // (undocumented)
+    readonly rate: number;
+}
+
+// @public
+export type Rules = readonly SamplingRule[];
+
+// @public
+export interface RuntimeOverrides {
+    // (undocumented)
+    readonly debug?: boolean | undefined;
+    // (undocumented)
+    readonly plugins?: Readonly<Record<string, boolean>> | undefined;
+    // (undocumented)
+    readonly transport?: TransportSettings | undefined;
+}
+
+// @public
+export const SAMPLING_REASON_CODES: {
+    readonly sampledOutSession: "sampled_out_session";
+    readonly sampledOutRule: "sampled_out_rule";
+    readonly disabledByRule: "disabled_by_rule";
+    readonly killed: "killed";
+};
+
+// @public
+export type SamplingDispose = Dispose;
+
+// @public
+export type SamplingEvent = KernelEvent;
+
+// @public
+export interface SamplingProcessorOptions {
+    // (undocumented)
+    readonly config: ConfigReader;
+    // (undocumented)
+    readonly getUser?: (() => UserLike | undefined) | undefined;
+    // (undocumented)
+    readonly kernel: Kernel;
+    // (undocumented)
+    readonly random?: (() => number) | undefined;
+    // (undocumented)
+    readonly session: SessionSampling;
+}
+
+// @public
+export interface SamplingRule {
+    // (undocumented)
+    readonly match: {
+        readonly event_name?: string | undefined;
+        readonly event_type?: 'custom' | 'log' | 'error' | 'perf' | 'pageview' | 'http' | undefined;
+        readonly dimension?: {
+            readonly key: string;
+            readonly equals: string;
+        } | undefined;
+    };
+    // (undocumented)
+    readonly rate: number;
+}
+
+// @public
 export type Sdk<TDictionary extends EventDictionary = PermissiveDictionary> = Client<TDictionary>;
 
 // @public
 export const SDK_VERSION = "0.0.0";
+
+// @public
+export const SESSION_KEY_PREFIX = "wr_session:";
+
+// @public
+export interface SessionSampling {
+    allowUser(): boolean;
+    isHit(): boolean;
+    // (undocumented)
+    sessionRandom(): number;
+    updateUserHash(): Promise<void>;
+}
+
+// @public
+export interface SessionSamplingOptions {
+    // (undocumented)
+    readonly config: ConfigReader;
+    readonly consentGranted?: (() => boolean) | undefined;
+    readonly getUser?: (() => UserLike | undefined) | undefined;
+    // (undocumented)
+    readonly random?: (() => number) | undefined;
+    // (undocumented)
+    readonly storage?: SessionStorePort | undefined;
+    // (undocumented)
+    readonly storeKey?: string | undefined;
+}
+
+// @public
+export interface SessionStorePort {
+    // (undocumented)
+    read(key: string): string | undefined;
+    // (undocumented)
+    write(key: string, value: string): void;
+}
 
 // @public
 export type ShapeOf<TFields> = [TFields] extends [never] ? object : string extends keyof TFields ? {
@@ -676,6 +1134,26 @@ export interface StubCommand {
 }
 
 // @public
+export const SUPPORTED_FORMAT_VERSION = 1;
+
+// @public
+export function teardownForSampledOutSession(kernel: Kernel, config: ConfigReader): PluginToggleSignal | undefined;
+
+// @public
+export interface TransportSettings {
+    // (undocumented)
+    readonly idle_flush_ms?: number | undefined;
+    // (undocumented)
+    readonly max_batch_bytes?: number | undefined;
+    // (undocumented)
+    readonly max_batch_events?: number | undefined;
+    // (undocumented)
+    readonly max_wait_ms?: number | undefined;
+    // (undocumented)
+    readonly replay_batches_per_second?: number | undefined;
+}
+
+// @public
 export function truncate(value: string, maxLength: number): string;
 
 // @public
@@ -686,6 +1164,39 @@ export interface UserInput {
 }
 
 // @public
+export interface UserLike {
+    // (undocumented)
+    readonly hashed?: boolean | undefined;
+    // (undocumented)
+    readonly id: string;
+}
+
+// @public
+export function validateEnvelopeShape(envelope: Readonly<Record<string, unknown>>): ValidationResult;
+
+// @public
+export function validateRemoteBody(body: Readonly<Record<string, unknown>>): ValidationResult;
+
+// @public
+export interface ValidationResult {
+    // (undocumented)
+    readonly ok: boolean;
+    // (undocumented)
+    readonly reason: ConfigReasonCode | undefined;
+}
+
+// @public
+export function verifyEnvelope(envelope: Readonly<Record<string, unknown>>, publicKeys: Readonly<Record<string, JsonWebKey>>, webcrypto?: WebCryptoLike): Promise<VerifyResult>;
+
+// @public
+export interface VerifyResult {
+    // (undocumented)
+    readonly ok: boolean;
+    // (undocumented)
+    readonly reason: string | undefined;
+}
+
+// @public
 export const WEB_JS_ERROR_LIMITS: {
     readonly errorType: 128;
     readonly message: 256;
@@ -693,6 +1204,12 @@ export const WEB_JS_ERROR_LIMITS: {
     readonly fingerprint: 64;
     readonly attachment: 8192;
 };
+
+// @public
+export interface WebCryptoLike {
+    // (undocumented)
+    readonly subtle: SubtleCrypto | undefined;
+}
 
 // (No @packageDocumentation comment for this package)
 
