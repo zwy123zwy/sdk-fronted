@@ -197,7 +197,7 @@ router.afterEach((to) => { client.setPage(to.meta.pageId as string); });
 ### 2.8 `setConsent(state)`
 
 ```ts
-client.setConsent('granted');   // 'granted' | 'denied' | 'buffer'
+client.setConsent('granted');   // 'granted' | 'denied' | 'buffer' | 'unknown'
 ```
 
 - 非法枚举取值计数 `invalid_args` 并忽略。
@@ -308,7 +308,7 @@ interface ClientState {
 
 | 类型 | 定义 | 说明 |
 |---|---|---|
-| `ConsentState` | `'granted' \| 'denied' \| 'buffer'` | 同意状态；**没有 `unknown`** |
+| `ConsentState` | `'granted' \| 'denied' \| 'buffer' \| 'unknown'` | 同意状态；**缺省 `unknown`**（Q5，2026-10-13 修正） |
 | `LogLevel` | `'debug' \| 'info' \| 'warn' \| 'error'` | `log` 的级别 |
 | `LocationSource` | `{ readonly href: string \| undefined; readonly pageId: string \| undefined }` | 位置来源 |
 | `EventSink` | `(event: KernelEvent) => void` | 事件出口 |

@@ -130,7 +130,7 @@ IIFE 产物与加载桩的事实（`packages/browser/README.md` 第 2 节、`pac
 | 参数 | 类型 | 必填 | 说明 | C01 当前是否消费 |
 |---|---|---|---|---|
 | `appId` | `string` | **是**（非空） | 应用标识；非法（非字符串或空串）时计数 `invalid_args` 并忽略 `init` | 是 |
-| `consent` | `'granted' \| 'denied' \| 'buffer'` | 否 | 初始同意状态，见第 6 节 | 是 |
+| `consent` | `'granted' \| 'denied' \| 'buffer' \| 'unknown'` | 否 | 初始同意状态，**缺省 `unknown`**（Q5），见第 6 节 | 是 |
 | `pageId` | `string` | 否 | 手动路由模式下的初始页面标识（非空字符串才生效） | 是 |
 | `debug` | `boolean \| DiagnosticsSink` | 否 | 调试输出，缺省静默，见第 7 节 | 是 |
 | `onEvent` | `EventSink` | 否 | 事件出口：每条产出的事件都会调用它。装配根用它接传输 | 是 |
@@ -190,7 +190,7 @@ const sub = createClient({ appId: 'sub-app', registry, target: window });
 ### 6.1 设计口径（Q5 + D002）
 
 - **同意由接入方收集**：SDK 不提供同意弹窗，只提供 `setConsent(state)`。接入方负责自己的合规判断（Q5 结论："接入方必须自行确认合规。SDK 只提供机制和保守的默认值，不判断接入方的业务是否已经取得授权。T34 的接入指南必须写明这一点"）。
-- 三种同意状态：`granted`（已同意）、`denied`（已拒绝）、`buffer`（先缓存不发送）。注意 `ConsentState` 类型**没有** `unknown` 字面量（`packages/core/etc/core.api.md`）。
+- **四种同意状态**：`unknown`（**初始态**——尚未取得任何授权）、`granted`（已同意）、`denied`（已拒绝）、`buffer`（先缓存不发送）。类型定义见 `packages/core/etc/core.api.md`。
 - 三种 `consent_mode`：`essential_only`（默认）、`buffer`、`full`（`ConsentMode`，`packages/core/etc/core.api.md`）。
 
 ### 6.2 `full` 模式：只能写在初始化参数里，且需要接入方法务确认
@@ -215,9 +215,9 @@ const sub = createClient({ appId: 'sub-app', registry, target: window });
 
 ### 6.4 当前实现的边界（**必须知道**）
 
-- Q5 的"初始状态 `unknown`"与上面的三态行为由 **C04（T14，未就绪）** 落地；`consent_mode` 的合并由 **C03** 落地。当前 **C01 的默认同意态是 `granted`**（`packages/core/src/api/client.ts` 中 `let consent: ConsentState = 'granted'`；可用内核能力 `STATE_CAPABILITY`（`'sdk.client_state'`）读到）。
-- 因此**不要依赖缺省同意态**。请在你的同意组件回调里显式调用 `setConsent('granted' | 'denied' | 'buffer')`，并在 `init` 里显式传入 `consent`；等 C04 交付后再按 Q5 的最终语义核对一次。
-- 这一点已在交付汇报中作为"契约与实现不一致"上报，等待负责人裁定。
+- Q5 的"初始状态 `unknown`"**已由 C04（T14）落地并合入 main**：`ConsentState` 含 `'unknown'`，且 **C01 的缺省同意态已是 `unknown`**（2026-10-13 经负责人签字的 Q5 一致性修正）。`consent_mode` 的合并由 C03 落地。
+- 这段历史值得知道：本指南初版时 **C01 的缺省是 `granted`**（与 Q5 不一致，可被读作"未经同意即采集"），由 T14 与 T34 **各自独立发现**后上报、经负责人裁定修正。免踩坑记录见 `docs/tasks/board.md`。
+- **仍建议显式传值**：`unknown` 表示"尚未取得授权"，SDK 按 Q5 的保守语义处理；请在你的同意组件回调里显式调用 `setConsent(...)`，并在 `init` 里显式传入 `consent`。
 
 ### 6.5 用法
 
