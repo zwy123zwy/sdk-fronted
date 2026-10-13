@@ -17,6 +17,44 @@ import { startStaticServer } from './lib/static-server.mjs';
 import { protocolProblems, startPocReceiver } from './lib/receiver.mjs';
 import { resetIds } from './lib/ids.mjs';
 import { scenarioKill, scenarioLeave, scenarioMultitab, scenarioOffline } from './lib/scenarios.mjs';
+import {
+  scenarioStorageKill,
+  scenarioStorageMultitab,
+  scenarioStoragePerf
+} from './lib/scenarios-storage.mjs';
+
+/** 追加轮（IndexedDB / OPFS 落盘窗口）：Δt 扫描点与控制格。 */
+const STORAGE_DELTAS = [0, 100, 250, 500, 1000, 2500, 4000, 5000];
+const STORAGE_CONTROLS = [
+  { storage: 'idb-pending', deltas: [500, 2500], note: '对照：IndexedDB 写入被推迟 60s，强杀时事务未完成' },
+  { storage: 'opfs-pending', deltas: [500, 2500], note: '对照：OPFS 写入被推迟 60s，强杀时还没写' },
+  { storage: 'opfs-noclose', deltas: [0, 250], note: '对照：OPFS 已 write+flush，但 close 被推迟' },
+  { storage: 'idb-strict', deltas: [0, 250, 2500], note: 'IndexedDB 事务带 durability:strict' }
+];
+const STORAGE_PRESET = {
+  storages: ['local', 'idb', 'opfs'],
+  controls: STORAGE_CONTROLS,
+  deltas: STORAGE_DELTAS,
+  trials: 2,
+  perClass: 500,
+  durableTimeoutMs: 400,
+  multitab: { storages: ['local', 'idb', 'opfs', 'opfs-shared'], rounds: 3, tabs: 3, perClass: 200 },
+  perf: { storages: ['local', 'idb', 'idb-strict', 'opfs'], benchRecords: 1000, benchBatch: 100 }
+};
+const STORAGE_PRESET_QUICK = {
+  storages: ['local', 'idb', 'opfs'],
+  controls: [
+    { storage: 'idb-pending', deltas: [250] },
+    { storage: 'opfs-pending', deltas: [250] },
+    { storage: 'opfs-noclose', deltas: [0] }
+  ],
+  deltas: [0, 250],
+  trials: 1,
+  perClass: 20,
+  durableTimeoutMs: 400,
+  multitab: { storages: ['local', 'idb', 'opfs', 'opfs-shared'], rounds: 1, tabs: 3, perClass: 20 },
+  perf: { storages: ['local', 'idb', 'idb-strict', 'opfs'], benchRecords: 200, benchBatch: 50 }
+};
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..');
@@ -37,7 +75,15 @@ const PRESETS = {
 };
 
 function parseArgs(argv) {
-  const args = { browser: 'chromium', scenario: 'all', preset: 'full', out: path.join(HERE, 'results'), driver: null };
+  const args = {
+    browser: 'chromium',
+    scenario: 'all',
+    preset: 'full',
+    out: path.join(HERE, 'results'),
+    driver: null,
+    runs: 1,
+    tag: null
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => argv[++i];
@@ -46,50 +92,39 @@ function parseArgs(argv) {
     else if (a === '--preset') args.preset = next();
     else if (a === '--out') args.out = next();
     else if (a === '--driver') args.driver = next();
+    else if (a === '--runs') args.runs = Number(next());
+    else if (a === '--tag') args.tag = next();
     else if (a === '--help') args.help = true;
     else throw new Error(`未知参数：${a}`);
   }
+  if (!Number.isFinite(args.runs) || args.runs < 1) throw new Error('--runs 必须是正整数');
   return args;
 }
 
 function usage() {
   return [
     '用法：node --import ./poc/poc-1/lib/register.mjs poc/poc-1/run.mjs [选项]',
-    '  --browser  chromium|firefox|webkit|all   （默认 chromium）',
-    '  --scenario leave|kill|offline|multitab|all（默认 all）',
+    '  --browser  chromium|firefox|webkit|all|chromium,webkit （默认 chromium）',
+    '  --scenario leave|kill|offline|multitab|all',
+    '             |storage|storage-multitab|storage-perf|storage-all',
     '  --preset   full|quick                     （默认 full；quick 只用于冒烟）',
+    '  --runs     <n>                            （同一套测量重复跑 n 次，各写一个 runId 目录）',
+    '  --tag      <名字>                         （结果目录后缀，便于区分 storage 轮）',
     '  --out      <目录>                         （默认 poc/poc-1/results）',
     '  --driver   <候选驱动 id>                  （默认按 revision 精确配对自动选择）'
   ].join('\n');
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  if (args.help) {
-    console.log(usage());
-    return 0;
-  }
-  const preset = PRESETS[args.preset];
-  if (!preset) throw new Error(`未知 preset：${args.preset}`);
+const STORAGE_SCENARIOS = ['storage', 'storage-multitab', 'storage-perf'];
 
-  const browsers = args.browser === 'all' ? ['chromium', 'firefox', 'webkit'] : [args.browser];
-  const scenarios = args.scenario === 'all' ? ['leave', 'kill', 'offline', 'multitab'] : [args.scenario];
-  const runId = new Date().toISOString().replace(/[:.]/g, '-');
-  const outDir = path.resolve(args.out, runId);
-  fs.mkdirSync(outDir, { recursive: true });
+async function runOnce(args, ctx) {
+  const { staticServer, receiver, log, outDir, runId, preset, scenarios } = ctx;
   const workDir = path.join(outDir, 'profiles');
   fs.mkdirSync(workDir, { recursive: true });
-
-  const lines = [];
-  const log = (m) => {
-    console.log(m);
-    lines.push(m);
-  };
-
-  const staticServer = await startStaticServer();
-  const receiver = await startPocReceiver();
-  log(`M01 mock 接收端：${receiver.baseUrl}（只监听 127.0.0.1）`);
-  log(`本地探针页：${staticServer.url}/probe.html`);
+  const browsers =
+    args.browser === 'all'
+      ? ['chromium', 'firefox', 'webkit']
+      : args.browser.split(',').map((x) => x.trim()).filter(Boolean);
 
   const run = {
     runId,
@@ -179,7 +214,11 @@ async function main() {
 
       entry.status = 'ok';
       for (const scenarioName of scenarios) {
-        const params = preset[scenarioName];
+        const params =
+          scenarioName === 'storage' ? preset
+          : scenarioName === 'storage-multitab' ? preset.multitab
+          : scenarioName === 'storage-perf' ? preset.perf
+          : preset[scenarioName];
         const countersBefore = receiver.counters();
         const t0 = Date.now();
         let result;
@@ -188,7 +227,10 @@ async function main() {
           if (scenarioName === 'leave') result = await scenarioLeave(ctx);
           else if (scenarioName === 'kill') result = await scenarioKill(ctx);
           else if (scenarioName === 'offline') result = await scenarioOffline(ctx);
-          else result = await scenarioMultitab(ctx);
+          else if (scenarioName === 'multitab') result = await scenarioMultitab(ctx);
+          else if (scenarioName === 'storage') result = await scenarioStorageKill(ctx);
+          else if (scenarioName === 'storage-multitab') result = await scenarioStorageMultitab(ctx);
+          else result = await scenarioStoragePerf(ctx);
         } catch (err) {
           result = {
             scenario: scenarioName,
@@ -221,9 +263,56 @@ async function main() {
 
     run.finishedAt = new Date().toISOString();
     fs.writeFileSync(path.join(outDir, 'run.json'), JSON.stringify(run, null, 2));
-    fs.writeFileSync(path.join(outDir, 'run.log'), lines.join('\n') + '\n');
+    fs.writeFileSync(path.join(outDir, 'run.log'), ctx.lines.join('\n') + '\n');
     log(`结果目录：${outDir}`);
     printSummary(run);
+    return run;
+  } finally {
+    // 接收端与静态服务由 main() 统一关闭
+  }
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    console.log(usage());
+    return 0;
+  }
+  const isStorage = STORAGE_SCENARIOS.includes(args.scenario) || args.scenario === 'storage-all';
+  const preset = isStorage
+    ? (args.preset === 'quick' ? STORAGE_PRESET_QUICK : STORAGE_PRESET)
+    : PRESETS[args.preset];
+  if (!preset) throw new Error(`未知 preset：${args.preset}`);
+
+  const scenarios = isStorage
+    ? (args.scenario === 'storage-all' ? STORAGE_SCENARIOS : [args.scenario])
+    : args.scenario === 'all'
+      ? ['leave', 'kill', 'offline', 'multitab']
+      : [args.scenario];
+
+  const staticServer = await startStaticServer();
+  const receiver = await startPocReceiver();
+  const lines = [];
+  const log = (m) => {
+    console.log(m);
+    lines.push(m);
+  };
+  log(`M01 mock 接收端：${receiver.baseUrl}（只监听 127.0.0.1）`);
+  log(`本地探针页：${staticServer.url}/probe.html`);
+  try {
+    for (let i = 0; i < args.runs; i++) {
+      const runId =
+        new Date().toISOString().replace(/[:.]/g, '-') +
+        (args.tag ? `-${args.tag}` : '') +
+        (args.runs > 1 ? `-run${i + 1}` : '');
+      const outDir = path.resolve(args.out, runId);
+      fs.mkdirSync(outDir, { recursive: true });
+      log(`\n===== 第 ${i + 1}/${args.runs} 次独立运行：${runId} =====`);
+      await runOnce(args, { staticServer, receiver, log, outDir, runId, preset, scenarios, lines });
+      // 每次运行之间清空接收端，避免内存膨胀（事件 id 全局唯一，不影响判定）
+      receiver.clearEvents();
+      receiver.clearCounters();
+    }
     return 0;
   } finally {
     await receiver.stop();
@@ -249,6 +338,23 @@ function printSummary(run) {
       }
       const cells = [...r.cells, ...(r.bulkCells || [])];
       for (const cell of cells) {
+        if (!cell.final) {
+          // 追加轮的存储场景：直接打存活率 / 被覆盖数
+          const label =
+            name === 'storage'
+              ? `${cell.storage}@Δt=${cell.deltaMs}ms`
+              : name === 'storage-multitab'
+                ? `${cell.storage}`
+                : `${cell.storage}`;
+          const metric =
+            name === 'storage'
+              ? `存活 ${cell.survived}/${cell.expected}（${fmt(cell.survivalRate)}）落盘点 ${cell.durableResolved}/${cell.trialsRun}`
+              : name === 'storage-multitab'
+                ? `离线副本可见 ${cell.visibleInStore}/${cell.expected}（被覆盖 ${cell.overwritten}）`
+                : `批写 p50=${cell.benchBatchMs.p50}ms p95=${cell.benchBatchMs.p95}ms`;
+          rows.push(`| ${b.browser} | ${name}/${label} | ${metric} |`);
+          continue;
+        }
         const extra =
           name === 'multitab'
             ? ` dup=${cell.wave1.duplicateEvents}/${cell.wave1.storedEvents}`

@@ -1,0 +1,27 @@
+{
+  "scenario": "storage-perf",
+  "error": "page.waitForFunction: Timeout 30000ms exceeded.\n    at openProbe (/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/lib/harness.mjs:100:14)\n    at async scenarioStoragePerf (/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/lib/scenarios-storage.mjs:284:24)\n    at async runOnce (/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/run.mjs:233:25)\n    at async main (/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/run.mjs:311:7)",
+  "params": {
+    "storages": [
+      "local",
+      "idb",
+      "idb-strict",
+      "opfs"
+    ],
+    "benchRecords": 1000,
+    "benchBatch": 100
+  },
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "1223",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 chromium-1248，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "148.0.7778.96",
+  "durationMs": 53370,
+  "receiverCountersDelta": {},
+  "protocolProblems": {}
+}

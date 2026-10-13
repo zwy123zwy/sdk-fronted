@@ -128,11 +128,37 @@ export async function readOwnStats(page) {
 }
 
 export async function readPending(page) {
-  return await page.evaluate(() => window.__poc.pendingIds());
+  // pendingIdsAsync 在 local 模式下等价于同步版本，在可切换存储模式下是异步读
+  return await page.evaluate(() => window.__poc.pendingIdsAsync());
 }
 
 export async function readTrace(page) {
   return await page.evaluate(() => window.__poc.trace());
+}
+
+/** 追加轮：等待「落盘点」并返回 {resolved, ms, mode, records}。 */
+export async function awaitDurable(page, timeoutMs = 400) {
+  return await page.evaluate((ms) => window.__poc.awaitDurable(ms), timeoutMs);
+}
+
+export async function storeInfo(page) {
+  return await page.evaluate(() => window.__poc.storeInfo());
+}
+
+export async function estimateStorage(page) {
+  return await page.evaluate(() => window.__poc.estimateStorage());
+}
+
+export async function storageBench(page, n, batchSize) {
+  return await page.evaluate((a) => window.__poc.storageBench(a.n, a.batchSize), { n, batchSize });
+}
+
+export async function quotaProbe(page) {
+  return await page.evaluate(() => window.__poc.quotaProbe());
+}
+
+export async function quotaFailureInjection(page, n = 10) {
+  return await page.evaluate((count) => window.__poc.quotaFailureInjection(count), n);
 }
 
 export async function recoverOn(page) {

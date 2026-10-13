@@ -1,0 +1,505 @@
+{
+  "scenario": "storage-multitab",
+  "description": "跨标签页并发写离线副本：3 个标签页同时预写，统计被覆盖的条数与最终丢失",
+  "params": {
+    "storages": [
+      "local",
+      "idb",
+      "opfs",
+      "opfs-shared"
+    ],
+    "rounds": 3,
+    "tabs": 3,
+    "perClass": 200
+  },
+  "cells": [
+    {
+      "id": "local",
+      "storage": "local",
+      "roundsRun": 3,
+      "expected": 1800,
+      "visibleInStore": 800,
+      "overwritten": 1000,
+      "overwriteRate": 0.5555555555555556,
+      "finalLost": 1000,
+      "finalLossRate": 0.5555555555555556,
+      "storeInfo": {
+        "mode": "local",
+        "asyncStore": false,
+        "store": {
+          "mode": "local",
+          "durablePoint": "localStorage.setItem 返回（不代表落盘）"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "expected": 600,
+          "visibleInStore": 200,
+          "overwritten": 400,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            },
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            },
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "expected": 600,
+          "visibleInStore": 200,
+          "overwritten": 400,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            },
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            },
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "expected": 600,
+          "visibleInStore": 400,
+          "overwritten": 200,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            },
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            },
+            {
+              "resolved": true,
+              "ms": 0,
+              "mode": "local",
+              "empty": true
+            }
+          ]
+        }
+      ],
+      "receiverCountersDelta": {
+        "received_batches": 16,
+        "received_events": 800,
+        "stored_batches": 16,
+        "stored_events": 800
+      }
+    },
+    {
+      "id": "idb",
+      "storage": "idb",
+      "roundsRun": 3,
+      "expected": 1800,
+      "visibleInStore": 1800,
+      "overwritten": 0,
+      "overwriteRate": 0,
+      "finalLost": 0,
+      "finalLossRate": 0,
+      "storeInfo": {
+        "mode": "idb",
+        "asyncStore": true,
+        "store": {
+          "mode": "idb",
+          "durability": null,
+          "durabilitySupported": null,
+          "deferredCommit": false,
+          "durablePoint": "tx.oncomplete"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "expected": 600,
+          "visibleInStore": 600,
+          "overwritten": 0,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 6,
+              "mode": "idb",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 9.999999999999972,
+              "mode": "idb",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 14,
+              "mode": "idb",
+              "records": 200
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "expected": 600,
+          "visibleInStore": 600,
+          "overwritten": 0,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 5,
+              "mode": "idb",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 7,
+              "mode": "idb",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 11,
+              "mode": "idb",
+              "records": 200
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "expected": 600,
+          "visibleInStore": 600,
+          "overwritten": 0,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 5,
+              "mode": "idb",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 8.000000000000028,
+              "mode": "idb",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 12,
+              "mode": "idb",
+              "records": 200
+            }
+          ]
+        }
+      ],
+      "receiverCountersDelta": {
+        "received_batches": 36,
+        "received_events": 1800,
+        "stored_batches": 36,
+        "stored_events": 1800
+      }
+    },
+    {
+      "id": "opfs",
+      "storage": "opfs",
+      "roundsRun": 3,
+      "expected": 1800,
+      "visibleInStore": 1800,
+      "overwritten": 0,
+      "overwriteRate": 0,
+      "finalLost": 0,
+      "finalLossRate": 0,
+      "storeInfo": {
+        "mode": "opfs",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs",
+          "perTab": true,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "expected": 600,
+          "visibleInStore": 600,
+          "overwritten": 0,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 3,
+              "mode": "opfs",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 3,
+              "mode": "opfs",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 3,
+              "mode": "opfs",
+              "records": 200
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "expected": 600,
+          "visibleInStore": 600,
+          "overwritten": 0,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 2.999999999999943,
+              "mode": "opfs",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 3,
+              "mode": "opfs",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 3.0000000000000036,
+              "mode": "opfs",
+              "records": 200
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "expected": 600,
+          "visibleInStore": 600,
+          "overwritten": 0,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 3,
+              "mode": "opfs",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 2.0000000000000284,
+              "mode": "opfs",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 2.0000000000000036,
+              "mode": "opfs",
+              "records": 200
+            }
+          ]
+        }
+      ],
+      "receiverCountersDelta": {
+        "received_batches": 556,
+        "received_events": 27800,
+        "stored_batches": 36,
+        "stored_events": 1800,
+        "duplicate_events": 2000,
+        "rejected_invalid_structure": 480
+      }
+    },
+    {
+      "id": "opfs-shared",
+      "storage": "opfs-shared",
+      "roundsRun": 3,
+      "expected": 1800,
+      "visibleInStore": 600,
+      "overwritten": 1200,
+      "overwriteRate": 0.6666666666666666,
+      "finalLost": 1200,
+      "finalLossRate": 0.6666666666666666,
+      "storeInfo": {
+        "mode": "opfs-shared",
+        "asyncStore": true,
+        "store": {
+          "mode": "opfs-shared",
+          "perTab": false,
+          "writeOpts": {},
+          "supported": true,
+          "durablePoint": "createSyncAccessHandle: flush() + close()"
+        },
+        "capabilities": {
+          "indexedDB": true,
+          "storageEstimate": true,
+          "storageGetDirectory": true,
+          "worker": true
+        },
+        "lastWrite": null
+      },
+      "perRound": [
+        {
+          "round": 0,
+          "expected": 600,
+          "visibleInStore": 200,
+          "overwritten": 400,
+          "durables": [
+            {
+              "resolved": false,
+              "ms": 8,
+              "mode": "opfs-shared",
+              "records": 200,
+              "error": "Error: The object is in an invalid state."
+            },
+            {
+              "resolved": true,
+              "ms": 8,
+              "mode": "opfs-shared",
+              "records": 200
+            },
+            {
+              "resolved": false,
+              "ms": 7,
+              "mode": "opfs-shared",
+              "records": 200,
+              "error": "Error: The object is in an invalid state."
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "expected": 600,
+          "visibleInStore": 200,
+          "overwritten": 400,
+          "durables": [
+            {
+              "resolved": true,
+              "ms": 5,
+              "mode": "opfs-shared",
+              "records": 200
+            },
+            {
+              "resolved": true,
+              "ms": 4,
+              "mode": "opfs-shared",
+              "records": 200
+            },
+            {
+              "resolved": false,
+              "ms": 4,
+              "mode": "opfs-shared",
+              "records": 200,
+              "error": "Error: The object is in an invalid state."
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "expected": 600,
+          "visibleInStore": 200,
+          "overwritten": 400,
+          "durables": [
+            {
+              "resolved": false,
+              "ms": 6,
+              "mode": "opfs-shared",
+              "records": 200,
+              "error": "Error: The object is in an invalid state."
+            },
+            {
+              "resolved": false,
+              "ms": 5,
+              "mode": "opfs-shared",
+              "records": 200,
+              "error": "Error: The object is in an invalid state."
+            },
+            {
+              "resolved": true,
+              "ms": 4.9999999999999964,
+              "mode": "opfs-shared",
+              "records": 200
+            }
+          ]
+        }
+      ],
+      "receiverCountersDelta": {
+        "received_batches": 441,
+        "received_events": 22050,
+        "stored_batches": 12,
+        "stored_events": 600,
+        "duplicate_events": 3450,
+        "rejected_invalid_structure": 360
+      }
+    }
+  ],
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "2287",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/webkit-2287/pw_run.sh",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 webkit-2370，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "26.4",
+  "durationMs": 21995,
+  "receiverCountersDelta": {
+    "received_batches": 1049,
+    "received_events": 52450,
+    "stored_batches": 100,
+    "stored_events": 5000,
+    "duplicate_events": 5450,
+    "rejected_invalid_structure": 840
+  },
+  "protocolProblems": {
+    "rejected_invalid_structure": 840
+  }
+}

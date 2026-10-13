@@ -1,0 +1,99 @@
+{
+  "scenario": "storage",
+  "error": "browserType.launchPersistentContext: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - <launching> /Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/results-storage/2026-10-12T13-35-14-882Z-run3/profiles/storage-idb-strict-250 --remote-debugging-pipe about:blank\u001b[22m\n\u001b[2m  - <launched> pid=15846\u001b[22m\n\u001b[2m  - [pid=15846][err] [1012/214617.056424:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:208] open /Users/spirit-ai/Library/Application Support/Google/Chrome for Testing/Crashpad/settings.dat: Operation not permitted (1)\u001b[22m\n\u001b[2m  - [pid=15846][err] [1012/214617.056574:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:208] open /Users/spirit-ai/Library/Application Support/Google/Chrome for Testing/Crashpad/settings.dat: Operation not permitted (1)\u001b[22m\n\u001b[2m  - [pid=15846][err] [15846:9163834:1012/214617.120597:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:208] open /Users/spirit-ai/Library/Application Support/Google/Chrome for Testing/Crashpad/settings.dat: Operation not permitted (1)\u001b[22m\n\u001b[2m  - [pid=15846][err] [15852:9163844:1012/214617.275992:ERROR:ui/display/mac/cv_display_link_mac.mm:184] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\u001b[22m\n\u001b[2m  - [pid=15846][err] [15852:9163903:1012/214617.276170:ERROR:ui/display/mac/cv_display_link_mac.mm:184] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\u001b[22m\n\u001b[2m  - [pid=15846][err] [15852:9163844:1012/214617.276312:ERROR:ui/display/mac/cv_display_link_mac.mm:184] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\u001b[22m\n\u001b[2m  - [pid=15846][err] [15852:9163844:1012/214617.276441:ERROR:ui/display/mac/cv_display_link_mac.mm:184] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\u001b[22m\n\u001b[2m  - [pid=15846][err] [15852:9163903:1012/214617.276475:ERROR:ui/display/mac/cv_display_link_mac.mm:184] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\u001b[22m\n\u001b[2m  - [pid=15846][err] [15852:9163844:1012/214617.276492:ERROR:ui/display/mac/cv_display_link_mac.mm:184] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\u001b[22m\n\u001b[2m  - [pid=15846][err] [15852:9163844:1012/214617.276617:ERROR:ui/display/mac/cv_display_link_mac.mm:184] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\u001b[22m\n\u001b[2m  - [pid=15846][err] [15852:9163903:1012/214617.276657:ERROR:ui/display/mac/cv_display_link_mac.mm:184] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\u001b[22m\n\u001b[2m  - [pid=15846][err] [15852:9163844:1012/214617.276668:ERROR:ui/display/mac/cv_display_link_mac.mm:184] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\u001b[22m\n\n    at async launchProbeContext (/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/lib/harness.mjs:13:19)\n    at async scenarioStorageKill (/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/lib/scenarios-storage.mjs:95:23)\n    at async runOnce (/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/run.mjs:231:57)\n    at async main (/Users/spirit-ai/Desktop/sdk/temp/wt-T02/poc/poc-1/run.mjs:311:7)",
+  "params": {
+    "storages": [
+      "local",
+      "idb",
+      "opfs"
+    ],
+    "controls": [
+      {
+        "storage": "idb-pending",
+        "deltas": [
+          500,
+          2500
+        ],
+        "note": "对照：IndexedDB 写入被推迟 60s，强杀时事务未完成"
+      },
+      {
+        "storage": "opfs-pending",
+        "deltas": [
+          500,
+          2500
+        ],
+        "note": "对照：OPFS 写入被推迟 60s，强杀时还没写"
+      },
+      {
+        "storage": "opfs-noclose",
+        "deltas": [
+          0,
+          250
+        ],
+        "note": "对照：OPFS 已 write+flush，但 close 被推迟"
+      },
+      {
+        "storage": "idb-strict",
+        "deltas": [
+          0,
+          250,
+          2500
+        ],
+        "note": "IndexedDB 事务带 durability:strict"
+      }
+    ],
+    "deltas": [
+      0,
+      100,
+      250,
+      500,
+      1000,
+      2500,
+      4000,
+      5000
+    ],
+    "trials": 2,
+    "perClass": 500,
+    "durableTimeoutMs": 400,
+    "multitab": {
+      "storages": [
+        "local",
+        "idb",
+        "opfs",
+        "opfs-shared"
+      ],
+      "rounds": 3,
+      "tabs": 3,
+      "perClass": 200
+    },
+    "perf": {
+      "storages": [
+        "local",
+        "idb",
+        "idb-strict",
+        "opfs"
+      ],
+      "benchRecords": 1000,
+      "benchBatch": 100
+    }
+  },
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "note": "树外只读缓存；其 revision 与本机已装浏览器一致",
+    "revision": "1223",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "notes": [
+      "优先候选不可用（repo-playwright-test: 期望 chromium-1248，该目录未安装），改用 npx-cache-playwright-core-1.60.0"
+    ]
+  },
+  "browserVersion": "148.0.7778.96",
+  "durationMs": 825707,
+  "receiverCountersDelta": {
+    "received_batches": 836,
+    "received_events": 41800,
+    "stored_batches": 400,
+    "stored_events": 20000,
+    "duplicate_events": 21800
+  },
+  "protocolProblems": {}
+}
