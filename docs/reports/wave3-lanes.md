@@ -70,3 +70,70 @@
 3. **T31 或后续仓库级守卫**：把「离线实现不得引用 `localStorage`」做成 `tests/` 下的**永久自动化守卫**（编排方本轮用 grep 人工验证过一次，但尚未固化为测试）。注意 `packages/transport/tsconfig.json` 是 `types: []`（纯浏览器包），`node:fs` 在该包内无类型，因此该守卫只能放在 `tests/` 下。
 4. **T17（C08）**：承接 `DeliveryMetrics.lastReplayReason` 与 CR-001 的两个指标上报。
 5. **接收方看板**：CR-001 的新原因码与指标需接收方同步（不在本项目内）。
+
+---
+
+# T17（C08 自监控与调试模式）
+
+- 合入：`51a1c56`（实现提交 + 体积预算调整 `36f8767`）
+- 门禁（实测）：**`pnpm gates` exit 0，73 个测试文件 / 806 个测试**（T16 收口时 61 / 700；本任务净增 12 个文件 / 106 个用例）
+- 覆盖率（门禁口径）：`packages/transport/src/**` 行 91.21% / 分支 83.65%；新目录 `monitor` 97.23 / 92.3、`debug` 98.36 / 95.65
+- 体积：transport **14.82 kB / 18 kB**（C07 基线 11.32 kB，C08 净增约 3.5 kB）
+
+## 交付内容
+
+新增（均在授权范围内，未改他人代码）：
+
+- `packages/transport/src/monitor/`：`types`、`reason-codes`、`metrics`、`events`、`latency`、`instrument`、`adapters`、`reporter`、`traffic`、`index` + `fixtures` + 10 个测试
+- `packages/transport/src/debug/`：`types`、`gate`、`format`、`tracer`、`index` + 2 个测试
+- 已批准的三处越界：`src/index.ts`（两个 `export`）、`etc/transport.api.md`、`README.md` 第 7 节
+
+能力：计数映射（`drop_*`/`count_*`/8 个固定计数/暴露窗口/三个 p99，0 值不上报、契约外键不上报、**>50 自动分片**）；1% 会话采样 + nearest-rank P99；60 秒 reporter（注入 `now`/`timer`）；装饰器（`createCallCounter`/`wrapCalls`/`wrapPipeline`）；调试门禁（URL 参数 + 非生产/白名单）与逐条去向输出。
+
+## 契约自证（本任务最值得记的一条）
+
+`monitor/contract.test.ts` **直接 import `docs/contracts/schemas/` 下的真实 Schema**（不是副本），用 Ajv 校验**每一条真实产出**的 `sdk_health` 事件（同时用 `batch.schema.json#/$defs/event` 校验），并含 **10+ 条负向对照**（计数为 0、契约外指标键、`state` 非枚举、`priority` 非 `normal`、metrics 超 50、缺 `window_ms`、`exposure_window_events:0`、`exposure_window_ms:0`）与一条**「校验器非空转」**对照。
+
+`dependentRequired` 四方向实测：ms 单独→**拒绝**、ms+events→合法、仅 events→合法、events=0→**拒绝**（`minimum`）。映射层另有独立断言——**规则先由映射层保证、Schema 兜底，两层都有证据**。
+
+## 编排方独立复核
+
+| 复核项 | 结果 |
+|---|---|
+| 范围 | 仅 `monitor/`、`debug/` + 已批准 3 处越界；未碰 `queue/sender/offline/leader/**` 与 `packages/core/**` |
+| 禁用写法 | `any` / `@ts-ignore` / `eslint-disable` / `skip` / `.only` **全 0**；**无直接 `console`**（编排方先前一次 grep 报「11 处」系未转义 `.` 的假象，已用 `console\.` 与 eslint 双重确认） |
+| 契约测试读的是 | **真实 Schema 文件路径**，非副本 |
+| 调试模式不泄漏令牌 | **机制上成立**：`DebugDiagnosticsRecord` 类型只有 `reason_code`/`kind`/`event_name`/`dropped`/`field`，**没有任何令牌/请求头/用户数据字段**；格式化只读白名单，多带的字段不序列化；有泄漏对照用例；另做控制字符与超长值清洗 |
+| 门禁 | 编排方在其工作树跑**完整 `pnpm gates` → exit 0** |
+
+## 与 T16 的接口口径（避免错误映射）
+
+1. **双计风险已规避**：`DeliveryMetrics.offlineEvicted` 与原因码 `offline_evicted` 同源 → **只取 `drop_offline_evicted`**，`offlineEvicted` 不进契约计数。
+2. `offline_written` / `offline_replayed` 用 T16 修正后的**批次计数**做窗口差分（事件数用 `*Events` 字段，不映射成契约指标）。
+3. `batches_sent` / `batches_failed` 采用 T16 的审计口径（离开通道不计、413 子批次不重复计），因此 **`sent + failed` 与 C06 的 submit 次数并不互补**，对账时不可相加。
+
+## 非功能目标（按仓库既定政策落地）
+
+- **计数操作**：任务卡写「不超过 0.001 ms」（绝对墙钟目标）。按既定政策改为**整窗映射（56 个指标）的同步中位数护栏 0.06 ms**，实测空闲 0.00425 ms、4 路负载 ≤0.00500 ms（**≈12× 余量**且 <1 ms）；**0.001 ms 的权威验证归 T20**，已写入代码注释与 README。
+- **自监控流量 ≤1%**：确定性测量（无墙钟）——1 条 `sdk_health`（12 指标 / 480 B）对 1000 条业务事件（467,000 B）→ 计数比 **0.100%**、体积比 **0.1028%**。
+
+## 未执行 / 未验证（如实声明）
+
+1. **真实浏览器项全部归 T29**：真实 `location.search` 解析、真实引擎的 `crypto.randomUUID` 与回退路径、真实 60 秒节奏、真实控制台接线、1% 命中的统计性。
+2. **待 T18 装配根接线**：未接线前 `calls_total` / `events_enqueued` / `queue_length_max` / 三个 p99 为 0 且不上报（装饰器与适配器已在模块内实现并测试，接线是装配根的活）。
+3. **流程偏差**：先写了 12 个测试文件但**未即时执行**，fail-first 证据是事后把实现文件移出目录补跑的（`12 failed / 0 tests`，全部 `Failed to resolve import`）。这属**「模块不存在」式失败**，弱于**「断言失败」式失败**——后者能证明断言本身有判别力（T16 的单位缺陷修复就是因为有「注入旧语义即变红」的验证才可信）。本任务的主要断言有 Ajv 负向对照兜底，故风险可控，但该偏差如实记录。
+4. `wr_debug` 这个 URL 参数名由执行方自定（契约未指定）；`resolveDebugMode({ paramName })` 可配置，T34 若要改名无需改逻辑。
+
+## 体积预算（本任务触发）
+
+C08 落地后门禁口径实测 **14.82 kB / 15 kB，余量仅 0.18 kB（1.2%）** —— 工程上过紧。负责人裁定：提到 **18 KB**（余量约 3.2 kB / 21%），**不裁功能**（有界裁剪如把 47 个原因码编码成单字符串，收益不确定且损害可维护性）。
+
+同时立下**硬约束**（已进指南第 6 节）：**C07+C08 装配进浏览器包时必须重新推导整张预算表（含 `browser` 的 10 KB）** —— 预算表是在 C07/C08 存在之前定的，今天已被迫两次抬高（10 → 15 → 18 KB），逐次抬高不是长久办法。
+
+## 遗留交接义务
+
+1. **T18**：装配根接线（C08 的计数/计时装饰器与 reporter 的 `emit`/`timer`/`dimensions`）+ 调用 `captureNativeHttpRefs()`。
+2. **T29**：真实浏览器项（见上）。
+3. **CR-002**：把 `sdk_health` 字段清单写入 `receiver-requirements.md` 附录 A（任务卡原指派给无契约写权限的 T17，改由 A01 起草）。
+4. **T31**：「离线实现不得引用 `localStorage`」的永久源级扫描守卫（承自 T16）。
+5. **接收方看板**：CR-001 的新原因码与指标需接收方同步（不在本项目内）。
