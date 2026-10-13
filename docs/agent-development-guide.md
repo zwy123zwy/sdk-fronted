@@ -146,7 +146,7 @@ A03 设计 C05 插件和公共 API 之前，先在 `docs/use-cases.md` 中列出
 | `pnpm typecheck` | `tsc`，所有包开启 strict、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes` |
 | `pnpm test` | Vitest 单元测试（happy-dom）与覆盖率；`packages/core`、`packages/transport` 行覆盖率不低于 90%，`packages/plugins` 与 `tools/` 不低于 80% |
 | `pnpm build` | 构建所有包，产出 ESM、类型声明，以及 browser 包的 IIFE |
-| `pnpm size` | 体积预算（brotli）；browser 入口与 core 不超过 10 KB，plugins 全量不超过 20 KB，超出时阻断 |
+| `pnpm size` | 体积预算（口径为 size-limit 的 `import: "*"` + minify + brotli，**不要用 tsup 原样产物比**）；browser 入口与 core 不超过 10 KB，**transport 不超过 15 KB**（2026-10-13 经负责人批准由 10 KB 提高：C07 落地后实测 11.32 KB，且 C08/T17 还会增加），plugins 全量不超过 20 KB，超出时阻断。**待重定**：C07 装配进浏览器包后必须重新测 `browser` 的 10 KB 预算（触发条件见 `docs/tasks/board.md`） |
 | `pnpm api:check` | API Extractor 公共 API 审计，与各包 `etc/*.api.md` 比对；有未登记的变更时阻断。有意变更时运行 `pnpm api:update` 并在合入请求中说明 |
 | `pnpm test:contract` | 契约测试；T10 已补齐双向校验：既检查 Schema 版本与样例合法性，也校验 SDK 真实产出（`tests/contract/sdk-core-output.test.ts`、`sdk-batch-output.test.ts`） |
 | `pnpm examples:build`、`pnpm examples:test` | 接入兼容性：Vite 构建、`<script>` 引入 IIFE、Vitest 与 Jest 中直接导入 |

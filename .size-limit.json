@@ -18,9 +18,9 @@
     "limit": "20 KB"
   },
   {
-    "name": "transport",
+    "name": "transport（C06 队列与批量 + C07 发送/离线/选主 + C08；2026-10-13 经负责人批准由 10 KB 提到 15 KB）",
     "path": "packages/transport/dist/index.js",
     "import": "*",
-    "limit": "10 KB"
+    "limit": "15 KB"
   }
 ]
