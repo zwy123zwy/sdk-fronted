@@ -82,6 +82,8 @@
 - [x] `schemas/builtin-events/sdk_health.schema.json` 的 `count_` 模式同步扩充；
 - [x] `remote-config.md` 5.1 节新增 semver 语法子集表与「不支持即整份拒绝」的规则；
 - [x] `tests/acceptance/C03.md` 新增 `C03-AC-24`；`docs/tasks/T13.md` 验收范围更新为 AC-24；
+
+**AC-24 措辞修正（2026-10-13 同日）**：初版写作「整份配置被拒绝并**退回保守默认**」，与契约失败表其它拒绝行的语义不一致（`remote-config.md` 第 48 行的模式是「拒绝本次配置，**继续使用当前生效配置**；没有可用配置时使用保守默认」）。该措辞还引入一个**降级面**：推送一份非法配置即可把 SDK 打回最保守模式、停掉上报，对数据管道构成拒绝服务。已把 AC-24 改为「**已有当前生效配置时保持该配置不变；没有可用配置时才退回保守默认**」。由 T13 的 M0 计划评审时发现并指出。
 - [x] `docs/contracts/README.md` 状态表标注；`docs/review-log.md` R-015 留档；
 - [ ] 接收方看板可选增加 `config_schema_invalid` 一列（不在本项目内）。
 
