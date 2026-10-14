@@ -244,6 +244,67 @@ describe('共存：先后初始化顺序各一次（Q7 第 4 条）', () => {
     probe['apm.order.sdkFirst'] = true;
   });
 
+  test('顺序 A + 多个第三方叠加：两个第三方先装，destroy 后回到最外层第三方那一层', async () => {
+    const native = installNativeStub();
+    const apmOne = installFakeApm();
+    const apmTwo = installFakeApm();
+    const upload = createUploadStub();
+    const assembly = buildAssembly(upload);
+    assembly.init();
+    await globalView.fetch(businessUrl);
+    await settle();
+    assembly.flush();
+    await waitFor(() => eventNames(upload).includes('web_http'));
+
+    // 两层第三方都看到业务请求，SDK 也采集到（请求穿过 apmTwo → apmOne → SDK 层 → 原生）。
+    expect(apmOne.fetchCalls).toEqual([businessUrl]);
+    expect(apmTwo.fetchCalls).toEqual([businessUrl]);
+    expect(native.calls).toEqual([businessUrl]);
+    expect(eventNames(upload)).toContain('web_http');
+    // 注意：`assembly.nativeHttpRefs` 由 transport 按 target 缓存、进程内幂等（见
+    // `packages/transport/src/sender/native.ts` 的 `captureCache`），因此这里不断言它的具体取值。
+
+    assembly.destroy();
+    // 还原到 chain.base = apmTwo 那一层：两层第三方都还在链上，业务请求仍被双方采集。
+    expect(globalView.fetch).toBe(apmTwo.wrapper);
+    await globalView.fetch(`${businessUrl}?after=destroy`);
+    expect(native.calls).toContain(`${businessUrl}?after=destroy`);
+    expect(apmOne.fetchCalls).toContain(`${businessUrl}?after=destroy`);
+    expect(apmTwo.fetchCalls).toContain(`${businessUrl}?after=destroy`);
+    apmTwo.uninstall();
+    apmOne.uninstall();
+    probe['apm.stacked.apmFirst'] = true;
+  });
+
+  test('顺序 B + 多个第三方叠加：SDK 先装、两层第三方后装，destroy 后两层都不动', async () => {
+    const native = installNativeStub();
+    const upload = createUploadStub();
+    const assembly = buildAssembly(upload);
+    assembly.init();
+    const apmOne = installFakeApm();
+    const apmTwo = installFakeApm();
+    await globalView.fetch(businessUrl);
+    await settle();
+    assembly.flush();
+    await waitFor(() => eventNames(upload).includes('web_http'));
+
+    expect(apmOne.fetchCalls).toEqual([businessUrl]);
+    expect(apmTwo.fetchCalls).toEqual([businessUrl]);
+    expect(native.calls).toEqual([businessUrl]);
+    expect(eventNames(upload)).toContain('web_http');
+
+    assembly.destroy();
+    // 当前全局值是最外层第三方（apmTwo），不是 SDK 自己那一层：SDK 一层都不许动。
+    expect(globalView.fetch, '缺陷：destroy 抹掉多层第三方包装').toBe(apmTwo.wrapper);
+    await globalView.fetch(`${businessUrl}?after=destroy`);
+    expect(native.calls).toContain(`${businessUrl}?after=destroy`);
+    expect(apmOne.fetchCalls).toContain(`${businessUrl}?after=destroy`);
+    expect(apmTwo.fetchCalls).toContain(`${businessUrl}?after=destroy`);
+    apmTwo.uninstall();
+    apmOne.uninstall();
+    probe['apm.stacked.sdkFirst'] = true;
+  });
+
   test('错误监听链：两个 hook 都在链上，SDK 卸载后第三方仍收到 error 事件', async () => {
     installNativeStub();
     const apm = installFakeApm();
@@ -281,11 +342,28 @@ describe('矩阵落盘', () => {
         requirement: 'T30 验收：与第三方 APM 共存（SDK 先初始化）',
         dimension: '共存 / 初始化顺序 B',
         engine: 'happy-dom（进程内，真实 hook 链）',
-        evidence: '本次运行输出 + results/apm-coexistence.json（该用例**变红**）',
+        evidence: '本次运行输出 + results/apm-coexistence.json',
         notes:
-          '**实测不通过**：业务请求双方各计一次、SDK 批次送达均成立，但 `assembly.destroy()` 后' +
-          '第三方包装被抹掉（`globalView.fetch` 变回 SDK hook 前的原生引用）→ 第三方此后不再采集。' +
-          '根因见 `packages/core/src/kernel/global-registry.ts` 的 `dispose()`（无条件还原 `chain.base`）。',
+          '业务请求双方各计一次、SDK 批次送达；`destroy()` 后第三方包装**仍在**全局上' +
+          '（修复后：`dispose()` 仅在当前全局值仍是 SDK 自己那一层时才还原 `chain.base`）。',
+      }),
+      cell('apm.stacked.apmFirst', {
+        requirement: 'Q7 第 4 条：卸载后 hook 链完整（多个第三方叠加）',
+        dimension: '共存 / 初始化顺序 A + 两层第三方',
+        engine: 'happy-dom（进程内，真实 hook 链）',
+        evidence: '本次运行输出 + results/apm-coexistence.json',
+        notes:
+          '两个第三方都在 SDK 之前装上；`destroy()` 后全局值回到最外层第三方那一层（chain.base），' +
+          '业务请求仍穿过两层第三方与 SDK 层。',
+      }),
+      cell('apm.stacked.sdkFirst', {
+        requirement: 'Q7 第 4 条：卸载后 hook 链完整（多个第三方叠加）',
+        dimension: '共存 / 初始化顺序 B + 两层第三方',
+        engine: 'happy-dom（进程内，真实 hook 链）',
+        evidence: '本次运行输出 + results/apm-coexistence.json',
+        notes:
+          'SDK 先装、两个第三方依次后装；`destroy()` 后最外层（第三方）与内层都被保留，' +
+          '两层第三方与原生都仍收到业务请求。',
       }),
       cell('apm.error.chain', {
         requirement: 'Q7 第 4 条：卸载后 hook 链完整',

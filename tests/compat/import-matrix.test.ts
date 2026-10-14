@@ -13,7 +13,9 @@
  *
  * 不在本文件（见 `docs/reports/compat-matrix.md`）：
  * - Vite 开发服务器 → `scripts/vite-dev-server.mjs`；
- * - webpack → `blocked`（仓库未安装 webpack，新增 example 需负责人批准，归 T29）。
+ * - webpack 生产构建 / 开发服务器 → `examples/webpack/` 的两个脚本，
+ *   结果登记在 `tests/compat/webpack-matrix.test.ts`（2026-10-14 经负责人批准新增该 example 后，
+ *   两格已由 `blocked` 改为实测结论）。
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';

@@ -215,6 +215,22 @@ export function createGlobalRegistry(services: GlobalRegistryServices): GlobalRe
     return current;
   }
 
+  /**
+   * 只有在全局值**仍是 SDK 最后装上的那一层**（`chain.composite`）时才还原到 `chain.base`。
+   *
+   * 外部（业务代码、第三方 APM）在 SDK 之上又包了一层时，当前值不再是自己的那一层，
+   * 就**只撤销自己的逻辑、不动别人的包装**（Q7 第 4 条）。
+   * 增量注销与整体销毁**共用这一套判断**，两条路径不得再各写一份。
+   */
+  function restoreChainIfOwned(chain: HookChain): void {
+    if (chain.holder[chain.key] !== chain.composite) return;
+    try {
+      chain.holder[chain.key] = chain.base;
+    } catch {
+      counters.count(REASON_CODES.processorError);
+    }
+  }
+
   function registerHook(
     target: object,
     key: string,
@@ -247,22 +263,15 @@ export function createGlobalRegistry(services: GlobalRegistryServices): GlobalRe
       const index = chain.records.indexOf(record);
       if (index < 0) return;
 
-      const currentComposite = chain.composite;
       chain.records.splice(index, 1);
       if (chain.records.length === 0) {
-        if (chain.holder[key] === currentComposite) {
-          try {
-            chain.holder[key] = chain.base;
-          } catch {
-            counters.count(REASON_CODES.processorError);
-          }
-        }
+        restoreChainIfOwned(chain);
         removeChain(target, key);
         return;
       }
 
       // 外部在 SDK 之上又包装了一层时不动当前值，避免覆盖业务行为。
-      if (chain.holder[key] !== currentComposite) return;
+      if (chain.holder[key] !== chain.composite) return;
       const recomposed = composeChain(chain);
       chain.composite = recomposed;
       try {
@@ -350,11 +359,8 @@ export function createGlobalRegistry(services: GlobalRegistryServices): GlobalRe
 
       for (const byKey of [...chains.values()]) {
         for (const chain of [...byKey.values()]) {
-          try {
-            chain.holder[chain.key] = chain.base;
-          } catch {
-            counters.count(REASON_CODES.processorError);
-          }
+          // 与增量注销路径同一套判断：只还原自己装上的那一层，外部包装不动。
+          restoreChainIfOwned(chain);
         }
       }
       chains.clear();

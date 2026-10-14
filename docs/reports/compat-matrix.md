@@ -8,26 +8,36 @@
 
 ## 0. 结论摘要
 
+> **2026-10-14 更新（webpack 两格补测）**：负责人批准新增 `examples/webpack` 与 webpack 开发依赖后，
+> 原第 26/27 格已由 `blocked` 改为**实测结论**，两格均 `pass`（证据：
+> `tests/compat/results/webpack-production.json`、`results/webpack-dev-server.json`）。
+> 补测期间复核到 `fail`② 已被并发修复（`packages/core/src/kernel/global-registry.ts` 的 `dispose()` 现在
+> 只在"全局值仍是自己那一层"时还原），因此本节的计数与第 3/4 节已按**当前**证据同步；
+> 第 2.3 节表格保留原判词，以免掩盖"它曾经是缺陷"这件事。
+
 | 指标 | 数量 |
 |---|---|
-| `pass`（本机实跑通过，证据落盘） | **33** |
-| `fail`（本机实跑不通过，已定位） | **2** |
-| `blocked`（本机做不了，写清缺什么，归 T29） | **8** |
-| 合计 | 43 |
+| `pass`（本机实跑通过，证据落盘） | **38** |
+| `fail`（本机实跑不通过，已定位） | **1** |
+| `blocked`（本机做不了，写清缺什么，归 T29） | **6** |
+| 合计 | 45 |
 
 **三条必须让负责人知道的结论**：
 
-1. **`fail`①：CJS `require("@web-report-sdk/browser")` 直接失败**（`ERR_PACKAGE_PATH_NOT_EXPORTED`）。
+1. **`fail`（现存唯一）：CJS `require("@web-report-sdk/browser")` 直接失败**（`ERR_PACKAGE_PATH_NOT_EXPORTED`）。
    `exports` 只有 `source`/`types`/`import` 条件，没有 `require`。指南 4.2 要求"Vitest、Jest 测试环境中
    直接导入，不需要额外配置"，而现有 Jest 示例实际依赖 `--experimental-vm-modules` + `.mjs`（属额外配置）。
    处置需负责人决定（加 `require` 条件 / 只支持 ESM 并在指南写明）。
-2. **`fail`②：与第三方 APM 共存时，"SDK 先装、第三方后装"顺序下 `destroy()` 会抹掉第三方的包装层**
-   （`packages/core/src/kernel/global-registry.ts` 的 `dispose()` 对每条 hook 链**无条件**
-   `chain.holder[chain.key] = chain.base`），违反 Q7 第 4 条"卸载时只还原自己装上的那一层"。
-   一条命令可复现：`node tests/compat/scripts/repro-destroy-overwrites-wrapper.mjs`（exit 1）。
+   **不阻塞 webpack**：webpack 5 消费 ESM 无障碍，本次两格实测均 `pass`（它走 `import` 条件，不看 `require`）。
+2. **~~`fail`②：与第三方 APM 共存时，"SDK 先装、第三方后装"顺序下 `destroy()` 会抹掉第三方的包装层~~ ——
+   已修复，2026-10-14 复核通过**（本条为并发修复后的复核结论，非本次 webpack 补测的产出）。
+   当前证据：`apm.order.sdkFirst`、`apm.stacked.sdkFirst` 两格 `pass`；
+   独立复现脚本 `node tests/compat/scripts/repro-destroy-overwrites-wrapper.mjs` 输出
+   "结论：符合 Q7 第 4 条"、**exit 0**。
 3. **真实 Chromium（Chrome for Testing 148.0.7778.96）上核心路径全部通过**：`init`→`track`→`flush`
    →接收方收到批次（`protocol_version=1`、`app_id` 正确）、`captureError`、**真实未捕获异常**、
    以及 `X-Server-Time` → C04 时钟校准（第二批 `clock_calibrated=true`）。
+   webpack 生产构建与开发服务器另各做了一次 Chromium 复核（页面渲染出 `web-report-sdk 0.0.0`、无 page error）。
 
 ## 1. 环境与偏差声明（**不得省略**）
 
@@ -37,13 +47,16 @@
 | Playwright | 仓库锁定的 `@playwright/test@1.64.0` | 只借它的驱动能力，浏览器是上一条那个 |
 | 接收方 | 脚本内的 node http `/ingest`（同源），收到什么写进结果 JSON | 不触外网；不伪造字节数/条数 |
 | 进程内用例 | node 24.16.0（`environment: node`）；共存与页面事件用例用 `happy-dom` | 逐条在结果 JSON 里标注 engine |
-| 未做 | Firefox / WebKit / Edge / 最低版本 / iOS Safari / Android Chrome / webpack | 见第 4 节，逐条写清缺什么 |
+| 构建工具（2026-10-14 补测） | `webpack 5.104.1` / `webpack-cli 6.0.1` / `webpack-dev-server 5.2.2`，只装在 `examples/webpack` 的 **devDependencies** | SDK 自身仍为零第三方运行时依赖；`packages/*` 的 dependencies 未动 |
+| 未做 | Firefox / WebKit / Edge / 最低版本 / iOS Safari / Android Chrome | 见第 4 节，逐条写清缺什么 |
 
-`pnpm exec vitest run --config tests/compat/vitest.config.ts` 的 `exit code` 是 **1**：
-因为 `apm.order.sdkFirst` 如实记录了缺陷②，用例就该是红的。**`tests/compat/` 不在任何门禁 project 里**
+`pnpm exec vitest run --config tests/compat/vitest.config.ts` 的 `exit code` 是 **0**（2026-10-14 实测）：
+原有两处红格中，`import.cjs.require` 是**用例有意记录的真实缺口**（它断言"确实抛
+`ERR_PACKAGE_PATH_NOT_EXPORTED`"，所以这一格红不代表用例红）；`apm.order.sdkFirst` 在缺陷②
+修复后已转绿。**`tests/compat/` 不在任何门禁 project 里**
 （根 `vitest.config.ts` 只含 `unit`/`contract`/`security`），因此不影响 `pnpm gates`。
 
-## 2. 矩阵结果（43 格）
+## 2. 矩阵结果（45 格）
 
 ### 2.1 接入方式（指南第 4.2 节）
 
@@ -58,7 +71,8 @@
 | 7 | **Vite 开发服务器**（此前**零验证**） | vite 8.3.4 + Chromium | `pass` | `node tests/compat/scripts/vite-dev-server.mjs`：`/src/main.ts` 被改写为 `/@fs/…/packages/browser/dist/index.js`，该模块 HTTP 200，页面渲染出 `web-report-sdk 0.0.0`，无 page error |
 | 8 | Vitest 导入 | vitest 5.0.3 | `pass` | `pnpm examples:test`（`examples/node-import` 的 vitest 用例） |
 | 9 | Jest 导入 | jest 30.5.2 | `pass`（**带前提**） | `pnpm examples:test` 通过，但用的是 `--experimental-vm-modules` + `.mjs`——对"不需要额外配置"是**打折的通过**，见结论① |
-| 10 | webpack 生产构建 / 11. webpack 开发服务器 | — | **`blocked`** | 仓库未装 webpack、没有 webpack example。见第 4 节 |
+| 10 | **webpack 生产构建**（2026-10-14 由 `blocked` 补测） | webpack 5.104.1 + Chromium | **`pass`** | `node examples/webpack/scripts/build-production.mjs`：`webpack --mode production` 产出 `examples/webpack/dist/main.js`（无 SDK 专属配置），沙箱实跑 `createAssembly→init→track→flush` 后接收方**收到批次**（`webpack_probe`），`SDK_VERSION=0.0.0` 与包清单一致；Chromium 打开产物页面渲染出 `web-report-sdk 0.0.0`、无 page error。证据 `tests/compat/results/webpack-production.json` |
+| 11 | **webpack 开发服务器**（2026-10-14 由 `blocked` 补测） | webpack-dev-server 5.2.2 + Chromium | **`pass`** | `node examples/webpack/scripts/dev-server.mjs`：`GET /` HTTP 200、`GET /main.js` HTTP 200（804 KiB dev bundle），bundle 沙箱里同上跑通最小路径；Chromium 渲染出 `web-report-sdk 0.0.0`、无 page error。证据 `tests/compat/results/webpack-dev-server.json` |
 
 ### 2.2 不支持 API 的降级路径（T30 验收第 2 条）
 
@@ -77,7 +91,9 @@
 | # | 维度 | 结论 | 说明 |
 |---|---|---|---|
 | 17 | 顺序 A：第三方先装、SDK 后装 | `pass` | 业务请求双方各计一次；SDK 批次送达（含 `web_http`）；`destroy()` 后第三方包装**仍在**全局上；另实测该顺序下 SDK 捕获的"原生"引用即第三方包装 |
-| 18 | **顺序 B：SDK 先装、第三方后装** | **`fail`** | 业务请求双方各计一次、SDK 批次送达都成立；但 `destroy()` 后第三方包装**被抹掉**（全局变回 SDK hook 前的原生引用）→ 第三方此后采集不到任何请求。根因见结论② |
+| 18 | **顺序 B：SDK 先装、第三方后装**（缺陷②） | **`pass`**（原 `fail`） | 修复前：业务请求双方各计一次、SDK 批次送达都成立，但 `destroy()` 后第三方包装**被抹掉**（全局变回 SDK hook 前的原生引用）→ 第三方此后采集不到任何请求（根因见结论②）。修复后：`dispose()` 只在当前值仍是 SDK 自己那一层时才还原 `chain.base`，第三方包装**仍在**全局上并仍在采集 |
+| 18a | 顺序 A + **两层第三方叠加** | `pass` | 两个第三方都在 SDK 之前装上；`destroy()` 后回到最外层第三方那一层（`chain.base`），业务请求仍穿过两层第三方与 SDK 层 |
+| 18b | 顺序 B + **两层第三方叠加** | `pass` | SDK 先装、两层第三方依次后装；`destroy()` 后两层都被保留，两层第三方与原生都仍收到业务请求 |
 | 19 | error 监听链完整 | `pass` | 派发 `error` 事件后第三方计数 1；SDK `destroy()` 后再派发计数 2（第三方监听器仍在链上） |
 
 ### 2.4 真实浏览器（Chromium，最新版本）
@@ -127,8 +143,10 @@
 | 23 | Chrome/Firefox 90、Safari 14 的**最低版本** | 最低版本浏览器二进制（安装浏览器属新增依赖，需负责人批准） | T29 |
 | 24 | iOS Safari 真机 | 真机 + Web Inspector 通道 | T29 |
 | 25 | Android Chrome 真机 | 真机 + adb（含 OEM WebView/省电策略差异） | T29 |
-| 26 | webpack 生产构建 | 新增 webpack example + webpack 依赖（**需负责人批准**）；当前只有间接判据（产物是标准 ESM、`exports` 的 `import`/`types` 齐全），**不算实测** | 待批准后补，否则 T29 |
-| 27 | webpack 开发服务器 | 同上 | 同上 |
+
+> 原第 26/27 行（webpack 生产构建 / 开发服务器）已于 2026-10-14 **移出 blocked**：
+> 负责人批准新增 `examples/webpack` 与 webpack 开发依赖后补测，两格均 `pass`，见第 2.1 节第 10/11 格。
+> 该 example 的形态与补测命令见 `examples/webpack/README.md`。
 
 另外，T30 验收第 1 条中这些**核心路径**的维度也归 T29（需要真实浏览器/真机与环境控制）：
 页面关闭送达（真实 `sendBeacon`/`visibilitychange`/`pagehide`）、断网补发（真实 IDB + 真实网络中断）、
@@ -154,7 +172,7 @@ T30 的用例为此专门采用「变量说明符动态 import + 结构类型」
 ## 6. 复跑清单（全部本机可跑，无需安装任何东西）
 
 ```bash
-# ① 进程内矩阵（import / 降级 / 共存）。注意：共存顺序 B 是**已知缺陷**，会红。
+# ① 进程内矩阵（import / 降级 / 共存 / webpack 证据核对）
 pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false
 
 # ② 真实 Chromium 核心路径（executablePath 指向本机 chromium-1223）
@@ -163,14 +181,18 @@ node tests/compat/scripts/browser-core-path.mjs
 # ③ Vite 开发服务器（含真实 Chromium 渲染断言）
 node tests/compat/scripts/vite-dev-server.mjs
 
-# ④ 兼容缺陷独立复现（exit 1 即复现成功）
+# ④ 兼容缺陷独立复现（缺陷②修复后 exit 0；原口径 exit 1 = 复现成功）
 node tests/compat/scripts/repro-destroy-overwrites-wrapper.mjs
 
 # ⑤ 汇总成一张矩阵
 node tests/compat/scripts/summarize.mjs
 
-# ⑥ 接入方式的两条仓库脚本（Vite 生产构建 / IIFE / Vitest / Jest）
+# ⑥ 接入方式的仓库脚本（Vite/webpack 生产构建、Vite/webpack dev、IIFE、Vitest、Jest）
 pnpm examples:build && pnpm examples:test
+
+# ⑦ webpack 两格的单独复跑（证据分别写 results/webpack-*.json）
+node examples/webpack/scripts/build-production.mjs   # 生产构建 + 沙箱最小路径 + Chromium 复核
+node examples/webpack/scripts/dev-server.mjs         # dev server HTTP 200 + bundle 可执行
 ```
 
 ## 7. 证据文件索引
@@ -181,25 +203,31 @@ pnpm examples:build && pnpm examples:test
 | `tests/compat/vitest.config.ts` | 本目录独立 vitest 配置（**不在任何门禁 project 里**） |
 | `tests/compat/lib/entries.ts` | 各包 **dist 产物**的加载层（变量说明符动态 import + 结构类型，见第 5 节） |
 | `tests/compat/lib/matrix.ts` | 矩阵单元登记与 `results/*.json` 落盘（状态由实测探针推导） |
-| `tests/compat/import-matrix.test.ts` | 接入方式 6 格 |
+| `tests/compat/import-matrix.test.ts` | 接入方式 6 格（ESM / 无 DOM / IIFE / exports / CJS / Vite 生产构建） |
+| `tests/compat/webpack-matrix.test.ts` | webpack 生产构建与开发服务器 2 格（核对 `results/webpack-*.json` 的证据形状与结论） |
 | `tests/compat/degradation.test.ts` | 降级路径 7 格（含对照格） |
-| `tests/compat/apm-coexistence.test.ts` | 共存 3 格（顺序 B 即缺陷②，用例如实为红） |
+| `tests/compat/apm-coexistence.test.ts` | 共存 5 格（含两层第三方叠加；顺序 B 修复后为 `pass`） |
 | `tests/compat/scripts/browser-core-path.mjs` | 真实 Chromium：核心路径 + 11 项 checks |
 | `tests/compat/scripts/vite-dev-server.mjs` | Vite 开发服务器：8 项 checks（含真实 Chromium 渲染） |
-| `tests/compat/scripts/repro-destroy-overwrites-wrapper.mjs` | 缺陷②的独立复现（exit 1 即复现成功） |
+| `examples/webpack/scripts/build-production.mjs` | webpack 生产构建：产物 + 沙箱最小路径 + Chromium 复核 |
+| `examples/webpack/scripts/dev-server.mjs` | webpack 开发服务器：HTTP 200 + bundle 沙箱最小路径 + Chromium 复核 |
+| `examples/webpack/scripts/lib/verify-bundle.mjs` | 两个 webpack 脚本共用的 bundle 验证库（vm 沙箱 + 接收方替身） |
+| `tests/compat/scripts/repro-destroy-overwrites-wrapper.mjs` | 缺陷②的独立复现（修复后 exit 0） |
 | `tests/compat/scripts/summarize.mjs` | 汇总 `results/*.json` → `results/matrix.json` |
-| `tests/compat/results/matrix.json` | 43 格汇总（本报告的机器可读版本） |
+| `tests/compat/results/matrix.json` | 45 格汇总（本报告的机器可读版本） |
 | `tests/compat/results/import-matrix.json` | 接入方式 6 格 |
 | `tests/compat/results/degradation.json` | 降级路径 7 格（含 2 个对照格） |
-| `tests/compat/results/apm-coexistence.json` | 共存 3 格 |
+| `tests/compat/results/apm-coexistence.json` | 共存 5 格 |
 | `tests/compat/results/browser-core-path.json` | 真实 Chromium：11 项 checks、批次摘要、能力探测、页面错误 |
 | `tests/compat/results/vite-dev-server.json` | Vite dev：8 项 checks、解析到的 URL、DOM 文本 |
+| `tests/compat/results/webpack-production.json` | webpack 生产构建：构建统计、12 项沙箱 checks、Chromium 复核 |
+| `tests/compat/results/webpack-dev-server.json` | webpack dev server：7 项 HTTP/沙箱 checks、Chromium 复核 |
 | `temp/t30-examples.log` | `pnpm examples:build` / `examples:test` 的原始输出（会话内产物，不入库） |
 
 ## 8. 交付物与状态
 
 - 交付物：本报告 + 兼容矩阵结果表（`tests/compat/results/matrix.json`）+ 可复跑脚本与用例。
-- **本报告的 `fail` 与 `blocked` 都是结论，不是待办**：`fail` 两条已定位到文件与行、
-  有一条可独立复现；`blocked` 八条已写明缺什么并归 T29。
-- 需负责人决定：① CJS `require` 是否支持；② 缺陷②由谁修（`packages/core`，不属 T30 所有权）；
-  ③ 是否为 webpack 新增 example 与依赖。
+- **本报告的 `fail` 与 `blocked` 都是结论，不是待办**：当前 `fail` **1** 条（CJS `require`）已定位到
+  `exports` 映射；`blocked` **6** 条已写明缺什么并归 T29。
+- 需负责人决定：① CJS `require` 是否支持；② ~~缺陷②由谁修~~ **已修复并复核通过**（2026-10-14）；
+  ③ ~~是否为 webpack 新增 example 与依赖~~ **已批准并补测，两格 `pass`**（2026-10-14）。

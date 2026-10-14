@@ -1,0 +1,77 @@
+{
+  "task": "T30",
+  "generatedAt": "2026-10-14T08:21:42.528Z",
+  "engine": "webpack 5.104.1 / node v24.16.0",
+  "command": "node examples/webpack/scripts/build-production.mjs",
+  "entry": "/Users/spirit-ai/Desktop/sdk/examples/webpack/src/main.js",
+  "build": {
+    "mode": "production",
+    "hasErrors": false,
+    "errors": [],
+    "warnings": [],
+    "assets": [
+      {
+        "name": "main.js",
+        "size": 116603,
+        "emitted": false
+      }
+    ],
+    "sdkModules": [
+      "./packages/browser/dist/index.js",
+      "./packages/browser/dist/index.js"
+    ]
+  },
+  "sandbox": {
+    "bundlePath": "/Users/spirit-ai/Desktop/sdk/examples/webpack/dist/main.js",
+    "bundleBytes": 116603,
+    "evaluatedMs": 3,
+    "sdkVersion": "0.0.0",
+    "expectedSdkVersion": "0.0.0",
+    "domText": "web-report-sdk 0.0.0",
+    "batchSummary": {
+      "protocolVersion": 1,
+      "appId": "webpack-compat",
+      "eventNames": [
+        "webpack_probe"
+      ]
+    },
+    "minimalPathError": null,
+    "checks": {
+      "bundleEvaluated": true,
+      "entryExposedOnGlobal": true,
+      "sdkVersionIsString": true,
+      "sdkVersionMatchesPackage": true,
+      "createAssemblyIsFunction": true,
+      "domRenderedSdkVersion": true,
+      "assemblyCreated": true,
+      "assemblyClientHasTrack": true,
+      "uploadStubReceivedRequest": true,
+      "batchHasEvents": true,
+      "batchContainsProbeEvent": true,
+      "minimalPathRan": true
+    },
+    "status": "pass"
+  },
+  "browser": {
+    "status": "pass",
+    "checks": {
+      "domRenderedSdkVersion": true,
+      "sdkVersionMatchesPackage": true,
+      "createAssemblyExposed": true,
+      "noPageErrors": true
+    },
+    "detail": {
+      "status": "pass",
+      "chromePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+      "domText": "web-report-sdk 0.0.0",
+      "pageErrors": [],
+      "checks": {
+        "domRenderedSdkVersion": true,
+        "sdkVersionMatchesPackage": true,
+        "createAssemblyExposed": true,
+        "noPageErrors": true
+      }
+    }
+  },
+  "status": "pass"
+}

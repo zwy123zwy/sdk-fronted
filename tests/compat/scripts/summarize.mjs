@@ -4,10 +4,16 @@
  * 运行：`node tests/compat/scripts/summarize.mjs`
  *
  * 本脚本**只汇总已经落盘的证据**：
- * - 进程内用例（`import-matrix` / `degradation` / `apm-coexistence`）自己写出的 cells；
- * - `browser-core-path.json`（真实 Chromium）与 `vite-dev-server.json`（Vite 开发服务器）的 checks；
- * - **本机做不了的格子**（Firefox / WebKit / iOS Safari / Android Chrome / 最低版本 / webpack）
+ * - 进程内用例（`import-matrix` / `degradation` / `apm-coexistence` / `webpack-matrix`）自己写出的 cells；
+ * - `browser-core-path.json`（真实 Chromium）、`vite-dev-server.json`（Vite 开发服务器）与
+ *   `webpack-production.json` / `webpack-dev-server.json`（webpack，见 `examples/webpack/`）的 checks；
+ * - **本机做不了的格子**（Firefox / WebKit / iOS Safari / Android Chrome / 最低版本 / Edge）
  *   在这里显式登记为 `blocked`，并写清缺什么与归属（T29）——不允许含糊带过。
+ *
+ * webpack 两格（`import.webpack.production` / `import.webpack.devServer`）**不再是 blocked**：
+ * 负责人已批准新增 `examples/webpack` 与 webpack 依赖，证据由
+ * `node examples/webpack/scripts/{build-production,dev-server}.mjs` 落盘；
+ * 证据文件缺失或 status 不是 `pass` 时，这里如实写 `fail`。
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { URL, fileURLToPath } from 'node:url';
@@ -105,6 +111,82 @@ if (viteResult !== undefined) {
   });
 }
 
+/**
+ * webpack 两格：证据来自 `examples/webpack/` 的两个脚本。
+ *
+ * **不拆成"每 check 一格"**：矩阵的粒度就是"接入方式 × 环境"两格，
+ * checks 明细放进 `notes`（`check=true/false` 全列），状态取全部 checks 的与。
+ * 证据缺失一律 `fail`，绝不写 `pass`。
+ */
+const webpackCells = [
+  {
+    id: 'import.webpack.production',
+    requirement: '指南 4.2：webpack 生产构建直接导入',
+    dimension: '接入方式 / webpack 生产构建',
+    resultFile: 'webpack-production',
+    command: 'node examples/webpack/scripts/build-production.mjs',
+    evidenceFile: 'tests/compat/results/webpack-production.json',
+  },
+  {
+    id: 'import.webpack.devServer',
+    requirement: '指南 4.2：webpack 开发服务器直接导入',
+    dimension: '接入方式 / webpack 开发服务器',
+    resultFile: 'webpack-dev-server',
+    command: 'node examples/webpack/scripts/dev-server.mjs',
+    evidenceFile: 'tests/compat/results/webpack-dev-server.json',
+  },
+];
+
+/** 把一次 webpack 跑的全部 checks 压成一格（checks 明细进 notes）。 */
+function webpackCell(spec) {
+  const data = readJson(spec.resultFile);
+  if (data === undefined) {
+    return {
+      id: spec.id,
+      requirement: spec.requirement,
+      dimension: spec.dimension,
+      engine: '—',
+      status: 'fail',
+      command: spec.command,
+      evidence: `${spec.evidenceFile} 不存在`,
+      notes: '脚本没跑或没落盘——不得据此下任何结论。',
+    };
+  }
+  // 注意：`buildHasErrors` 是"有没有错"，为 false 才代表构建通过——这里必须取反而非直用，
+  // 否则会把"构建无错"判成失败项（本人第一版就这么错过一次）。
+  const checks = {
+    ...(data.sandbox?.checks ?? {}),
+    ...(data.checks ?? {}),
+    ...(data.build ? { buildHasErrors: data.build.hasErrors } : {}),
+  };
+  const failed = Object.entries(checks)
+    .filter(([key, value]) => (key === 'buildHasErrors' ? value !== false : value !== true))
+    .map(([key]) => key);
+  const browser = data.browser;
+  const browserNote =
+    browser === undefined
+      ? '浏览器复核：未记录'
+      : browser.status === 'skipped'
+        ? `浏览器复核：skipped（${browser.reason ?? '未找到 Chromium'}）`
+        : `浏览器复核：${browser.status}`;
+  return {
+    id: spec.id,
+    requirement: spec.requirement,
+    dimension: spec.dimension,
+    engine: data.engine ?? 'webpack',
+    status: data.status === 'pass' && failed.length === 0 ? 'pass' : 'fail',
+    command: spec.command,
+    evidence: spec.evidenceFile,
+    notes:
+      `${Object.entries(checks)
+        .map(([key, value]) => `${key}=${String(value)}`)
+        .join('；')}；${browserNote}` +
+      (failed.length > 0 ? `；**失败项**：${failed.join('、')}` : ''),
+  };
+}
+
+cells.push(...webpackCells.map(webpackCell));
+
 /** 本机做不了的格子：缺什么、归谁，写清楚。 */
 const blocked = [
   {
@@ -171,28 +253,6 @@ const blocked = [
     command: '—',
     evidence: '无——本机无 Android 设备与 adb 通道',
     notes: '缺：**真机 + adb**；含 OEM WebView/省电策略差异。归 T29。',
-  },
-  {
-    id: 'import.webpack.production',
-    requirement: '指南 4.2：webpack 生产构建',
-    dimension: '接入方式 / webpack 生产构建',
-    engine: '—',
-    status: 'blocked',
-    command: '—',
-    evidence: '无——仓库未安装 webpack（`node_modules` 无 webpack；examples/ 也没有 webpack 工程）',
-    notes:
-      '缺：**新增 example + webpack 依赖（需负责人批准）**。当前只能给出间接判据：`exports` 的 ' +
-      '`import`/`types` 条件齐全、产物是标准 ESM（webpack 5 消费 ESM 无障碍），但**这不是实测**。归 T29 或待批准后补。',
-  },
-  {
-    id: 'import.webpack.devServer',
-    requirement: '指南 4.2：webpack 开发服务器',
-    dimension: '接入方式 / webpack 开发服务器',
-    engine: '—',
-    status: 'blocked',
-    command: '—',
-    evidence: '无——同上',
-    notes: '缺：同 webpack 生产构建（新增 example + 依赖需批准）。归 T29 或待批准后补。',
   },
 ];
 

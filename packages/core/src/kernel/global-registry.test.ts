@@ -234,6 +234,83 @@ describe('C02-F6 全局注册表补充单元测试', () => {
     expect(registry.stats().hooks).toBe(0);
   });
 
+  it('dispose 时全局值已被外部叠加包装：只撤销自己的记录，不动外部那一层', () => {
+    const counters = createCounters();
+    const registry = createGlobalRegistry({ counters, target: null });
+    const host = { run: (): string => 'native' };
+
+    registry.hook(host, 'run', (original) => () => `sdk(${original()})`);
+    const sdkComposite = host.run;
+    // 第三方 APM 在 SDK 之上再包一层（"SDK 先装、第三方后装"）。
+    const apmWrapper = (): string => `apm(${sdkComposite()})`;
+    host.run = apmWrapper;
+
+    registry.dispose();
+
+    // Q7 第 4 条：销毁只撤销自己的逻辑，外部包装层必须原样保留且仍能穿过 SDK 层。
+    expect(host.run).toBe(apmWrapper);
+    expect(host.run()).toBe('apm(sdk(native))');
+    expect(registry.stats().hooks).toBe(0);
+    expect(counters.get('processor_error')).toBe(0);
+  });
+
+  it('dispose 时 SDK 仍是最后一层：还原到 hook 前的基线（第三方先装的顺序）', () => {
+    const counters = createCounters();
+    const registry = createGlobalRegistry({ counters, target: null });
+    const host = { run: (): string => 'native' };
+
+    // 第三方 APM 先装：SDK 的 chain.base 就是第三方那一层。
+    const apmBase = host.run;
+    const apmWrapper = (): string => `apm(${apmBase()})`;
+    host.run = apmWrapper;
+
+    registry.hook(host, 'run', (original) => () => `sdk(${original()})`);
+    registry.dispose();
+
+    expect(host.run).toBe(apmWrapper);
+    expect(host.run()).toBe('apm(native)');
+    expect(registry.stats().hooks).toBe(0);
+  });
+
+  it('dispose 时第三方叠加了多层：一层都不动', () => {
+    const counters = createCounters();
+    const registry = createGlobalRegistry({ counters, target: null });
+    const host = { run: (): string => 'native' };
+
+    registry.hook(host, 'run', (original) => () => `sdk(${original()})`);
+    const sdkComposite = host.run;
+    const apmOne = (): string => `apm1(${sdkComposite()})`;
+    host.run = apmOne;
+    const apmTwo = (): string => `apm2(${apmOne()})`;
+    host.run = apmTwo;
+
+    registry.dispose();
+
+    expect(host.run).toBe(apmTwo);
+    expect(host.run()).toBe('apm2(apm1(sdk(native)))');
+    expect(registry.stats().hooks).toBe(0);
+  });
+
+  it('dispose 时多条 SDK 记录叠加在外部包装之下：外部包装与其下的 SDK 层都保留', () => {
+    const counters = createCounters();
+    const registry = createGlobalRegistry({ counters, target: null });
+    const host = { run: (): string => 'native' };
+
+    registry.hook(host, 'run', (original) => () => `sdk1(${original()})`);
+    registry.hook(host, 'run', (original) => () => `sdk2(${original()})`);
+    const sdkComposite = host.run;
+    expect(sdkComposite()).toBe('sdk2(sdk1(native))');
+    const apmWrapper = (): string => `apm(${sdkComposite()})`;
+    host.run = apmWrapper;
+
+    registry.dispose();
+
+    expect(host.run).toBe(apmWrapper);
+    expect(host.run()).toBe('apm(sdk2(sdk1(native)))');
+    expect(registry.stats().hooks).toBe(0);
+    expect(counters.get('processor_error')).toBe(0);
+  });
+
   it('定时器可注销，注册表销毁后清空全部定时器', () => {
     vi.useFakeTimers();
     try {
