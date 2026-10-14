@@ -36,9 +36,21 @@ function toPath(value: string): string {
   return queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash;
 }
 
-/** 判断是否为可用的 `page_id`（非空、去掉空白后仍有内容）。 */
-function normalizePageId(value: string | undefined): string | undefined {
-  if (value === undefined) return undefined;
+/**
+ * 归一化 `page_id`，供**外部输入边界**（`LocationSource.pageId`、`init({ pageId })`、
+ * 加载桩命令）与内部 `setPage` 共用唯一实现。
+ *
+ * 口径（D-01，`docs/reports/t33-access-blockers.md`）：外部输入在运行期可能不是字符串
+ * （JS 接入方 / SSR 适配层 / 反序列化快照给出 `null`）。`page_id` 在冻结契约里是
+ * `{"type": "string", "maxLength": 256}` 且**不在 required**，所以非字符串一律按
+ * **"未设置"**处理（**不写该键**），而不是原样写进事件体 —— 一个 `null` 会让按结构校验的
+ * 接收方按 `invalid_structure` **整批**拒收。这与本模块「非法 `page_id` 丢弃、保持合法状态」
+ * 的既有先例一致。
+ *
+ * 合法字符串取纯路径（去掉 `?query`/`#hash`）、去首尾空白，并截断到 256（Schema 上限）。
+ */
+export function normalizePageId(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
   const path = toPath(value).trim();
   if (path.length === 0) return undefined;
   return truncateUtf16Safe(path, MAX_PAGE_ID_LENGTH);

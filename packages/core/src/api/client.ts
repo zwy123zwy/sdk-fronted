@@ -36,6 +36,7 @@ import {
   createSessionTracker,
 } from '../context';
 import { isSchemaUuid } from '../context/schema-uuid';
+import { normalizePageId } from '../context/page';
 import type {
   ConsentManager,
   ContextStoragePort,
@@ -109,6 +110,21 @@ export const STATE_CAPABILITY = 'sdk.client_state';
  * 值是 `(command: StubCommand) => void`：把加载桩缓存的命令交给主包实例回放。
  */
 export const STUB_BRIDGE_CAPABILITY = 'sdk.stub_bridge';
+
+/**
+ * 事件出口**观察者**能力名（装配根集成点，不属于公共 API 方法；D-02）。
+ *
+ * 值是 `(observer: EventSink) => Dispose`：**追加**一个观察者，每条经管线输出的事件都会
+ * 依次调用 `eventSink`（公共 `onEvent` 的**替换**语义出口）与全部已注册观察者。
+ *
+ * 为什么必须有这个与 `onEvent` 分开的接线点：`onEvent` 的公共契约是**替换事件出口**
+ * （`init({ onEvent })` 等价物，替换语义有既有用例与文档锁定，不能改成追加）。
+ * 装配根（T18）此前用 `client.onEvent(...)` 把自己的投递接线挂在这个替换口上，
+ * 于是接入方按文档再调一次 `onEvent`（"先只观察产出、不上报"是最自然的动机）
+ * 就会**静默顶掉投递**：`flush` 恒为 `empty`、零投递、不抛错、不计数。
+ * 装配根改用本能力接线后：内部投递与接入方观察**互不顶掉**。
+ */
+export const EVENT_OBSERVER_CAPABILITY = 'sdk.event_observer';
 
 /** 非 Error 未知值的安全字符串化：优先 JSON，失败退化为类型名；从不抛错。 */
 function stringifyUnknown(value: unknown): string {
@@ -215,6 +231,13 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   const kernel: Kernel = createKernel({ target: options.target, registry: options.registry });
   const counters = kernel.counters;
 
+  /**
+   * 事件出口**观察者**（`EVENT_OBSERVER_CAPABILITY` 的落地）。
+   *
+   * 与公共 `eventSink` 分离：`eventSink` 是**替换**语义（`onEvent`），本集合是**追加**语义，
+   * 由装配根用来接线投递，因此接入方替换 `onEvent` 不会影响投递（D-02）。
+   */
+  const observers = new Set<EventSink>();
   let eventSink: EventSink = options.onEvent ?? NO_EVENT_SINK;
   let diagnosticsSink: DiagnosticsSink = resolveDiagnostics(options.debug);
   let locationSource: LocationSource | undefined = options.location;
@@ -279,8 +302,8 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
    * 白名单来源是 C03 的生效配置（`privacy.url_query_allowlist`）；未装配配置运行时时为空数组
    * （即「默认删除全部查询参数」，比规则匹配更强的兜底）。
    */
-  function maskUrl(url: string | undefined): string | undefined {
-    if (url === undefined) return undefined;
+  function maskUrl(url: unknown): string | undefined {
+    if (typeof url !== 'string') return undefined;
     return sanitizeUrl(url, urlQueryAllowlist, masker);
   }
 
@@ -306,10 +329,20 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     emit(event);
   });
 
-  /** 提供 URL / page_id 调用当时的快照；SSR 环境返回全 undefined。 */
+  /**
+   * 提供 URL / page_id 调用当时的快照；SSR 环境返回全 undefined。
+   *
+   * 位置来源是**外部输入**：`LocationSource` 的类型声明是 `string | undefined`，但 JS 接入方、
+   * SSR 适配层或反序列化的位置快照在运行期可能给出 `null`/数字。这里做与契约同源的归一化
+   * （`pageId` 非字符串 → 按"未设置"；`href` 非字符串 → 按"未提供"），否则 `null` 会被原样
+   * 写进事件体，被按结构校验的接收方**整批**拒收（D-01，见 `docs/reports/t33-access-blockers.md`）。
+   */
   function resolveLocation(): LocationSource {
-    if (locationSource !== undefined) return locationSource;
-    return readLocation();
+    const source = locationSource ?? readLocation();
+    return {
+      href: typeof source.href === 'string' ? source.href : undefined,
+      pageId: normalizePageId(source.pageId),
+    };
   }
 
   function drop(record: DiagnosticsRecord): void {
@@ -365,12 +398,23 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     counters.count(decision.reason ?? 'consent_denied');
   }
 
-  /** 事件出口；sink 抛错只计数 `processor_error`，不影响业务。 */
+  /**
+   * 事件出口：公共 `eventSink`（`onEvent`，替换语义）与**全部观察者**（追加语义，装配根接线）。
+   * 任一 sink 抛错只计数 `processor_error`，不影响业务，也不影响其他 sink。
+   */
   function emit(event: KernelEvent): void {
     try {
       eventSink(event);
     } catch {
       counters.count(API_REASON_CODES.processorError);
+    }
+    // 复制一份，允许观察者在回调里注销自己。
+    for (const observer of [...observers]) {
+      try {
+        observer(event);
+      } catch {
+        counters.count(API_REASON_CODES.processorError);
+      }
     }
   }
 
@@ -380,7 +424,8 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     return {
       occurredAt: command.occurredAt,
       eventId: command.eventId,
-      pageId: command.pageId ?? currentPageId ?? resolved.pageId,
+      // 命令里的 `pageId` 可能来自外部（加载桩），一律过同一套归一化：非字符串 → 未设置。
+      pageId: normalizePageId(command.pageId) ?? currentPageId ?? resolved.pageId,
       viewId: command.viewId ?? contextStore.snapshot().view_id,
       url: command.url ?? resolved.href,
     };
@@ -729,15 +774,19 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     appId = initOptions.appId;
     const previousConsent = consent;
     if (isConsentState(initOptions.consent)) consent = initOptions.consent;
-    if (isNonEmptyString(initOptions.pageId)) currentPageId = initOptions.pageId;
+    if (isNonEmptyString(initOptions.pageId)) currentPageId = normalizePageId(initOptions.pageId) ?? currentPageId;
     if (initOptions.debug !== undefined) diagnosticsSink = resolveDiagnostics(initOptions.debug);
     if (initOptions.onEvent !== undefined) eventSink = initOptions.onEvent;
-    if (initOptions.location !== undefined) {
-      locationSource = initOptions.location;
-      if (initOptions.location.href !== undefined && command.url === undefined) {
+    // 位置来源同样是外部输入：先按契约形状归一化再存入（非字符串 href/pageId 一律视为未提供），
+    // 既避免 `null.href` 这类运行期异常，也避免把契约外的值写进事件体（D-01）。
+    const requestedLocation: unknown = initOptions.location;
+    if (isPlainRecord(requestedLocation)) {
+      const href = typeof requestedLocation['href'] === 'string' ? requestedLocation['href'] : undefined;
+      locationSource = { href, pageId: normalizePageId(requestedLocation['pageId']) };
+      if (href !== undefined && command.url === undefined) {
         // 只有「新初始化的直接调用」才用 init 的 location 更新追踪器；
         // 从命令队列回放的任务带着自己的入队快照，不能被当前页面覆盖。
-        pageTracker.noteLocation(initOptions.location.href);
+        pageTracker.noteLocation(href);
       }
     }
     if (initOptions.dictionary !== undefined) dictionary = initOptions.dictionary;
@@ -925,6 +974,16 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   // C04 的对外句柄（供 T18 装配根与测试读取；不属于公共 API 方法）。
   kernel.registerCapability(CONTEXT_CAPABILITY, contextStore);
   kernel.registerCapability(BATCH_HEADER_CAPABILITY, headerProvider);
+  // 事件出口观察者（D-02）：**追加**语义，与公共 `onEvent` 的替换语义互不干扰。
+  kernel.registerCapability(EVENT_OBSERVER_CAPABILITY, (observer: EventSink): (() => void) => {
+    observers.add(observer);
+    let active = true;
+    return () => {
+      if (!active) return;
+      active = false;
+      observers.delete(observer);
+    };
+  });
   kernel.registerCapability(VIEW_CAPABILITY, (viewOptions?: { readonly url?: string | undefined; readonly view_id?: string | undefined }): void => {
     contextStore.configureView(viewOptions ?? {});
   });

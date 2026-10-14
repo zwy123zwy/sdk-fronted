@@ -26,10 +26,17 @@
  * 约束：模块顶层无副作用（不访问 `window`/`document`，不注册监听），所有原生能力都在
  * `createAssembly()` 调用时解析；`createAssembly()` 本身**不**调用 `client.init()`
  * （由接入方或 `assembly.init()` 触发），因此可以在测试里精确断言"从 init() 到批次发出"。
+ *
+ * 公共语义声明（D-02，`docs/reports/t33-access-blockers.md`）：
+ * `Assembly.client.onEvent(sink)` 仍然是**替换事件出口**的公共契约（等价于 `init({ onEvent })`，
+ * 语义未改）；装配根的内部投递**不再借用它**，改用内核能力 `EVENT_OBSERVER_CAPABILITY`
+ * （追加语义）。因此接入方在装配根上调用 `onEvent` 只会替换"自己的观察出口"，
+ * 不会顶掉投递；`onEvent` 返回的注销函数同理只影响接入方自己的出口。
  */
 import {
   BATCH_HEADER_CAPABILITY,
   CONTEXT_CAPABILITY,
+  EVENT_OBSERVER_CAPABILITY,
   SDK_VERSION,
   VIEW_CAPABILITY,
   createClient,
@@ -516,8 +523,23 @@ export function createAssembly(options: AssemblyOptions): Assembly {
   });
 
   // ② C08：事件出口接装饰后的队列；自监控窗口聚合后 emit 到同一个队列。
+  //
+  // D-02：这里**不能**用公共 `client.onEvent(...)`。`onEvent` 的公共契约是**替换**事件出口
+  // （等价于 `init({ onEvent })`，替换语义有既有用例与文档锁定）。装配根若借用它接线，
+  // 接入方按文档再调一次 `onEvent`（"先只观察产出、不上报"是最自然的动机）就会**静默顶掉**
+  // 投递：`flush` 恒为 `empty`、零投递、不抛错、不计数。因此改用内核的
+  // `EVENT_OBSERVER_CAPABILITY`（**追加**语义）：内部投递与接入方观察互不顶掉。
   const enqueueFromPipeline = delivery.wireEnqueue(queue);
-  client.onEvent((event: KernelEvent): void => {
+  const registerObserver = readCapability(kernel, EVENT_OBSERVER_CAPABILITY) as
+    | ((observer: (event: KernelEvent) => void) => () => void)
+    | undefined;
+  if (typeof registerObserver !== 'function') {
+    // 宁可**大声失败**也不静默丢数据：拿不到该能力说明 core 与装配根版本不配套。
+    throw new Error(
+      'core 未提供事件出口观察者能力（sdk.event_observer）：装配根无法在不占用公共 onEvent 的前提下接线投递',
+    );
+  }
+  registerObserver((event: KernelEvent): void => {
     enqueueFromPipeline(event);
   });
   const reporter = createHealthReporter({

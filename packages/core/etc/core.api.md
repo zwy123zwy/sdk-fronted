@@ -787,6 +787,9 @@ export interface ErasePort {
 export function evaluateKillSwitch(config: EffectiveConfig, sdkVersion: string): KillSwitchDecision;
 
 // @public
+export const EVENT_OBSERVER_CAPABILITY = "sdk.event_observer";
+
+// @public
 export interface EventDefinitionShape {
     // Warning: (ae-forgotten-export) The symbol "LooseFieldSpec" needs to be exported by the entry point index.d.ts
     readonly dimensions?: Readonly<Record<string, LooseFieldSpec<unknown>>> | undefined;
