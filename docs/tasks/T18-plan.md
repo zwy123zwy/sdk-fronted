@@ -4,7 +4,8 @@
 - 执行：A03；对接：前端负责人（隐私与同意相关另需安全负责人）
 - 依赖：T11（内核）、T14（C04 上下文/脱敏/同意）——**均已合入 main**
 - 所有权：`packages/plugins/src/{error,perf,route,http}`、框架集成包（如需要）、`docs/use-cases.md`、对应测试目录
-- 验收用例：`tests/acceptance/C05.md` 的 **C05-AC-01…AC-20（20 条）**（任务卡原只列 16 条，已修正；AC-15..18 归属待确认）
+- 验收用例：**C05-AC-01…AC-14、AC-19、AC-20（共 16 条）属本任务**；**AC-15…AC-18 属 T19**——依据 `tests/acceptance/C05.md` **第 3 行**原文：「对应任务：T18（AC-01 至 AC-14、AC-19、AC-20）、T19（AC-15 至 AC-18）」。
+  - ⚠️ **任务卡需回退**：卡片此前被改成「C05-AC-01 至 C05-AC-20（共 20 条）」并注明「原文漏列 AC-15..18」，**那是错的**——原卡所列 01-14、19、20 与验收文件完全一致；AC-15..18 是 T19 的双写适配器用例（C05-F5）。
 - 本计划**只读**了工作区内的最小必要材料（受本轮执行约束）；凡涉及未读文件的具体条款，一律标「待定：需按 `<文件>` 逐条填入」。
 
 ## 1. C05-F1 JS 错误归一化
@@ -86,8 +87,29 @@
 - **fail-first 必须是断言级失败**（不是 `Failed to resolve import`）；失败摘要原文留证。
 - 必须先落接口桩再写用例，避免"文件不存在"型的假失败。
 
-**待定：我打算这样定**
-- 20 条 AC 的逐条内容与断言形态：本轮受执行约束未读 `tests/acceptance/C05.md`，**下一轮第一件事就是读它并填满这张表**（含 AC-15..18 的归属确认）。
+**已读原文**：`tests/acceptance/C05.md`（20 条 AC 全文）。下表按 **C05.md 原文**填写；事件名、`source` 取值、字段名一律照抄原文，**凡原文未给出确切字段路径的，在「待定」列写明缺什么**（本轮未读 Schema，不猜字段路径）。
+
+| AC | 原文要求（照抄要点） | 测试文件（拟） | 用例名（拟） | 预写断言形态（语义） | 待定 |
+|---|---|---|---|---|---|
+| C05-AC-01 | 未捕获异常 → `web_js_error`，`source` 为 `window_error`，附脱敏后错误栈 | `packages/plugins/src/error/capture.test.ts` | `AC-01 未捕获异常上报 web_js_error 且 source=window_error` | 事件名为 `web_js_error`；`source === 'window_error'`；注入伪造敏感值的 message/stack 在产出中**不再出现** | 事件字段路径（`fields`/`dimensions`？）以 `web_js_error.schema.json` 为准 |
+| C05-AC-02 | 未处理拒绝（Error 对象 / 字符串两种拒绝值）都上报，`source` 为 `unhandled_rejection` | 同上 | `AC-02 unhandled_rejection 两种拒绝值都上报` | 两条用例各断言 `source === 'unhandled_rejection'`；字符串拒绝值也被归一化 | 字符串拒绝值的归一化字段 |
+| C05-AC-03 | 同一错误 1 秒 100 次 → 按 `fingerprint` 去重、上报次数受控、`count` 记总次数、计 `filtered_by_plugin` | 同上 | `AC-03 同指纹去重且 count 记总次数` | 上报条数 ≪ 100（预期 1）；`count`（或 `metrics.count`）`=== 100`；原因码计数含 `filtered_by_plugin` | `count` 的确切字段位置；`filtered_by_plugin` 是否已在 `reason-codes.md` 登记（**需核**） |
+| C05-AC-04 | 错误前 25 次点击与路由跳转 → 附**最近 20 条面包屑**；**面包屑中没有输入框内容** | 同上 | `AC-04 面包屑取最近 20 条且不含输入框内容` | 面包屑条数 `=== 20`（25 次操作后）；输入框的伪造值 `input.value` 在产出中**不再出现** | 面包屑字段名与承载方式；**公共 API 是否有配置入口**（见第 13 节冲突 ③） |
+| C05-AC-05 | 正常加载 → 上报 FCP、LCP、TTFB；交互后 INP；隐藏时 CLS | `packages/plugins/src/perf/vitals.test.ts` | `AC-05 五类核心指标各自上报` | 五类指标名各出现一次；值来自注入的 `PerformanceObserver` 条目（不得自行计时） | 事件名（`web_vitals`？）+ 指标字段名以 Schema 为准 |
+| C05-AC-06 | 制造 120 ms 长任务 → `web_long_task`，`duration_ms` 约 120 | `packages/plugins/src/perf/long-task.test.ts` | `AC-06 长任务上报 duration_ms` | 事件名 `web_long_task`；`duration_ms` 落在容差内（如 100–140） | 容差取值；`entryType` 列表 |
+| C05-AC-07 | 浏览器不支持某性能条目类型 → 不抛错、跳过该指标 | `packages/plugins/src/perf/degrade.test.ts` | `AC-07 不支持的条目类型被跳过且不抛错` | 注入会抛错的 `observe` 后：不抛错、该指标不上报、其余指标照常 | 覆盖哪些"不支持"形态（`observe` 抛错 / 回调不收 / 无 API） |
+| C05-AC-08 | **History 模式**下 `pushState`、`replaceState`、后退 → **每次路由变化上报 `web_pageview`**，`page_id` 为**路由模板** | `packages/plugins/src/route/history.test.ts` | `AC-08 History 三种变化各上报一次且 page_id 为模板` | 三种操作各产出 1 条 `web_pageview`；`page_id === '/task/:id'`（模板而非实参） | **与第 3 节既有结论冲突，见第 13 节冲突 ①**；`page_id` 模板来源（`routePatterns`？） |
+| C05-AC-09 | Hash 模式；另测手动模式 → Hash 变化上报；手动模式**只在业务调用时**上报 | `packages/plugins/src/route/hash.test.ts`、`.../manual.test.ts` | `AC-09 Hash 变化上报 + 手动模式不自动上报` | hash 变化产出 1 条；手动模式下不监听路由事件，仅 `setPage` 调用产出 | Hash 模式的 `page_id` 取值口径 |
+| C05-AC-10 | 成功 / 404 / 超时三请求（fetch 与 XHR 各一组）→ `web_http`，状态码与失败原因正确；**SDK 自己的上报请求不被采集** | `packages/plugins/src/http/capture.test.ts` | `AC-10 六种组合的状态码与失败原因 + 不采集自身请求` | 六条事件；404 → 状态码 404；超时 → 对应失败原因；**上报请求自身的 URL 不出现在任何 `web_http` 事件里** | 失败原因枚举值（以 `web_http.schema.json` 为准）；"自身请求"的识别方式（标记注入？） |
+| C05-AC-11 | 请求带 `Authorization` 头与含令牌的查询参数 → 上报中**不出现**这两项 | `packages/plugins/src/http/privacy.test.ts` | `AC-11 不采集 Authorization 头与查询参数中的令牌` | 伪造令牌值在产出中**不出现**（两个注入点各一条） | `Authorization`（采集侧不取）与追踪头（注入侧）的区别 |
+| C05-AC-12 | 白名单只含同源 → 只有同源请求被注入链路追踪头 | `packages/plugins/src/http/trace-header.test.ts` | `AC-12 仅同源请求注入追踪头` | 同源请求的头存在；第三方请求的头**不存在**（不是空值，是未注入） | 追踪头名（以 `ingest-protocol.md` 为准） |
+| C05-AC-13 | 只引入错误插件构建 → **产物中不包含其他插件代码** | 构建产物检查（**非单元测试**） | `AC-13 仅错误插件的构建产物不含其他插件` | 产物中不出现 perf/route/http 的可识别符号 | **验证方式待定，见第 13 节冲突 ②** |
+| C05-AC-14 | 远程配置关闭性能插件 → **观察器断开**，之后不再上报性能事件 | `packages/plugins/src/perf/kill-switch.test.ts` | `AC-14 关闭后 observer 断开且不再上报` | 关闭后 `observer.disconnect` 被调用；再注入条目**不产出**事件 | 与 C03 运行时覆盖（只能关不能开）的一致性 |
+| C05-AC-19 | 第三方 APM 先/后初始化，两边都 hook `fetch` 与 `onerror` → 两边都采到数据；**本 SDK 销毁后第三方 hook 仍生效** | `packages/plugins/src/coexist/order.test.ts` | `AC-19 两种初始化顺序都共存 + 销毁后第三方仍生效` | 两种顺序各一组：两边各收到事件；`destroy()` 后第三方 hook 仍被调用且收到数据 | 需要最小化的第三方 APM 桩（本任务自造、仅测试用） |
+| C05-AC-20 | 共存模式默认配置 → **错误、性能、HTTP 插件默认关闭**；可由远程配置逐个开启 | `packages/plugins/src/coexist/defaults.test.ts` | `AC-20 共存模式下三类插件默认关闭且可远程开启` | 共存模式默认：三类插件均不产出事件；远程配置置启用后各自产出 | **与"运行期只能关不能开"存在张力，见第 13 节冲突 ④** |
+
+**映射完成度**：16/16 逐条映射完成；其中 4 条仍有待定（AC-03 的 `count` 字段位置与 `filtered_by_plugin` 登记状态、AC-05 的事件名与指标字段名、AC-06/07 的容差与 entryType、AC-13 的验证方式）。
+**AC-15…AC-18 不在本表**——属 T19（见文件头）。
 
 ## 9. 判别力验证（变异验证）
 
@@ -130,3 +152,45 @@
 | **装配根缺失导致无法端到端验证** | "交付了但发不出数据" | 在计划与报告中显式标注；请负责人指定装配归属（第 11 节 #3） |
 | 测试后补（先实现后写测试） | fail-first 证据失真、哨兵形同虚设 | 先落接口桩 → 写用例跑出**断言级**失败 → 再实现；关键行为做变异验证（第 9 节） |
 | 未读文件导致的口径偏差 | 实现与契约不符 | 本计划中所有标「待定」的条款，下一轮**先读对应文件再定稿**，不凭印象实现 |
+
+## 13. 读原文后发现的冲突与契约疑问（**优先级高于填完整计划**）
+
+以下四条都是**读 `tests/acceptance/C05.md` 原文后发现、与计划既有结论或既有契约/配置不一致**的地方。它们不是"待定项"，而是**必须先解决否则会做错**的问题。
+
+### ① 【最严重】AC-08/AC-09 要求自动路由检测，与第 3 节「不主动打补丁 history」直接冲突
+
+- **第 3 节现有结论**：不主动打补丁 `history`/`popstate`，由接入方在路由变化后调用 `setPage`/`configureView`。
+- **但 AC-08 原文**要求：「History 模式下 `pushState`、`replaceState`、后退 → **每次路由变化上报 `web_pageview`**，`page_id` 为路由模板」；**AC-09** 还要求「Hash 变化上报」。
+- **冲突实质**：若 SDK 不打补丁、完全依赖业务调用，则 **AC-08/AC-09 描述的"三种 History 变化各自自动上报"无法成立**（业务不调用就没有事件）。
+- **三条出路**（需负责人择一，我**不自行决定**）：
+  1. **提供可选的自动路由插件**（打补丁 `pushState`/`replaceState` + 监听 `popstate`/`hashchange`），可卸载、可恢复原生方法——能满足 AC-08/09，代价是第 3 节与第 12 节的两条判断（"避免破坏宿主框架""难以回退"）被推翻，需要给出卸载保证；
+  2. **改写 AC-08/09 的口径**为"接入方调用 `setPage` 后上报，`page_id` 按其声明的模板取"——但**改验收用例不在本任务权限内**（且"验收用例不得修改"是仓库硬规矩），故这条路需负责人先改契约/用例；
+  3. **两者都提供**：默认不打补丁（安全默认），可选开启自动路由（打补丁、可卸载）——AC-08/09 在"开启自动路由"的用例下验证。
+
+### ② AC-13 是**构建产物检查**，不是单元测试——验证方式未定
+
+AC-13 原文「只引入错误插件构建 → **产物中不包含其他插件代码**」。这需要**构建 + 产物扫描**，而：
+- 仓库现有测试 project（`unit`/`contract`/`security`）都不做构建产物检查；
+- `packages/plugins` 目前只有全量入口，**没有"仅错误插件"的构建配置**；
+- `pnpm gates` 的顺序是 build 在 test 之前，理论上可在测试里读产物，但需要先有"仅错误插件"的构建产物。
+**需负责人定**：是新增一个子路径构建（属构建配置变更），还是把 AC-13 的验证交给 T30/T31 一类的工作。
+
+### ③ AC-04 要求**面包屑**，但公共 API 与用例里都没有它的位置
+
+AC-04 原文：「错误前用户做了 25 次点击和路由跳转 → 附**最近 20 条面包屑**；面包屑中没有输入框内容」。
+- 说明面包屑**确实是 C05-F1 的一部分**（作为错误事件的自动上下文），这**倾向于回答** `docs/use-cases.md` 里那条疑问（"是错误事件的自动上下文，还是独立能力"）→ **倾向自动上下文**；
+- 但仍有开放点：**面包屑缓存容量是否有公共配置入口**（20 条是硬编码还是可配）、**"点击"如何采集**（`click` 监听？会不会与宿主冲突）、以及**哪些信息进面包屑**（元素选择器？文本？——**文本就可能含输入框内容，正是这条约束要防的**）。
+- 建议：本任务按"最近 20 条、只记元素标识与动作类型、**绝不记录输入框的 `value`**"实现，容量硬编码 20；是否给配置入口请示负责人。
+
+### ④ AC-20 的"共存模式默认关闭"与 C03 的"运行期只能关不能开"存在张力
+
+- AC-20 原文：「共存模式下的默认配置 → **错误、性能、HTTP 插件默认关闭**；可由**远程配置逐个开启**」。
+- 而第 5 节现有结论是「运行期只能关，不能开」（与 C03 的运行时覆盖规则一致）。
+- **张力点**：若"默认关闭"发生在**初始化**（builtin 缺省），远程配置在**拉取后**把它们打开——那不是"运行期覆盖打开"，而是"远程配置的缺省值与内置缺省不同"，**并不违反 C03**。但前提是**"共存模式"必须在初始化时就能确定**（例如由初始化参数 `apm_coexistence: true` 决定），否则 SDK 无法知道该用哪套缺省。
+- **需负责人定**：共存模式如何声明（初始化参数？远程配置的某个标志？）、以及**非共存模式**下 error/perf 的缺省是开还是关（T13 的内建默认表记的是 error/perf/route 开、http 关，与 AC-20 的共存模式缺省不同）。
+
+### 附：本轮未读、需下一轮补的
+
+- `docs/contracts/schemas/builtin-events/{web_js_error,web_vitals,web_long_task,web_pageview,web_http}.schema.json` —— 用于填 §1 的 `fingerprint` 构成、§2 的 `entryType` 清单、§7 的负向样本、以及 §8 表中所有"字段路径/事件名"待定项；
+- `docs/contracts/event-standard.md` 第 6 节 与 `reason-codes.md`（核 `filtered_by_plugin` 是否已登记）；
+- `docs/contracts/ingest-protocol.md` 2.2（追踪头名）。
