@@ -55,8 +55,6 @@ export const BUILTIN_SENSITIVE_HEADERS: readonly string[];
 
 // @public
 export interface BuiltinMaskRule {
-    readonly added: number;
-    readonly gate: number;
     // (undocumented)
     readonly name: string;
     // (undocumented)
@@ -280,10 +278,8 @@ export interface CommandQueuePushResult {
 
 // @public
 export interface CompiledMaskRule {
-    readonly added?: number | undefined;
     // (undocumented)
     readonly builtin: boolean;
-    readonly gate?: number | undefined;
     // (undocumented)
     readonly name: string;
     // (undocumented)

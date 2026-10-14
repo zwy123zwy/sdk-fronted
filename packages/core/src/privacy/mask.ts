@@ -4,7 +4,7 @@
  * 语义：**替换而非丢弃** —— 每条规则把命中片段替换为配置的替换串，事件继续发送；
  * 命中本身只计数（原因码见 `reason-codes.ts`）。
  *
- * 性能口径：规则表由 `compileMaskRules` 在配置到达时**预编译一次**；`apply()` 只做
+ * 性能口径：规则表由 `compileMaskPlan` 在配置到达时**预编译一次**；`apply()` 只做
  * `String.prototype.replace` 遍历，**不再 new RegExp**。预编译的 `g` 正则可安全跨事件复用：
  * `replace` 在返回前会把 `lastIndex` 复位为 0（含回调抛错的路径）。
  *
@@ -16,12 +16,15 @@
  *
  * 门的正确性依赖「已见特征 ⊇ 当前文本特征」：命中片段被**非空**替换串取代，替换串引入的
  * 特征位由每条规则的 `added` 在命中后并入，因此不会出现「前面的替换让后面的门误判为否」。
- * 追加规则没有门（语义未知），无条件运行。
+ * 追加规则没有门（`gate === 0`），无条件运行。
+ *
+ * `gate` / `added` **不在公共 `CompiledMaskRule` 里**——它们是本优化的实现细节，不是脱敏器
+ * 对外语义（否则换一种优化就成了破坏性变更）。本文件用内部类型 `GatedCompiledMaskRule`
+ * 读取门信息：不需要 `as`，也不污染公共类型；改优化方式只需改 `mask-rules.ts` 的内部类型。
  *
  * 用例见 `mask.test.ts`（AC-07/AC-08）与 `mask-adversarial.test.ts`（有界耗时）。
  */
-import { compileMaskRules, scanMaskFeatures } from './mask-rules';
-import type { CompiledMaskRule } from './mask-rules';
+import { compileMaskPlan, scanMaskFeatures } from './mask-rules';
 import type { MaskRule, Masker } from './types';
 
 /**
@@ -36,17 +39,18 @@ function gatePasses(gate: number, features: number): boolean {
 
 /** 创建脱敏器。规则表在创建时编译一次。 */
 export function createMasker(rules: readonly MaskRule[] = []): Masker {
-  const compiled: readonly CompiledMaskRule[] = compileMaskRules(rules);
+  // 内部类型：带 `gate` / `added`（公共 `CompiledMaskRule` 里没有这两个字段）。
+  const compiled = compileMaskPlan(rules);
   return {
     apply(text: string): string {
       if (compiled.length === 0) return text;
       let output = text;
       let features = scanMaskFeatures(text);
       for (const rule of compiled) {
-        if (!gatePasses(rule.gate ?? 0, features)) continue;
+        if (!gatePasses(rule.gate, features)) continue;
         const next = output.replace(rule.regex, rule.replacement);
         if (next !== output) {
-          features |= rule.added ?? 0;
+          features |= rule.added;
           output = next;
         }
       }

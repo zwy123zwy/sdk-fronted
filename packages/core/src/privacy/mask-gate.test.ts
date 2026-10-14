@@ -17,8 +17,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { createMasker } from './mask';
-import { compileMaskRules } from './mask-rules';
-import type { CompiledMaskRule } from './mask-rules';
+import { compileMaskPlan, compileMaskRules } from './mask-rules';
+import type { GatedCompiledMaskRule } from './mask-rules';
 import type { MaskRule } from './types';
 
 /** 伪造样例（与 `mask.test.ts` 同一套）。 */
@@ -44,9 +44,9 @@ function referenceApply(text: string, extra: readonly MaskRule[] = []): string {
   return output;
 }
 
-/** 读取前置门（缺省 0 = 无门 = 无条件运行）。 */
-function gateOf(rule: CompiledMaskRule): number {
-  return rule.gate ?? 0;
+/** 读取前置门（0 = 无门 = 无条件运行）。`gate` 是内部字段，见 `GatedCompiledMaskRule`。 */
+function gateOf(rule: GatedCompiledMaskRule): number {
+  return rule.gate;
 }
 
 /** 确定性 PRNG（mulberry32），保证语料可复现。 */
@@ -149,7 +149,8 @@ describe('C04-F4 前置门与参考实现逐条等价（语义不变对照）', 
   });
 
   it('每条内置规则都带非零前置门（优化机制守卫，不依赖墙钟）', () => {
-    const compiled = compileMaskRules([]);
+    // 门是内部字段：从内部 `compileMaskPlan` 读，而不是从公共的 `CompiledMaskRule`。
+    const compiled = compileMaskPlan([]);
     expect(compiled).toHaveLength(7);
     for (const rule of compiled) {
       expect(gateOf(rule), `内置规则 ${rule.name} 缺少前置门（性能优化未生效）`).toBeGreaterThan(0);
@@ -157,10 +158,27 @@ describe('C04-F4 前置门与参考实现逐条等价（语义不变对照）', 
   });
 
   it('追加规则没有前置门（语义未知，必须无条件运行）', () => {
-    const compiled = compileMaskRules(EXTRA_RULES);
+    const compiled = compileMaskPlan(EXTRA_RULES);
     for (const rule of compiled) {
       if (!rule.builtin) expect(gateOf(rule), `追加规则 ${rule.name} 不应带前置门`).toBe(0);
     }
+  });
+
+  it('公共规则表与内部计划逐条同源（公共面只有规则本身，门是内部数据）', () => {
+    // 「gate/added 不在公共类型里」由类型层与 `scripts/api-check.mjs` 的报告验证；
+    // 这里验证公共 `compileMaskRules` 与内部 `compileMaskPlan` 产出逐条一致。
+    const plan = compileMaskPlan(EXTRA_RULES);
+    const publicRules = compileMaskRules(EXTRA_RULES);
+    expect(publicRules).toHaveLength(plan.length);
+    plan.forEach((rule, index) => {
+      const publicRule = publicRules[index];
+      expect(publicRule?.name).toBe(rule.name);
+      expect(publicRule?.replacement).toBe(rule.replacement);
+      expect(publicRule?.regex.source).toBe(rule.regex.source);
+      expect(publicRule?.regex.flags).toBe(rule.regex.flags);
+      expect(publicRule?.builtin).toBe(rule.builtin);
+      expect(rule.gate).toBeGreaterThanOrEqual(0);
+    });
   });
 });
 

@@ -62,6 +62,20 @@ export interface BuiltinMaskRule {
   readonly name: string;
   readonly pattern: string;
   readonly replacement: string;
+  /** 便于文档化的示例（伪造数据，用于规则清单文档与自检，不参与运行）。 */
+  readonly sample: string;
+  readonly sampleMasked: string;
+}
+
+/**
+ * **内部类型**：内置规则 + 前置门数据（`gate` 与 `added`）。
+ *
+ * 这两个字段是脱敏**优化**（前置门）的实现细节，不是脱敏器对外语义的一部分：公共面只说
+ * 「规则是什么、替换成什么」，不说「怎么快速判断要不要跑它」。放进导出的 `BuiltinMaskRule`
+ * 会把这次优化的实现方式冻结成 API（换一种优化或去掉门都成了破坏性变更），因此只存在于
+ * 内部类型里；`BUILTIN_MASK_RULES` 的公共声明类型仍是 `readonly BuiltinMaskRule[]`。
+ */
+interface GatedBuiltinMaskRule extends BuiltinMaskRule {
   /** 廉价前置门：正则可能命中所需的文本特征位（`scanMaskFeatures` 的子集）。 */
   readonly gate: number;
   /**
@@ -69,13 +83,10 @@ export interface BuiltinMaskRule {
    * 命中片段被**非空**替换串取代，因此替换只会新增特征、不会把两段原文拼到一起。
    */
   readonly added: number;
-  /** 便于文档化的示例（伪造数据，用于规则清单文档与自检，不参与运行）。 */
-  readonly sample: string;
-  readonly sampleMasked: string;
 }
 
 /**
- * 内置脱敏规则（共 7 条，顺序即契约表格顺序）。
+ * 内置脱敏规则（共 7 条，顺序即契约表格顺序；这是**内部**表，带前置门数据）。
  *
  * 写作要点：
  * - `email`：本地段与域标签各自单量词，域标签用固定长度重复，无嵌套量词；
@@ -89,7 +100,7 @@ export interface BuiltinMaskRule {
  * 每条规则另带 `gate`（廉价前置门）与 `added`（替换串引入的特征位），口径见
  * `scanMaskFeatures` 的注释：`gate` 必须是该正则命中的**必要条件**。
  */
-export const BUILTIN_MASK_RULES: readonly BuiltinMaskRule[] = [
+const GATED_BUILTIN_MASK_RULES: readonly GatedBuiltinMaskRule[] = [
   {
     name: 'email',
     pattern: '[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\\.[A-Za-z0-9-]{1,63}){0,4}\\.[A-Za-z]{2,24}',
@@ -164,6 +175,14 @@ export const BUILTIN_MASK_RULES: readonly BuiltinMaskRule[] = [
   },
 ];
 
+/**
+ * 内置脱敏规则（公共视图，共 7 条，顺序即契约表格顺序）。
+ *
+ * 契约依据 `remote-config.md` 5.4：内置项不可删除、不可禁用、不可被配置覆盖。
+ * 前置门等优化细节不在本类型里，见 `GatedBuiltinMaskRule` 的注释。
+ */
+export const BUILTIN_MASK_RULES: readonly BuiltinMaskRule[] = GATED_BUILTIN_MASK_RULES;
+
 /** 内置敏感请求头的规范名（小写；**不区分大小写**匹配，值一律不采集）。 */
 export const BUILTIN_SENSITIVE_HEADERS: readonly string[] = [
   'authorization',
@@ -183,17 +202,28 @@ export interface CompiledMaskRule {
   readonly regex: RegExp;
   readonly replacement: string;
   readonly builtin: boolean;
-  /**
-   * 廉价前置门：所需文本特征位（`0` / 缺省 = 无条件运行）。
-   * 追加规则语义未知，恒不带门（缺省），保证远程追加的命中行为与优化前一致。
-   */
-  readonly gate?: number | undefined;
-  /** 该规则替换串引入的特征位（缺省 = 不引入）；命中后并入已见特征。 */
-  readonly added?: number | undefined;
 }
 
 /**
- * 把「内置 + 远程追加」编译为规则表。
+ * **内部类型**：编译后的规则 + 前置门数据（`gate` / `added`）。
+ *
+ * 与 `GatedBuiltinMaskRule` 同理，这两个字段**不放进导出的 `CompiledMaskRule`**：
+ * 它们是前置门这一优化的实现细节，不是脱敏器对外语义。
+ * `compileMaskRules`（公共）的声明类型仍是 `readonly CompiledMaskRule[]`；
+ * `compileMaskPlan`（内部）才返回本类型，供 `createMasker` 读取门信息。
+ */
+export interface GatedCompiledMaskRule extends CompiledMaskRule {
+  /**
+   * 廉价前置门：所需文本特征位（`0` = 无条件运行）。
+   * 追加规则语义未知，恒为 0，保证远程追加的命中行为与优化前一致。
+   */
+  readonly gate: number;
+  /** 该规则替换串引入的特征位（0 = 不引入）；命中后并入已见特征。 */
+  readonly added: number;
+}
+
+/**
+ * 把「内置 + 远程追加」编译为**带前置门**的规则表（内部；`createMasker` 用）。
  *
  * 口径（见 `docs/tasks/T14-plan.md` 第 4 点与裁定记录）：
  * - 内置 7 条永远在最前，`extra` 按配置顺序追加；
@@ -201,18 +231,20 @@ export interface CompiledMaskRule {
  * - 单条 `pattern`/`flags` 无法编译时**丢弃该条**（不抛错），由调用方按 `config_schema_invalid` 计数；
  * - 内置规则的 `name` 不可被 `extra` 覆盖（同名追加规则仍然生效为**追加**，不替换内置项）；
  * - **只有内置 7 条带前置门**：追加规则的 pattern 由远程给，语义未知，必须无条件运行
- *   （否则可能漏判远程规则，等于削弱脱敏）。
+ *   （否则可能漏判远程规则，等于削弱脱敏），其 `gate` / `added` 恒为 0。
+ *
+ * `gate` / `added` 属内部实现细节，不出现在公共的 `CompiledMaskRule` 里。
  *
  * @param extra 远程追加规则（`privacy.extra_mask_rules` 的已解析形态）。
  * @param createRegExp 正则工厂（默认 `(pattern, flags) => new RegExp(pattern, flags)`；测试可注入）。
  */
-export function compileMaskRules(
+export function compileMaskPlan(
   extra: readonly MaskRule[],
   createRegExp?: (pattern: string, flags: string) => RegExp,
-): readonly CompiledMaskRule[] {
+): readonly GatedCompiledMaskRule[] {
   const make = createRegExp ?? ((pattern: string, flags: string): RegExp => new RegExp(pattern, flags));
-  const compiled: CompiledMaskRule[] = [];
-  for (const rule of BUILTIN_MASK_RULES) {
+  const compiled: GatedCompiledMaskRule[] = [];
+  for (const rule of GATED_BUILTIN_MASK_RULES) {
     compiled.push({
       name: rule.name,
       regex: make(rule.pattern, 'g'),
@@ -233,12 +265,25 @@ export function compileMaskRules(
         regex: make(rule.pattern, flags),
         replacement: rule.replacement ?? '***',
         builtin: false,
+        gate: 0,
+        added: 0,
       });
     } catch {
       // 非法正则：丢弃该条，由调用方计数 config_schema_invalid（T13 的原因码）
     }
   }
   return compiled;
+}
+
+/**
+ * 把「内置 + 远程追加」编译为公共规则表（对外声明类型不含前置门）。
+ * 行为与 `compileMaskPlan` 完全一致，只是**类型**上看不到 `gate` / `added`。
+ */
+export function compileMaskRules(
+  extra: readonly MaskRule[],
+  createRegExp?: (pattern: string, flags: string) => RegExp,
+): readonly CompiledMaskRule[] {
+  return compileMaskPlan(extra, createRegExp);
 }
 
 /**
