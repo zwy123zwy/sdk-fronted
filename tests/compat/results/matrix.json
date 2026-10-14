@@ -53,10 +53,11 @@
       "requirement": "指南 4.2：Jest（默认 CJS）与 webpack `require` 场景",
       "dimension": "接入方式 / CJS require",
       "engine": "node 24",
-      "status": "fail",
+      "status": "by-design",
       "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
       "evidence": "ERR_PACKAGE_PATH_NOT_EXPORTED（见用例内断言与报告）",
-      "notes": "`exports` 没有 `require` 条件，CJS `require(\"@web-report-sdk/browser\")` 直接失败；现有 Jest 示例靠 `--experimental-vm-modules` + `.mjs` 才能跑（属额外配置）。**真实缺口，需决策**。"
+      "notes": "`exports` 没有 `require` 条件，CJS `require(\"@web-report-sdk/browser\")` 直接失败；现有 Jest 示例靠 `--experimental-vm-modules` + `.mjs` 才能跑（属额外配置）。**真实缺口，需决策**。",
+      "note": "ESM-only 包，CJS `require()` 报 ERR_PACKAGE_PATH_NOT_EXPORTED。2026-10-13 编排方按方案定案：**不为浏览器 SDK 增加 CJS 构建**（双格式发布+放大产物，收益存疑），指南口径改为「ESM-only；Jest 默认 CJS 模式无法直接导入 ESM 包，须开 --experimental-vm-modules」（见 docs/agent-development-guide.md 第 4.2 节与 board 记录）。因此本格不再是\"失败\"，而是**有意识的不支持**。"
     },
     {
       "id": "import.vite.build",
@@ -458,5 +459,6 @@
       "evidence": "无——本机无 Android 设备与 adb 通道",
       "notes": "缺：**真机 + adb**；含 OEM WebView/省电策略差异。归 T29。"
     }
-  ]
+  ],
+  "updated": "2026-10-13"
 }
