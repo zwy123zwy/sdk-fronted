@@ -20,12 +20,14 @@ export const API_REASON_CODES: {
 export function applyKillSwitch(kernel: Kernel, decision: KillSwitchDecision, stopRuntime: () => void): void;
 
 // @public
+export const BATCH_HEADER_CAPABILITY = "sdk.batch_header";
+
+// @public
 export type BatchConsent = 'granted' | 'denied' | 'unknown';
 
 // @public
 export interface BatchHeaderProviderOptions {
-    // (undocumented)
-    readonly appId: string;
+    readonly appId: string | (() => string);
     // (undocumented)
     readonly clock: () => ClockState;
     // (undocumented)
@@ -187,9 +189,11 @@ export interface ClientInitOptions {
 // @public
 export interface ClientOptions extends ClientInitOptions {
     readonly debug?: boolean | DiagnosticsSink | undefined;
+    readonly erase?: ErasePort | undefined;
     readonly location?: LocationSource | undefined;
     readonly onEvent?: EventSink | undefined;
     readonly registry?: GlobalRegistry | undefined;
+    readonly storage?: ContextStoragePort | undefined;
     readonly target?: EventTarget | null | undefined;
 }
 

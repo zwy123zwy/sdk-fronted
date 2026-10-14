@@ -16,6 +16,7 @@ import { CommandQueuePushResult } from '@web-report-sdk/core';
 import { ConfigRuntime } from '@web-report-sdk/core';
 import { ConsentMode } from '@web-report-sdk/core';
 import { ConsentState } from '@web-report-sdk/core';
+import { ContextStoragePort } from '@web-report-sdk/core';
 import { createClient } from '@web-report-sdk/core';
 import { createCommandQueue } from '@web-report-sdk/core';
 import { createSdk } from '@web-report-sdk/core';
@@ -127,6 +128,7 @@ export interface AssemblyOptions {
     readonly route?: RoutePluginOptions | undefined;
     readonly sessionSampleRate?: number | undefined;
     readonly startHealthReporting?: boolean | undefined;
+    readonly storage?: ContextStoragePort | undefined;
     readonly target?: EventTarget | null | undefined;
     readonly token?: string | undefined;
     readonly transport?: TransportPort | undefined;

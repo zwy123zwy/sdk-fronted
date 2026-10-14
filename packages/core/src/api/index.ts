@@ -2,7 +2,12 @@
  * C01 公共 API 汇总（T12）。只从 `packages/core/src/index.ts` 对外暴露。
  * 模块顶层无副作用，可被 SSR 与 Vitest 直接导入。
  */
-export { createClient, STATE_CAPABILITY, STUB_BRIDGE_CAPABILITY } from './client';
+export {
+  BATCH_HEADER_CAPABILITY,
+  createClient,
+  STATE_CAPABILITY,
+  STUB_BRIDGE_CAPABILITY,
+} from './client';
 export { createCommandQueue } from './command-queue';
 export type { CommandQueue, CommandQueuePushResult, QueuedCommand } from './command-queue';
 export { createSdk } from './sdk';

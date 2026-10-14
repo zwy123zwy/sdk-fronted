@@ -39,6 +39,7 @@ import type {
   ConsentManager,
   ContextStoragePort,
   ContextStore,
+  ErasePort,
   PageTracker,
   SessionTracker,
 } from '../context';
@@ -156,10 +157,11 @@ const SDK_NAME = '@web-report-sdk/core';
  * **默认只驻留内存**（2026-10-13 经负责人裁定）：core **不自行读写 `window.localStorage`**——
  * 这与 `context/ports.ts` 的声明一致（「core 不读 `window`/`localStorage`，由装配根注入实现」），
  * 也符合 D004 的实测结论（`localStorage` 的写入不是同步持久化，硬杀窗口内会整段丢失）与
- * 「不把标识符默认写到磁盘」的隐私取向。需要跨页面持久的接入方，由装配根（T18）注入一个
- * 持久化实现（`ContextStoragePort` 本就是注入端口）。
+ * 「不把标识符默认写到磁盘」的隐私取向。需要跨页面持久的接入方，由装配根（T18）通过
+ * `ClientOptions.storage` 注入一个持久化实现；**不注入时每实例一份内存 Map，行为与从前逐字一致**。
  */
-function resolveContextStorage(): ContextStoragePort {
+function resolveContextStorage(injected: ContextStoragePort | undefined): ContextStoragePort {
+  if (injected !== undefined) return injected;
   const map = new Map<string, string>();
   return {
     read: (key) => map.get(key),
@@ -235,7 +237,9 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   // 未装配时白名单为空 = 默认删除全部查询参数（比规则匹配更强的兜底）。
   const urlQueryAllowlist: string[] = [...(options.url_query_allowlist ?? [])];
   const masker: Masker = createMasker(options.extra_mask_rules ?? []);
-  const storage = resolveContextStorage();
+  // 同意驱动的清理端口（装配根注入具体实现；未注入时三个口都是 `undefined`，什么都不做）。
+  const erase: ErasePort = options.erase ?? {};
+  const storage = resolveContextStorage(options.storage);
   const sessionTracker: SessionTracker = createSessionTracker({
     createId: createUuid,
     now: () => Date.now(),
@@ -281,7 +285,9 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
 
   const clock = createClockCalibration();
   const headerProvider = createBatchHeaderProvider({
-    appId: '',
+    // 批次 Schema 要求 `app_id` 非空：取**当前**的 `appId`（init 之后才有值），
+    // 不能在构造时把 `''` 固化进 provider（T18 装配根实测发现的缺陷）。
+    appId: () => appId ?? '',
     sdkName: SDK_NAME,
     sdkVersion: SDK_VERSION,
     ...(options.env === undefined ? {} : { env: options.env }),
@@ -683,8 +689,16 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     consent = state;
     consentManager.setState(state);
     sessionTracker.onConsentChange(state, consentMode);
-    // `denied`：清除持久化/内存中的设备标识（离线数据与会话随机数由清理端口通知，见 ErasePort）。
-    if (state === 'denied') sessionTracker.purge();
+    // `denied`：C04 清除自己的设备标识/会话（`purge()`），其余归属别的模块的本地数据
+    // 通过注入的 `ErasePort` 通知 —— C07 的离线数据、C03 的会话随机数。
+    // 修复记录（2026-10-13，负责人批准）：`ErasePort` 此前是死类型（有声明、无注入点、
+    // 无调用点），导致"撤回同意后清除离线数据/会话随机数"从未发生（T31 对应验收项无法通过）。
+    if (state === 'denied') {
+      sessionTracker.purge();
+      erase.deviceId?.();
+      erase.offlineData?.();
+      erase.sessionRandom?.();
+    }
   }
 
   /** `configureView`：导航通知（路由变化时轮换 `view_id`，并更新 `url`）。 */

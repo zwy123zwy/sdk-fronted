@@ -66,6 +66,7 @@ export type {
 // 说明：`createClient` / `sdk` 是唯一会创建默认实例的入口；其余导出都是纯函数或类型。
 export {
   API_REASON_CODES,
+  BATCH_HEADER_CAPABILITY,
   COMMAND_QUEUE_CAPACITY,
   MAX_DIMENSION_VALUE_LENGTH,
   PUBLIC_METHODS,

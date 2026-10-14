@@ -242,7 +242,11 @@ export interface C04BatchHeader {
 
 /** 批次头提供者的创建选项（全部为读取函数，每次取头重新求值）。 */
 export interface BatchHeaderProviderOptions {
-  readonly appId: string;
+  /**
+   * 应用标识。常量或**读取函数**均可：`api/client.ts` 传读取函数，取 `init` 之后才有的
+   * `appId`（此前构造时写死 `''`，会让批次 Schema 的必填 `app_id` 为空——已合入代码里的契约违规）。
+   */
+  readonly appId: string | (() => string);
   readonly sdkName: string;
   readonly sdkVersion: string;
   /** 缺省 `production`（批次 Schema 要求 env 小写字母开头、≤32 字符）。 */

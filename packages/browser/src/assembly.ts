@@ -15,7 +15,8 @@
  * 3. C04 的三个端口：`clock.noteServerTime` ← C07 的 `onServerTime`（`X-Server-Time`）；
  *    `header()` ← 内核能力 `sdk.batch_header`，再补上本条线的 `app_id` 与校准后的
  *    `clock_offset`/`clock_calibrated`，交给 C06 的 `BatchHeaderSource`；
- *    `erasePort` 的 `offlineData` ← C07 的 `clearOffline`，在 `setConsent('denied')` 时触发。
+ *    `erasePort` 的 `offlineData` ← C07 的 `clearOffline`，注入 `createClient({ erase })`，
+ *    由 C04 在 `setConsent('denied')` 时触发（core 缺陷已修：`ErasePort` 不再是无调用点的死类型）。
  * 4. 存储端口：core 的上下文存储默认驻留内存（负责人 2026-10-13 裁定），本模块不注入持久化实现。
  * 5. `packages/plugins` 的 core 依赖：已由 M3 落地（本模块直接拥有 `PACKAGE_NAME` 侧的类型）。
  * 6. `measure:apm-adapter`：已在根 `package.json`（不归本模块）。
@@ -27,6 +28,7 @@
  * （由接入方或 `assembly.init()` 触发），因此可以在测试里精确断言"从 init() 到批次发出"。
  */
 import {
+  BATCH_HEADER_CAPABILITY,
   CONTEXT_CAPABILITY,
   SDK_VERSION,
   VIEW_CAPABILITY,
@@ -43,6 +45,7 @@ import type {
   ConfigRuntime,
   ConsentMode,
   ConsentState,
+  ContextStoragePort,
   ContextStore,
   C04BatchHeader,
   ErasePort,
@@ -98,15 +101,6 @@ import type {
   TransportQueue,
 } from '@web-report-sdk/transport';
 
-/**
- * 内核能力名 `sdk.batch_header`。
- *
- * 为什么不 import：`packages/core/src/api/client.ts` 导出了常量，但 `api/index.ts` 未把它
- * 放进公共面（只有 `STATE_CAPABILITY` / `STUB_BRIDGE_CAPABILITY` 被再导出），
- * 装配根只能按字面量读取。core 的公共导出面不在本任务所有权内，故不修改。
- */
-const BATCH_HEADER_CAPABILITY = 'sdk.batch_header';
-
 /** 内置事件的 `event_type`（照抄 `docs/contracts/schemas/builtin-events/*.json` 的 const）。 */
 const EVENT_TYPES: Readonly<Record<string, string>> = {
   web_js_error: 'error',
@@ -150,6 +144,11 @@ export interface AssemblyOptions {
   readonly target?: EventTarget | null | undefined;
   /** 位置来源注入点（测试与 SSR）。 */
   readonly location?: LocationSource | undefined;
+  /**
+   * 持久化上下文/会话存储端口（obligation ④）。
+   * 不注入时 core 只驻留内存（负责人 2026-10-13 裁定；默认不落盘）。
+   */
+  readonly storage?: ContextStoragePort | undefined;
   /** 凭据端口；缺省用 `endpoint`/`token`/`appId` 组装（缺 endpoint 或 token 时返回 null）。 */
   readonly credentials?: CredentialsLike | undefined;
   /** 传输适配器（测试注入替身；缺省用 hook 前捕获的原生 fetch/XHR）。 */
@@ -261,7 +260,8 @@ function remotePluginsOf(config: ConfigRuntime): Readonly<
  *
  * 调用顺序是语义的一部分：`captureNativeHttpRefs()` 必须在 `createClient()`（会订阅原生事件）
  * 与任何插件安装之前完成，否则 C07 的发送器会拿到被 C05 包装过的 `fetch`（自我采集 + 泄漏）。
- */export function createAssembly(options: AssemblyOptions): Assembly {
+ */
+export function createAssembly(options: AssemblyOptions): Assembly {
   const now = options.now ?? ((): number => Date.now());
 
   // ① 先捕获原生引用（幂等、冻结），再安装任何插件。
@@ -277,8 +277,18 @@ function remotePluginsOf(config: ConfigRuntime): Readonly<
     ...(options.consent === undefined ? {} : { consent: options.consent }),
     ...(options.consentMode === undefined ? {} : { consent_mode: options.consentMode }),
   };
+  // ③ 同意驱动的清理端口：**注入 core**（`setConsent('denied')` 由 C04 触发），
+  // 具体实现（C07 的离线数据）在交付层创建后回填——这里只放稳定的委托对象。
+  const offlineCleanup: { run?: () => void } = {};
+  const erasePort: ErasePort = {
+    offlineData: (): void => {
+      offlineCleanup.run?.();
+    },
+  };
   const rawClient = createClient({
     ...clientOptions,
+    erase: erasePort,
+    ...(options.storage === undefined ? {} : { storage: options.storage }),
     ...(options.target === undefined ? {} : { target: options.target }),
     ...(options.location === undefined ? {} : { location: options.location }),
   });
@@ -322,15 +332,20 @@ function remotePluginsOf(config: ConfigRuntime): Readonly<
         consent: 'unknown',
       };
       if (base === undefined) return fallback;
+      // `app_id` 由 core 的批次头 provider 提供（缺陷已修：init 的 appId 真正进入批次头）；
+      // 这里只补本条线的**时钟校准**（C04 的时钟状态机在 core 内部，没有独立能力可注入）。
       return {
         ...base,
-        app_id: options.appId,
         clock_offset: state.offsetMs,
         clock_calibrated: state.calibrated,
       };
     },
   };
   const initialHeader = headerSource.header();
+  // 交付层就绪后回填 C07 的清理函数（ErasePort.offlineData）。
+  offlineCleanup.run = (): void => {
+    void delivery.clearOffline();
+  };
 
   // ② C07：交付层（`onServerTime` 把 T16 解析出的 `X-Server-Time` 接进 C04 的时钟端口）。
   const credentials: CredentialsLike =
@@ -398,28 +413,10 @@ function remotePluginsOf(config: ConfigRuntime): Readonly<
   });
   kernel.pipeline.process = wrappedPipeline.process as typeof kernel.pipeline.process;
 
-  // ③ 同意驱动的清理：C04 目前只在内部清除自己的设备标识，`ErasePort` 没有调用点
-  // （见交付报告）。装配根在同意转 `denied` 时补上 C07 的离线数据清理。
-  const erasePort: ErasePort = {
-    offlineData: (): void => {
-      void delivery.clearOffline();
-    },
-  };
-  const eraseOnDenied = (state: ConsentState): void => {
-    if (state !== 'denied') return;
-    erasePort.deviceId?.();
-    erasePort.offlineData?.();
-    erasePort.sessionRandom?.();
-  };
+  // ③ 客户端句柄：C08 的调用计数 + 三段耗时装饰器（同意清理已改为 core 的 ErasePort 注入，
+  // 不再用"包装 setConsent"的绕过方式；见 `createClient({ erase })`）。
   const counted = latency.wrapCalls(counter.client);
-  const client: Client = {
-    ...counted,
-    setConsent(state: ConsentState): undefined {
-      counted.setConsent(state);
-      eraseOnDenied(state);
-      return undefined;
-    },
-  };
+  const client: Client = counted;
 
   // C05：安装四个采集插件；事件出口统一走内核管线（C04 富化/脱敏后才入队）。
   const sink = (event: KernelEvent): void => {

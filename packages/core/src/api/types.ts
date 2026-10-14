@@ -7,6 +7,7 @@
 import type { GlobalRegistry, Kernel, KernelEvent } from '../kernel';
 import type { MaskRule } from '../privacy/types';
 import type { ViewOptions } from '../context/ports';
+import type { ContextStoragePort, ErasePort } from '../context/ports';
 import type { EventDictionary, EventRequestOf, PermissiveDictionary } from './typed-events';
 
 /** 事件接收端口：C06 传输层就绪前由接入方或测试注入；抛错只计数，不影响业务。 */
@@ -264,4 +265,19 @@ export interface ClientOptions extends ClientInitOptions {
   readonly registry?: GlobalRegistry | undefined;
   /** 位置来源注入点，便于测试与 SSR；缺省按 `globalThis.window.location` 解析。 */
   readonly location?: LocationSource | undefined;
+  /**
+   * 上下文/会话存储端口（C04-F1）。
+   *
+   * **缺省只驻留内存**（2026-10-13 经负责人裁定），core 不自行读写 `window.localStorage`；
+   * 需要跨页面持久的接入方由装配根注入实现。设备标识是否真的落盘仍由授权判定控制
+   * （`granted`，或初始化参数声明已授权的 `full`）。
+   */
+  readonly storage?: ContextStoragePort | undefined;
+  /**
+   * 同意驱动的清理端口（C04-F5 / AC-12）：`setConsent('denied')` 时 C04 触发。
+   *
+   * 分工：C04 清除自己的设备标识/会话；C07 的离线数据与 C03 的会话随机数由装配根注入的
+   * 实现清除（core 不能 import 它们）。缺省不注入时只有 C04 自己的清除生效。
+   */
+  readonly erase?: ErasePort | undefined;
 }

@@ -34,7 +34,7 @@ export function createBatchHeaderProvider(
     const deviceId = session.deviceId.length > 0 ? session.deviceId : createUuid();
     const header: C04BatchHeader = {
       protocol_version: 1,
-      app_id: options.appId,
+      app_id: typeof options.appId === 'function' ? options.appId() : options.appId,
       env: options.env ?? DEFAULT_ENV,
       release: options.release ?? DEFAULT_RELEASE,
       sdk_name: options.sdkName,

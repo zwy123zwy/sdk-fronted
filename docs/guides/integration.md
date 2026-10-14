@@ -251,7 +251,7 @@ createClient({ debug: false });                          // 显式静默
 
 C08 实现了 URL 参数门禁：参数名 **`wr_debug`**（`0` / `false` / `off` 视为关闭），**只有非生产环境或白名单用户**才真正开启；`env` 缺失时保守处理（仅白名单）（`packages/transport/README.md` 第 7 节；`DEBUG_QUERY_PARAM = "wr_debug"`，`packages/transport/etc/transport.api.md`）。
 
-- 该门禁由 C08 的 `resolveDebugMode()` 实现，**本轮装配根未接线**（T18 的 8 项接线义务不含 URL 调试门禁）。因此加 `?wr_debug=1` 不会有任何效果；请直接用第 7.1 节的 `debug` 选项。
+- 该门禁由 C08 的 `resolveDebugMode()` 实现，但**没有任何任务认领它的接线**（T17 的「遗留交接义务」只列了计数/计时装饰器与 `captureNativeHttpRefs()`；T18 的 8 项接线义务也不含它），因此加 `?wr_debug=1` 不会有任何效果——属**归属空缺**，已在看板登记。请直接用第 7.1 节的 `debug` 选项。
 - 参数名由 T17 自定（契约未指定），`resolveDebugMode({ paramName })` 可配置；将来若要改名不需要改逻辑。
 
 ## 8. 自检
