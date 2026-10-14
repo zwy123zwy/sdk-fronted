@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { PRESTART_QUEUE_CAPACITY, createKernel, createPrestartQueue } from '../index';
 import type { KernelEvent } from '../index';
+import { PRESTART_QUEUE_MAX_BYTES } from './constants';
 
 function makeEvent(overrides: Record<string, unknown> = {}): KernelEvent {
   const base: KernelEvent = {
@@ -129,5 +130,156 @@ describe('C02-F5 预启动队列补充单元测试', () => {
     kernel.destroy();
     expect(kernel.prestartQueue.size()).toBe(0);
     expect(delivered).toHaveLength(0);
+  });
+});
+
+/**
+ * C02-F5 的**字节配额**（T20 实测：生产上界形态 500 条 = 317 KB > 256 KB 预算）。
+ *
+ * 口径：体积按 `event-standard.md` 第 4 节的 **JSON 码元数**（与 `tests/bench/lib/memory.ts`
+ * 的 `totalJsonUnits`、以及实现里默认的 `measureEventBytes` 一致）。T11 的验收用例只按
+ * 「条数」口径给了 500；单条事件的每个字符串值上限 256 字符（C04 的
+ * `MAX_DIMENSION_VALUE_LENGTH`）就意味着单个值 512 B，因此**计条数无法约束字节**——
+ * 这正是本组用例存在的理由。
+ */
+const BYTE_BUDGET = PRESTART_QUEUE_MAX_BYTES;
+
+describe('C02-F5 预启动队列字节配额', () => {
+  /** 造一条体积随 `note` 线性增长的事件。 */
+  function makeSizedEvent(
+    index: number,
+    noteLength: number,
+    priority: 'normal' | 'critical' = 'normal',
+  ): KernelEvent {
+    return makeEvent({ index, priority, note: 'x'.repeat(noteLength) });
+  }
+
+  /** 一批事件的 JSON 码元数（仓库体积口径）。 */
+  function bytesOf(events: readonly KernelEvent[]): number {
+    return events.reduce((sum, event) => sum + JSON.stringify(event).length, 0);
+  }
+
+  it('默认体积上限是 256 KB，且可以通过 bytes()/maxBytes() 观察', () => {
+    expect(BYTE_BUDGET).toBe(256 * 1024);
+    const queue = createPrestartQueue();
+    expect(queue.maxBytes()).toBe(BYTE_BUDGET);
+
+    const first = makeSizedEvent(0, 600);
+    const second = makeSizedEvent(1, 600);
+    queue.push(first);
+    queue.push(second);
+    expect(queue.bytes()).toBe(bytesOf([first, second]));
+  });
+
+  it('大事件填满时按最早优先淘汰 normal，体积不超过 256 KB', () => {
+    const queue = createPrestartQueue();
+    const pushed = Array.from({ length: 500 }, (_unused, index) => makeSizedEvent(index, 600));
+    for (const event of pushed) queue.push(event);
+
+    const size = queue.size();
+    const drained = queue.drain();
+
+    // 无字节上限时 size === 500、体积约 345 KB —— 这两条就是本用例的断言级判据。
+    expect(size).toBeGreaterThan(0);
+    expect(size).toBeLessThan(500);
+    expect(bytesOf(drained)).toBeLessThanOrEqual(BYTE_BUDGET);
+    expect(queue.bytes()).toBe(0);
+    // 最早优先：保留的必须是最后入队的 size 条
+    expect(drained.map((event) => event['index'])).toEqual(
+      Array.from({ length: size }, (_unused, offset) => 500 - size + offset),
+    );
+  });
+
+  it('条数上限与字节上限并存：小事件仍保留最新 500 条', () => {
+    const queue = createPrestartQueue();
+    for (let index = 0; index < 600; index += 1) queue.push(makeSizedEvent(index, 0));
+
+    expect(queue.size()).toBe(500);
+    const drained = queue.drain();
+    expect(bytesOf(drained)).toBeLessThanOrEqual(BYTE_BUDGET);
+    expect(drained[0]?.['index']).toBe(100);
+    expect(drained).toHaveLength(500);
+  });
+
+  it('critical 不被字节配额淘汰：无 normal 可淘汰时新事件被拒绝', () => {
+    const queue = createPrestartQueue();
+    let firstRejected = -1;
+    for (let index = 0; index < 60; index += 1) {
+      const result = queue.push(makeSizedEvent(index, 6000, 'critical'));
+      if (result.status === 'rejected' && firstRejected < 0) firstRejected = index;
+    }
+
+    const drained = queue.drain();
+    expect(drained.length).toBeGreaterThan(0);
+    expect(drained.every((event) => event.priority === 'critical')).toBe(true);
+    expect(bytesOf(drained)).toBeLessThanOrEqual(BYTE_BUDGET);
+    // 没有任何 critical 被淘汰：保留的是最早入队的那些
+    expect(drained.map((event) => event['index'])).toEqual(drained.map((_event, offset) => offset));
+    expect(firstRejected).toBeGreaterThan(0);
+  });
+
+  it('有 normal 可淘汰时：字节溢出淘汰最早的 normal，critical 保留', () => {
+    const queue = createPrestartQueue();
+    queue.push(makeSizedEvent(0, 6000, 'critical'));
+    const normals = Array.from({ length: 100 }, (_unused, index) => makeSizedEvent(index + 1, 6000));
+    for (const event of normals) queue.push(event);
+
+    const drained = queue.drain();
+    expect(drained[0]?.['index']).toBe(0);
+    expect(drained[0]?.priority).toBe('critical');
+    expect(bytesOf(drained)).toBeLessThanOrEqual(BYTE_BUDGET);
+    expect(drained.length).toBeLessThan(101);
+  });
+
+  it('体积上限可注入，且淘汰返回最早被淘汰的 normal', () => {
+    // 每条事件按固定 1000 计：上限 2500 时最多存 2 条。
+    const queue = createPrestartQueue({ maxBytes: 2500, measure: () => 1000 });
+    expect(queue.maxBytes()).toBe(2500);
+    expect(queue.push(makeSizedEvent(0, 0)).status).toBe('queued');
+    expect(queue.push(makeSizedEvent(1, 0)).status).toBe('queued');
+    const third = queue.push(makeSizedEvent(2, 0));
+
+    expect(third.status).toBe('evicted');
+    expect(third.evicted?.['index']).toBe(0);
+    expect(queue.size()).toBe(2);
+    expect(queue.bytes()).toBe(2000);
+    expect(queue.drain().map((event) => event['index'])).toEqual([1, 2]);
+  });
+
+  it('生产上界形态（200 字符长值 + 一处伪造 PII）填 500 条后体积仍 ≤ 256 KB', () => {
+    // 形状逐字对齐 `tests/bench/lib/fixtures.ts` 的 makeKernelEvent（T20 实测 650 B/条、
+    // 500 条 = 317 KB 的那条夹具；另加一个 `index` 用于校验淘汰顺序）。这里用确定性断言
+    // 替代基准的墙钟/内存测量。
+    const makeWorstCase = (index: number): KernelEvent =>
+      makeEvent({
+        index,
+        event_id: '00000000-0000-4000-8000-000000000001',
+        event_name: 'task_complete',
+        event_type: 'custom',
+        schema_version: 1,
+        occurred_at: 1_793_000_000_000,
+        page_id: '/task/:id',
+        view_id: '00000000-0000-4000-8000-000000000002',
+        url: 'https://a.example/task/123?tab=detail',
+        dimensions: {
+          task_id: 't-1',
+          tenant: 'acme',
+          contact: 'mail alice.smith+tag@example.co.uk or 13800138000',
+          note: 'x'.repeat(200),
+        },
+        metrics: { duration_ms: 42, retry_count: 0 },
+      });
+
+    const queue = createPrestartQueue();
+    for (let index = 0; index < 500; index += 1) queue.push(makeWorstCase(index));
+
+    const size = queue.size();
+    const drained = queue.drain();
+    expect(size).toBeGreaterThan(0);
+    expect(size).toBeLessThan(500);
+    expect(bytesOf(drained)).toBeLessThanOrEqual(BYTE_BUDGET);
+    // 最早优先：保留最后 size 条
+    expect(drained[0]?.['index']).toBe(500 - size);
+    expect(drained[drained.length - 1]?.['index']).toBe(499);
   });
 });

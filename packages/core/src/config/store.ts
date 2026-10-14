@@ -38,6 +38,7 @@ import type {
   PluginToggleSignal,
 } from './types';
 import type { Dispose } from '../kernel';
+import { randomUnit } from '../sampling/session';
 
 const PROCESSOR_ERROR = 'processor_error';
 const PLUGIN_IDS: readonly ('error' | 'perf' | 'route' | 'http' | 'apm_dual_write')[] = [
@@ -87,7 +88,9 @@ export function createConfigRuntime(options: ConfigRuntimeOptions): ConfigRuntim
   const clock = options.clock ?? { now: () => Date.now() };
   const cache = options.cache ?? createConfigCache({ indexedDb: undefined });
   const fetchPort = options.fetch ?? createFetchPort({ timeoutMs: FETCH_TIMEOUT_MS });
-  const sessionRandom = options.sessionRandom ?? 0;
+  // 会话随机数可被重置（AC-12：撤回同意时清除）；`build()` 每次读取当前值。
+  let sessionRandom = options.sessionRandom ?? 0;
+  const random = options.random ?? randomUnit;
   const builtinConsent: ConsentMode = options.consentMode ?? 'essential_only';
 
   let current: EffectiveConfig = createBuiltinConfig(builtinConsent);
@@ -413,6 +416,11 @@ export function createConfigRuntime(options: ConfigRuntimeOptions): ConfigRuntim
     },
     isKilled: () => killed,
     ready: () => ready,
+    sessionRandom: () => sessionRandom,
+    resetSessionRandom(): number {
+      sessionRandom = random();
+      return sessionRandom;
+    },
   };
 
   kernel.registerCapability(CONFIG_CAPABILITY, runtime);

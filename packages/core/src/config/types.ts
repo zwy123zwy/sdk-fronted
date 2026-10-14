@@ -183,7 +183,10 @@ export interface ConfigRuntimeOptions {
   readonly fetch?: ConfigFetchPort | undefined;
   readonly cache?: ConfigCachePort | undefined;
   readonly clock?: ClockPort | undefined;
+  /** 初始会话随机数（`overrides[].when.session_bucket` 用）；缺省 0。 */
   readonly sessionRandom?: number | undefined;
+  /** 重置会话随机数的随机源；缺省 `randomUnit`（WebCrypto 优先，回退 `Math.random`）。 */
+  readonly random?: (() => number) | undefined;
   /** 可注入的 WebCrypto 视图；缺省在调用时解析 `globalThis.crypto`（AC-20 用）。 */
   readonly webcrypto?: WebCryptoLike | undefined;
 }
@@ -197,4 +200,11 @@ export interface ConfigRuntime extends ConfigReader {
   onPluginToggle(listener: (signal: PluginToggleSignal) => void): Dispose;
   isKilled(): boolean;
   ready(): boolean;
+  /** 当前会话随机数（`resetSessionRandom()` 之后读取到新值，直到下次重置）。 */
+  sessionRandom(): number;
+  /**
+   * **重新生成**会话随机数（不是置空），返回新值；后续配置合并使用新值。
+   * 由装配根接到 `ErasePort.sessionRandom`：`setConsent('denied')` 时清除（AC-12）。
+   */
+  resetSessionRandom(): number;
 }

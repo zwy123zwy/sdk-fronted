@@ -234,6 +234,25 @@ describe('③ C04 的三个端口', () => {
     expect(clear).toHaveBeenCalledTimes(1);
     expect(assembly.clock.current().offsetMs).toBe(0);
   });
+
+  it('ErasePort.sessionRandom ← setConsent(denied) 重新生成 C03 会话随机数', () => {
+    const { assembly } = build();
+    assembly.init();
+    // 装配根注入的初值是 0（见 `assembly.ts` 的 `sessionRandom: 0`）。
+    expect(assembly.config.sessionRandom()).toBe(0);
+
+    const reset = vi.spyOn(assembly.config, 'resetSessionRandom');
+    assembly.client.setConsent('denied');
+
+    // 端口确实接到了 C03 的重置 API（而不是「有声明、无调用点」）。
+    expect(reset).toHaveBeenCalledTimes(1);
+    // 语义是**重新生成**而非置空：新值落在 [0,1) 且与初值不同，读取稳定。
+    const regenerated = assembly.config.sessionRandom();
+    expect(regenerated).toBeGreaterThanOrEqual(0);
+    expect(regenerated).toBeLessThan(1);
+    expect(regenerated).not.toBe(0);
+    expect(assembly.config.sessionRandom()).toBe(regenerated);
+  });
 });
 
 describe('C05 插件接线', () => {

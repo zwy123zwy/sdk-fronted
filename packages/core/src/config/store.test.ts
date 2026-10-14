@@ -254,3 +254,83 @@ describe('C03-F2 store：分支与降级', () => {
     expect((await cache.read())?.envelope.payload).toContain('"config_version":11');
   });
 });
+
+/**
+ * C03 会话随机数的**读取与重置**（AC-12 的 `ErasePort.sessionRandom` 一腿）。
+ *
+ * 背景：`ErasePort` 的 `sessionRandom` 调用点在 core（`setConsent('denied')` 时触发），
+ * 但 C03 的 `ConfigRuntime` 此前只在构造时收一个 `sessionRandom` 数字、没有重置 API，
+ * 装配根也就无法接线。语义：**重新生成**会话随机数（不是置空），后续用它做的配置合并
+ * （`overrides[].when.session_bucket`）拿到新值。
+ */
+describe('C03 会话随机数：读取与重置', () => {
+  it('sessionRandom() 读到构造值；resetSessionRandom() 生成新值且随后读取稳定', () => {
+    const kernel = createKernel({ target: null });
+    const generated = [0.95, 0.5];
+    let index = 0;
+    const runtime = createConfigRuntime({
+      ...base(kernel),
+      sessionRandom: 0.05,
+      random: () => generated[index++] ?? 0.5,
+    });
+
+    expect(typeof runtime.resetSessionRandom).toBe('function');
+    expect(runtime.sessionRandom()).toBe(0.05);
+
+    expect(runtime.resetSessionRandom()).toBe(0.95);
+    // 重置后再次读取稳定：不会每次读取都重掷
+    expect(runtime.sessionRandom()).toBe(0.95);
+    expect(runtime.sessionRandom()).toBe(0.95);
+    // 每次重置都重新生成
+    expect(runtime.resetSessionRandom()).toBe(0.5);
+    expect(runtime.sessionRandom()).toBe(0.5);
+  });
+
+  it('重置后后续配置合并使用新值（session_bucket 覆盖随会话随机数变化）', async () => {
+    const signer = await createTestSigner('key-a');
+    const body = (version: number): Record<string, unknown> =>
+      makeBody({
+        config_version: version,
+        overrides: [{ when: { session_bucket: [0, 10] }, patch: { transport: { max_batch_events: 7 } } }],
+      });
+    const envelopes = [await signer.envelope(body(10)), await signer.envelope(body(11))];
+    let fetchIndex = 0;
+    const kernel = createKernel({ target: null });
+    const generated = [0.95];
+    const runtime = createConfigRuntime({
+      ...base(kernel),
+      publicKeys: { [signer.keyId]: signer.jwk },
+      // 0.05 → 桶 5，命中 [0, 10)
+      sessionRandom: 0.05,
+      random: () => generated.shift() ?? 0.5,
+      fetch: () => {
+        const current = envelopes[fetchIndex];
+        fetchIndex += 1;
+        return Promise.resolve({ status: 200, etag: `"v${String(fetchIndex)}"`, body: JSON.stringify(current) });
+      },
+    });
+
+    runtime.start();
+    await runtime.refresh();
+    expect(runtime.current().applied_overrides).toBe(1);
+    expect(runtime.current().transport.max_batch_events).toBe(7);
+
+    // 重置为 0.95 → 桶 95，不再命中覆盖
+    expect(runtime.resetSessionRandom()).toBe(0.95);
+    await runtime.refresh();
+    expect(runtime.current().config_version).toBe(11);
+    expect(runtime.current().applied_overrides).toBe(0);
+    expect(runtime.current().transport.max_batch_events).toBeUndefined();
+  });
+
+  it('未注入 random 时使用默认随机源（重置值仍是 [0,1) 的有限数）', () => {
+    const kernel = createKernel({ target: null });
+    const runtime = createConfigRuntime({ ...base(kernel), sessionRandom: 0 });
+
+    const next = runtime.resetSessionRandom();
+    expect(Number.isFinite(next)).toBe(true);
+    expect(next).toBeGreaterThanOrEqual(0);
+    expect(next).toBeLessThan(1);
+    expect(runtime.sessionRandom()).toBe(next);
+  });
+});

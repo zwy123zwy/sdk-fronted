@@ -168,13 +168,17 @@ export interface PrestartQueuePush {
   readonly evicted?: KernelEvent | undefined;
 }
 
-/** 预启动队列（C02-F5）：配置就绪前缓存事件，上限 500 条，溢出淘汰最早的 normal。 */
+/** 预启动队列（C02-F5）：配置就绪前缓存事件，条数与体积两个上限同时生效，溢出淘汰最早的 normal。 */
 export interface PrestartQueue {
   push(event: KernelEvent): PrestartQueuePush;
   /** 按原顺序取出全部事件并清空队列。 */
   drain(): readonly KernelEvent[];
   size(): number;
   capacity(): number;
+  /** 当前队列内事件的估算体积（JSON 码元数；口径见 `measureEventBytes`）。 */
+  bytes(): number;
+  /** 体积上限（缺省 `PRESTART_QUEUE_MAX_BYTES`）。 */
+  maxBytes(): number;
   clear(): void;
 }
 

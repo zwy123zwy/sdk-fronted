@@ -278,11 +278,15 @@ export function createAssembly(options: AssemblyOptions): Assembly {
     ...(options.consentMode === undefined ? {} : { consent_mode: options.consentMode }),
   };
   // ③ 同意驱动的清理端口：**注入 core**（`setConsent('denied')` 由 C04 触发），
-  // 具体实现（C07 的离线数据）在交付层创建后回填——这里只放稳定的委托对象。
+  // 具体实现（C07 的离线数据、C03 的会话随机数）在对应模块创建后回填——这里只放稳定的委托对象。
   const offlineCleanup: { run?: () => void } = {};
+  const sessionRandomCleanup: { run?: () => void } = {};
   const erasePort: ErasePort = {
     offlineData: (): void => {
       offlineCleanup.run?.();
+    },
+    sessionRandom: (): void => {
+      sessionRandomCleanup.run?.();
     },
   };
   const rawClient = createClient({
@@ -305,6 +309,11 @@ export function createAssembly(options: AssemblyOptions): Assembly {
     consentMode: options.consentMode,
     sessionRandom: 0,
   });
+  // C03 就绪后回填「清除会话随机数」这一腿（ErasePort.sessionRandom）：重新生成而非置空，
+  // 后续配置合并（overrides.when.session_bucket）拿到新值。
+  sessionRandomCleanup.run = (): void => {
+    config.resetSessionRandom();
+  };
 
   // ③ C04 的时钟端口 + 批次头来源：读内核能力，再补本条线的 app_id 与校准后的偏移。
   const clock = createClockCalibration();

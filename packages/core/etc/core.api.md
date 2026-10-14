@@ -55,6 +55,8 @@ export const BUILTIN_SENSITIVE_HEADERS: readonly string[];
 
 // @public
 export interface BuiltinMaskRule {
+    readonly added: number;
+    readonly gate: number;
     // (undocumented)
     readonly name: string;
     // (undocumented)
@@ -278,8 +280,10 @@ export interface CommandQueuePushResult {
 
 // @public
 export interface CompiledMaskRule {
+    readonly added?: number | undefined;
     // (undocumented)
     readonly builtin: boolean;
+    readonly gate?: number | undefined;
     // (undocumented)
     readonly name: string;
     // (undocumented)
@@ -377,6 +381,8 @@ export interface ConfigRuntime extends ConfigReader {
     // (undocumented)
     ready(): boolean;
     refresh(): Promise<void>;
+    resetSessionRandom(): number;
+    sessionRandom(): number;
     // (undocumented)
     start(): void;
     // (undocumented)
@@ -403,11 +409,11 @@ export interface ConfigRuntimeOptions {
     readonly kernel: Kernel;
     // (undocumented)
     readonly publicKeys: Readonly<Record<string, JsonWebKey>>;
+    readonly random?: (() => number) | undefined;
     // (undocumented)
     readonly runtimeOverrides?: RuntimeOverrides | undefined;
     // (undocumented)
     readonly sdkVersion: string;
-    // (undocumented)
     readonly sessionRandom?: number | undefined;
     readonly webcrypto?: WebCryptoLike | undefined;
 }
@@ -1266,11 +1272,13 @@ export const PRESTART_QUEUE_CAPACITY = 500;
 
 // @public
 export interface PrestartQueue {
+    bytes(): number;
     // (undocumented)
     capacity(): number;
     // (undocumented)
     clear(): void;
     drain(): readonly KernelEvent[];
+    maxBytes(): number;
     // (undocumented)
     push(event: KernelEvent): PrestartQueuePush;
     // (undocumented)
@@ -1280,6 +1288,8 @@ export interface PrestartQueue {
 // @public (undocumented)
 export interface PrestartQueueOptions {
     readonly capacity?: number | undefined;
+    readonly maxBytes?: number | undefined;
+    readonly measure?: ((event: KernelEvent) => number) | undefined;
 }
 
 // @public
