@@ -1,0 +1,442 @@
+{
+  "task": "T30",
+  "generatedAt": "2026-10-14T07:51:25.044Z",
+  "summary": {
+    "pass": 33,
+    "fail": 2,
+    "blocked": 8,
+    "total": 43
+  },
+  "cells": [
+    {
+      "id": "import.esm.node",
+      "requirement": "指南 4.2：Vite/Vitest 等 ESM 环境直接导入",
+      "dimension": "接入方式 / ESM 导入",
+      "engine": "node 24",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "/Users/spirit-ai/Desktop/sdk/packages/browser/dist/index.js",
+      "notes": "导入构建产物并读取命名导出与 SDK_VERSION。"
+    },
+    {
+      "id": "import.node.no-dom",
+      "requirement": "指南 4.2：不需要额外配置即可导入（含 SSR/无 DOM 环境）",
+      "dimension": "接入方式 / 无 DOM 导入",
+      "engine": "node 24（无 window/document）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "子进程 node --input-type=module 动态 import，无 window/document",
+      "notes": "导入期不得访问 window/document（模块顶层无副作用）。"
+    },
+    {
+      "id": "import.iife.global",
+      "requirement": "指南 4.2：`<script>` 引入",
+      "dimension": "接入方式 / IIFE 全局",
+      "engine": "node vm（模拟无构建工具的页面）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "/Users/spirit-ai/Desktop/sdk/packages/browser/dist/web-report-sdk.iife.js",
+      "notes": "权威证据是 `pnpm examples:test` 里 examples/script-tag 的 check.mjs（已 exit 0）。"
+    },
+    {
+      "id": "import.exports.conditions",
+      "requirement": "指南 4.2：构建工具直接导入",
+      "dimension": "接入方式 / exports 条件映射",
+      "engine": "node 24",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "/Users/spirit-ai/Desktop/sdk/packages/browser/package.json",
+      "notes": "`.` 与 `./iife` 两个入口的条件齐全性。"
+    },
+    {
+      "id": "import.cjs.require",
+      "requirement": "指南 4.2：Jest（默认 CJS）与 webpack `require` 场景",
+      "dimension": "接入方式 / CJS require",
+      "engine": "node 24",
+      "status": "fail",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "ERR_PACKAGE_PATH_NOT_EXPORTED（见用例内断言与报告）",
+      "notes": "`exports` 没有 `require` 条件，CJS `require(\"@web-report-sdk/browser\")` 直接失败；现有 Jest 示例靠 `--experimental-vm-modules` + `.mjs` 才能跑（属额外配置）。**真实缺口，需决策**。"
+    },
+    {
+      "id": "import.vite.build",
+      "requirement": "指南 4.2：Vite 生产构建",
+      "dimension": "接入方式 / Vite 生产构建",
+      "engine": "vite 8.3.4",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "temp/t30-examples.log（pnpm examples:build exit 0）",
+      "notes": "权威证据是仓库脚本 `pnpm examples:build`；本用例只核对产物存在。"
+    },
+    {
+      "id": "degrade.compression.missing",
+      "requirement": "T30 验收：`CompressionStream` 不支持的降级路径",
+      "dimension": "降级能力 / 压缩",
+      "engine": "node 24（无 CompressionStream）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "本次运行的 results/degradation.json + 用例输出",
+      "notes": "> 4 KB 正文未被压缩（bodyBytes undefined），批次仍送达并可按 JSON 解析。"
+    },
+    {
+      "id": "degrade.compression.present",
+      "requirement": "同上（对照格，证明降级用例有判别力）",
+      "dimension": "降级能力 / 压缩（对照）",
+      "engine": "node 24（有 CompressionStream）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "本次运行的 results/degradation.json",
+      "notes": "同一夹具在能力存在时 `bodyBytes` 为 Uint8Array——两条分支真的不同。"
+    },
+    {
+      "id": "degrade.randomuuid.missing",
+      "requirement": "T30 验收：不支持 API 的降级路径",
+      "dimension": "降级能力 / crypto.randomUUID",
+      "engine": "node 24（无 crypto）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "event_id 匹配 UUID v4 正则",
+      "notes": "`crypto` 被删除后事件标识退回到内置实现，批次仍送达。"
+    },
+    {
+      "id": "degrade.locks.missing",
+      "requirement": "T30 验收：Web Locks 不支持的降级路径",
+      "dimension": "降级能力 / Web Locks",
+      "engine": "node 24（删除 navigator 后）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "createDefaultLocksPort() === null",
+      "notes": "默认端口在能力缺席时返回 null（不是抛错）；**node 24 本身自带 navigator.locks**，故本格必须真删。"
+    },
+    {
+      "id": "degrade.locks.present",
+      "requirement": "同上（对照格，证明降级用例有判别力）",
+      "dimension": "降级能力 / Web Locks（对照）",
+      "engine": "node 24（原生 navigator.locks）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "createDefaultLocksPort() !== null",
+      "notes": "默认端口在能力存在时给出实现，两条分支不同。"
+    },
+    {
+      "id": "degrade.locks.fallback",
+      "requirement": "T30 验收：Web Locks 不支持的降级路径（多标签页）",
+      "dimension": "降级能力 / 选主降级",
+      "engine": "node 24（无 navigator.locks，有 BroadcastChannel）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "LeaderMode = broadcast / none / locks 三态实测",
+      "notes": "含注入 locks 的正向对照；正确性不依赖选主（C07-F7）。"
+    },
+    {
+      "id": "degrade.idb.missing",
+      "requirement": "T30 验收：不支持 API 的降级路径（存储）",
+      "dimension": "降级能力 / IndexedDB",
+      "engine": "node 24（无 indexedDB）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "批次送达且含事件字段",
+      "notes": "离线持久化不可用时正常通道不受影响；真实 IDB 行为归 T29。"
+    },
+    {
+      "id": "apm.order.apmFirst",
+      "requirement": "T30 验收：与第三方 APM 共存（第三方先初始化）",
+      "dimension": "共存 / 初始化顺序 A",
+      "engine": "happy-dom（进程内，真实 hook 链）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "本次运行输出 + results/apm-coexistence.json",
+      "notes": "业务请求双方各计一次；SDK 批次送达且含 web_http；SDK 卸载后第三方包装仍在全局上。实测：该顺序下 SDK 捕获的\"原生\"引用即第三方包装（真实发送会经过第三方）。"
+    },
+    {
+      "id": "apm.order.sdkFirst",
+      "requirement": "T30 验收：与第三方 APM 共存（SDK 先初始化）",
+      "dimension": "共存 / 初始化顺序 B",
+      "engine": "happy-dom（进程内，真实 hook 链）",
+      "status": "fail",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "本次运行输出 + results/apm-coexistence.json（该用例**变红**）",
+      "notes": "**实测不通过**：业务请求双方各计一次、SDK 批次送达均成立，但 `assembly.destroy()` 后第三方包装被抹掉（`globalView.fetch` 变回 SDK hook 前的原生引用）→ 第三方此后不再采集。根因见 `packages/core/src/kernel/global-registry.ts` 的 `dispose()`（无条件还原 `chain.base`）。"
+    },
+    {
+      "id": "apm.error.chain",
+      "requirement": "Q7 第 4 条：卸载后 hook 链完整",
+      "dimension": "共存 / error 监听链",
+      "engine": "happy-dom",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "本次运行输出（派发 error 事件后第三方计数 1 → 2）",
+      "notes": "SDK 卸载后第三方仍收到 error 事件（只还原自己那一层）。"
+    },
+    {
+      "id": "browser.chromium.corePath.serverReceivedBatch",
+      "requirement": "T30 验收第 1 条：核心路径（初始化、上报、错误采集）",
+      "dimension": "浏览器 / Chromium（最新版本）",
+      "engine": "chromium 148.0.7778.96（chromium-1223，executablePath 指向本机缓存）",
+      "status": "pass",
+      "command": "node tests/compat/scripts/browser-core-path.mjs",
+      "evidence": "tests/compat/results/browser-core-path.json",
+      "notes": "serverReceivedBatch=true"
+    },
+    {
+      "id": "browser.chromium.corePath.corePath",
+      "requirement": "T30 验收第 1 条：核心路径（初始化、上报、错误采集）",
+      "dimension": "浏览器 / Chromium（最新版本）",
+      "engine": "chromium 148.0.7778.96（chromium-1223，executablePath 指向本机缓存）",
+      "status": "pass",
+      "command": "node tests/compat/scripts/browser-core-path.mjs",
+      "evidence": "tests/compat/results/browser-core-path.json",
+      "notes": "corePath=true"
+    },
+    {
+      "id": "browser.chromium.corePath.sdkVersion",
+      "requirement": "T30 验收第 1 条：核心路径（初始化、上报、错误采集）",
+      "dimension": "浏览器 / Chromium（最新版本）",
+      "engine": "chromium 148.0.7778.96（chromium-1223，executablePath 指向本机缓存）",
+      "status": "pass",
+      "command": "node tests/compat/scripts/browser-core-path.mjs",
+      "evidence": "tests/compat/results/browser-core-path.json",
+      "notes": "sdkVersion=true"
+    },
+    {
+      "id": "browser.chromium.corePath.trackedEventDelivered",
+      "requirement": "T30 验收第 1 条：核心路径（初始化、上报、错误采集）",
+      "dimension": "浏览器 / Chromium（最新版本）",
+      "engine": "chromium 148.0.7778.96（chromium-1223，executablePath 指向本机缓存）",
+      "status": "pass",
+      "command": "node tests/compat/scripts/browser-core-path.mjs",
+      "evidence": "tests/compat/results/browser-core-path.json",
+      "notes": "trackedEventDelivered=true"
+    },
+    {
+      "id": "browser.chromium.corePath.captureErrorDelivered",
+      "requirement": "T30 验收第 1 条：核心路径（初始化、上报、错误采集）",
+      "dimension": "浏览器 / Chromium（最新版本）",
+      "engine": "chromium 148.0.7778.96（chromium-1223，executablePath 指向本机缓存）",
+      "status": "pass",
+      "command": "node tests/compat/scripts/browser-core-path.mjs",
+      "evidence": "tests/compat/results/browser-core-path.json",
+      "notes": "captureErrorDelivered=true"
+    },
+    {
+      "id": "browser.chromium.corePath.uncaughtErrorDelivered",
+      "requirement": "T30 验收第 1 条：核心路径（初始化、上报、错误采集）",
+      "dimension": "浏览器 / Chromium（最新版本）",
+      "engine": "chromium 148.0.7778.96（chromium-1223，executablePath 指向本机缓存）",
+      "status": "pass",
+      "command": "node tests/compat/scripts/browser-core-path.mjs",
+      "evidence": "tests/compat/results/browser-core-path.json",
+      "notes": "uncaughtErrorDelivered=true"
+    },
+    {
+      "id": "browser.chromium.corePath.browserWindowErrorFired",
+      "requirement": "T30 验收第 1 条：核心路径（初始化、上报、错误采集）",
+      "dimension": "浏览器 / Chromium（最新版本）",
+      "engine": "chromium 148.0.7778.96（chromium-1223，executablePath 指向本机缓存）",
+      "status": "pass",
+      "command": "node tests/compat/scripts/browser-core-path.mjs",
+      "evidence": "tests/compat/results/browser-core-path.json",
+      "notes": "browserWindowErrorFired=true"
+    },
+    {
+      "id": "browser.chromium.corePath.protocolVersion",
+      "requirement": "T30 验收第 1 条：核心路径（初始化、上报、错误采集）",
+      "dimension": "浏览器 / Chromium（最新版本）",
+      "engine": "chromium 148.0.7778.96（chromium-1223，executablePath 指向本机缓存）",
+      "status": "pass",
+      "command": "node tests/compat/scripts/browser-core-path.mjs",
+      "evidence": "tests/compat/results/browser-core-path.json",
+      "notes": "protocolVersion=true"
+    },
+    {
+      "id": "browser.chromium.corePath.appId",
+      "requirement": "T30 验收第 1 条：核心路径（初始化、上报、错误采集）",
+      "dimension": "浏览器 / Chromium（最新版本）",
+      "engine": "chromium 148.0.7778.96（chromium-1223，executablePath 指向本机缓存）",
+      "status": "pass",
+      "command": "node tests/compat/scripts/browser-core-path.mjs",
+      "evidence": "tests/compat/results/browser-core-path.json",
+      "notes": "appId=true"
+    },
+    {
+      "id": "browser.chromium.corePath.secondBatchDelivered",
+      "requirement": "T30 验收第 1 条：核心路径（初始化、上报、错误采集）",
+      "dimension": "浏览器 / Chromium（最新版本）",
+      "engine": "chromium 148.0.7778.96（chromium-1223，executablePath 指向本机缓存）",
+      "status": "pass",
+      "command": "node tests/compat/scripts/browser-core-path.mjs",
+      "evidence": "tests/compat/results/browser-core-path.json",
+      "notes": "secondBatchDelivered=true"
+    },
+    {
+      "id": "browser.chromium.corePath.clockCalibrated",
+      "requirement": "T30 验收第 1 条：核心路径（初始化、上报、错误采集）",
+      "dimension": "浏览器 / Chromium（最新版本）",
+      "engine": "chromium 148.0.7778.96（chromium-1223，executablePath 指向本机缓存）",
+      "status": "pass",
+      "command": "node tests/compat/scripts/browser-core-path.mjs",
+      "evidence": "tests/compat/results/browser-core-path.json",
+      "notes": "clockCalibrated=true"
+    },
+    {
+      "id": "import.vite.devServer.indexHtml",
+      "requirement": "指南 4.2：Vite 开发服务器直接导入",
+      "dimension": "接入方式 / Vite 开发服务器",
+      "engine": "vite 8.3.4",
+      "status": "pass",
+      "command": "node tests/compat/scripts/vite-dev-server.mjs",
+      "evidence": "tests/compat/results/vite-dev-server.json（含真实 Chromium 渲染结果）",
+      "notes": "indexHtml=true"
+    },
+    {
+      "id": "import.vite.devServer.mainTransformed",
+      "requirement": "指南 4.2：Vite 开发服务器直接导入",
+      "dimension": "接入方式 / Vite 开发服务器",
+      "engine": "vite 8.3.4",
+      "status": "pass",
+      "command": "node tests/compat/scripts/vite-dev-server.mjs",
+      "evidence": "tests/compat/results/vite-dev-server.json（含真实 Chromium 渲染结果）",
+      "notes": "mainTransformed=true"
+    },
+    {
+      "id": "import.vite.devServer.specifierResolved",
+      "requirement": "指南 4.2：Vite 开发服务器直接导入",
+      "dimension": "接入方式 / Vite 开发服务器",
+      "engine": "vite 8.3.4",
+      "status": "pass",
+      "command": "node tests/compat/scripts/vite-dev-server.mjs",
+      "evidence": "tests/compat/results/vite-dev-server.json（含真实 Chromium 渲染结果）",
+      "notes": "specifierResolved=true"
+    },
+    {
+      "id": "import.vite.devServer.resolvedToDistArtifact",
+      "requirement": "指南 4.2：Vite 开发服务器直接导入",
+      "dimension": "接入方式 / Vite 开发服务器",
+      "engine": "vite 8.3.4",
+      "status": "pass",
+      "command": "node tests/compat/scripts/vite-dev-server.mjs",
+      "evidence": "tests/compat/results/vite-dev-server.json（含真实 Chromium 渲染结果）",
+      "notes": "resolvedToDistArtifact=true"
+    },
+    {
+      "id": "import.vite.devServer.resolvedModuleServed",
+      "requirement": "指南 4.2：Vite 开发服务器直接导入",
+      "dimension": "接入方式 / Vite 开发服务器",
+      "engine": "vite 8.3.4",
+      "status": "pass",
+      "command": "node tests/compat/scripts/vite-dev-server.mjs",
+      "evidence": "tests/compat/results/vite-dev-server.json（含真实 Chromium 渲染结果）",
+      "notes": "resolvedModuleServed=true"
+    },
+    {
+      "id": "import.vite.devServer.resolvedModuleExportsSdkVersion",
+      "requirement": "指南 4.2：Vite 开发服务器直接导入",
+      "dimension": "接入方式 / Vite 开发服务器",
+      "engine": "vite 8.3.4",
+      "status": "pass",
+      "command": "node tests/compat/scripts/vite-dev-server.mjs",
+      "evidence": "tests/compat/results/vite-dev-server.json（含真实 Chromium 渲染结果）",
+      "notes": "resolvedModuleExportsSdkVersion=true"
+    },
+    {
+      "id": "import.vite.devServer.browserRenderedSdkVersion",
+      "requirement": "指南 4.2：Vite 开发服务器直接导入",
+      "dimension": "接入方式 / Vite 开发服务器",
+      "engine": "vite 8.3.4",
+      "status": "pass",
+      "command": "node tests/compat/scripts/vite-dev-server.mjs",
+      "evidence": "tests/compat/results/vite-dev-server.json（含真实 Chromium 渲染结果）",
+      "notes": "browserRenderedSdkVersion=true"
+    },
+    {
+      "id": "import.vite.devServer.noPageErrors",
+      "requirement": "指南 4.2：Vite 开发服务器直接导入",
+      "dimension": "接入方式 / Vite 开发服务器",
+      "engine": "vite 8.3.4",
+      "status": "pass",
+      "command": "node tests/compat/scripts/vite-dev-server.mjs",
+      "evidence": "tests/compat/results/vite-dev-server.json（含真实 Chromium 渲染结果）",
+      "notes": "noPageErrors=true"
+    },
+    {
+      "id": "browser.firefox",
+      "requirement": "T30 验收第 1 条：Firefox 90+（最低与最新）",
+      "dimension": "浏览器 / Firefox",
+      "engine": "firefox-1522（本机缓存）",
+      "status": "blocked",
+      "command": "node tests/compat/scripts/browser-core-path.mjs（待 T29 提供非沙箱 shell 后）",
+      "evidence": "无——本会话为 DSH 文件沙箱内，Firefox 主进程 sandbox_init() 无法嵌套",
+      "notes": "缺：**沙箱之外的 shell**（Firefox 必须在 DSH 文件沙箱外运行；且不得设置任何 `MOZ_*` 变量，否则 juggler 握手失败、`launchPersistentContext` 超时）。归 T29。"
+    },
+    {
+      "id": "browser.webkit",
+      "requirement": "T30 验收第 1 条：Safari 14+（最低与最新）",
+      "dimension": "浏览器 / WebKit",
+      "engine": "webkit-2287（本机缓存）",
+      "status": "blocked",
+      "command": "node tests/compat/scripts/browser-core-path.mjs（待 T29 提供非沙箱 shell 后）",
+      "evidence": "无——沙箱会静默阻塞 WebKit 写 ~/Library/WebKit（存储测量必失败），且 WebKit 会泄漏辅助进程",
+      "notes": "缺：**非沙箱环境** + 每个格子后的浏览器进程清理。真实 Safari 与 Playwright WebKit 也不等价，归 T29。"
+    },
+    {
+      "id": "browser.edge",
+      "requirement": "T30 验收第 1 条：Edge 90+（最低与最新）",
+      "dimension": "浏览器 / Edge",
+      "engine": "—",
+      "status": "blocked",
+      "command": "—",
+      "evidence": "无——本机未安装 Microsoft Edge",
+      "notes": "缺：**Edge 安装**（Chromium 内核结论可作近似，但不能替代 Edge 实测）。归 T29。"
+    },
+    {
+      "id": "browser.minVersions",
+      "requirement": "T30 验收第 1 条：Chrome/Firefox 90、Safari 14 的最低版本",
+      "dimension": "浏览器 / 最低版本",
+      "engine": "—",
+      "status": "blocked",
+      "command": "—",
+      "evidence": "无——本机只有 chromium-1208/1223（Chrome 148）、firefox-1522、webkit-2287",
+      "notes": "缺：**最低版本浏览器二进制**（Chrome 90 / Firefox 90 / Safari 14）。安装浏览器属新增依赖，需负责人批准；且属于真机/受控环境工作，归 T29。"
+    },
+    {
+      "id": "device.iosSafari",
+      "requirement": "T30 验收第 1 条：iOS Safari 真机",
+      "dimension": "真机 / iOS Safari",
+      "engine": "—",
+      "status": "blocked",
+      "command": "—",
+      "evidence": "无——本机无 iOS 设备与 remote debugging 通道",
+      "notes": "缺：**真机 + Web Inspector 通道**；也缺 iOS 上的 WKWebView 差异结论。归 T29。"
+    },
+    {
+      "id": "device.androidChrome",
+      "requirement": "T30 验收第 1 条：Android Chrome 真机",
+      "dimension": "真机 / Android Chrome",
+      "engine": "—",
+      "status": "blocked",
+      "command": "—",
+      "evidence": "无——本机无 Android 设备与 adb 通道",
+      "notes": "缺：**真机 + adb**；含 OEM WebView/省电策略差异。归 T29。"
+    },
+    {
+      "id": "import.webpack.production",
+      "requirement": "指南 4.2：webpack 生产构建",
+      "dimension": "接入方式 / webpack 生产构建",
+      "engine": "—",
+      "status": "blocked",
+      "command": "—",
+      "evidence": "无——仓库未安装 webpack（`node_modules` 无 webpack；examples/ 也没有 webpack 工程）",
+      "notes": "缺：**新增 example + webpack 依赖（需负责人批准）**。当前只能给出间接判据：`exports` 的 `import`/`types` 条件齐全、产物是标准 ESM（webpack 5 消费 ESM 无障碍），但**这不是实测**。归 T29 或待批准后补。"
+    },
+    {
+      "id": "import.webpack.devServer",
+      "requirement": "指南 4.2：webpack 开发服务器",
+      "dimension": "接入方式 / webpack 开发服务器",
+      "engine": "—",
+      "status": "blocked",
+      "command": "—",
+      "evidence": "无——同上",
+      "notes": "缺：同 webpack 生产构建（新增 example + 依赖需批准）。归 T29 或待批准后补。"
+    }
+  ]
+}

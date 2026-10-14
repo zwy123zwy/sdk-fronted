@@ -1,0 +1,76 @@
+{
+  "task": "T30",
+  "generatedAt": "2026-10-14T07:51:13.784Z",
+  "cells": [
+    {
+      "id": "degrade.compression.missing",
+      "requirement": "T30 验收：`CompressionStream` 不支持的降级路径",
+      "dimension": "降级能力 / 压缩",
+      "engine": "node 24（无 CompressionStream）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "本次运行的 results/degradation.json + 用例输出",
+      "notes": "> 4 KB 正文未被压缩（bodyBytes undefined），批次仍送达并可按 JSON 解析。"
+    },
+    {
+      "id": "degrade.compression.present",
+      "requirement": "同上（对照格，证明降级用例有判别力）",
+      "dimension": "降级能力 / 压缩（对照）",
+      "engine": "node 24（有 CompressionStream）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "本次运行的 results/degradation.json",
+      "notes": "同一夹具在能力存在时 `bodyBytes` 为 Uint8Array——两条分支真的不同。"
+    },
+    {
+      "id": "degrade.randomuuid.missing",
+      "requirement": "T30 验收：不支持 API 的降级路径",
+      "dimension": "降级能力 / crypto.randomUUID",
+      "engine": "node 24（无 crypto）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "event_id 匹配 UUID v4 正则",
+      "notes": "`crypto` 被删除后事件标识退回到内置实现，批次仍送达。"
+    },
+    {
+      "id": "degrade.locks.missing",
+      "requirement": "T30 验收：Web Locks 不支持的降级路径",
+      "dimension": "降级能力 / Web Locks",
+      "engine": "node 24（删除 navigator 后）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "createDefaultLocksPort() === null",
+      "notes": "默认端口在能力缺席时返回 null（不是抛错）；**node 24 本身自带 navigator.locks**，故本格必须真删。"
+    },
+    {
+      "id": "degrade.locks.present",
+      "requirement": "同上（对照格，证明降级用例有判别力）",
+      "dimension": "降级能力 / Web Locks（对照）",
+      "engine": "node 24（原生 navigator.locks）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "createDefaultLocksPort() !== null",
+      "notes": "默认端口在能力存在时给出实现，两条分支不同。"
+    },
+    {
+      "id": "degrade.locks.fallback",
+      "requirement": "T30 验收：Web Locks 不支持的降级路径（多标签页）",
+      "dimension": "降级能力 / 选主降级",
+      "engine": "node 24（无 navigator.locks，有 BroadcastChannel）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "LeaderMode = broadcast / none / locks 三态实测",
+      "notes": "含注入 locks 的正向对照；正确性不依赖选主（C07-F7）。"
+    },
+    {
+      "id": "degrade.idb.missing",
+      "requirement": "T30 验收：不支持 API 的降级路径（存储）",
+      "dimension": "降级能力 / IndexedDB",
+      "engine": "node 24（无 indexedDB）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "批次送达且含事件字段",
+      "notes": "离线持久化不可用时正常通道不受影响；真实 IDB 行为归 T29。"
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "task": "T30",
+  "generatedAt": "2026-10-14T07:51:23.349Z",
+  "engine": "chromium",
+  "playwright": "1.64.0（仓库锁定；浏览器用 executablePath 指向本机 chromium-1223）",
+  "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+  "browserVersion": "148.0.7778.96",
+  "features": {
+    "CompressionStream": true,
+    "webLocks": true,
+    "broadcastChannel": true,
+    "indexedDB": true,
+    "sendBeacon": true,
+    "randomUUID": true,
+    "cookieEnabled": true
+  },
+  "steps": [
+    "assembly",
+    "init",
+    "track",
+    "captureError",
+    "uncaughtScheduled"
+  ],
+  "listenTypes": [
+    "error",
+    "unhandledrejection",
+    "click",
+    "pagehide",
+    "visibilitychange",
+    "load",
+    "pointerdown",
+    "keydown",
+    "popstate",
+    "__playwright_global_listeners_check__",
+    "mousemove",
+    "pointerdown",
+    "pointerup",
+    "touchstart",
+    "touchend",
+    "touchcancel",
+    "mousedown",
+    "mouseup",
+    "click",
+    "auxclick",
+    "dblclick",
+    "contextmenu"
+  ],
+  "windowErrors": [
+    "Uncaught Error: compat-uncaught"
+  ],
+  "batchesReceived": 3,
+  "eventNames": [
+    "compat_probe",
+    "web_js_error",
+    "web_js_error",
+    "compat_probe_2"
+  ],
+  "messages": [
+    "",
+    "compat-capture-error",
+    "Uncaught Error: compat-uncaught",
+    ""
+  ],
+  "firstBatch": {
+    "at": "2026-10-14T07:51:21.824Z",
+    "bytes": 1134,
+    "body": {
+      "protocol_version": 1,
+      "app_id": "t30-compat",
+      "env": "test",
+      "release": "0.0.0",
+      "sdk_name": "@web-report-sdk/core",
+      "sdk_version": "0.0.0",
+      "device_id": "c0131948-bed6-41c6-b1ef-e7e69aa88b51",
+      "device_id_persistent": true,
+      "session_id": "1d71464b-ecc5-4fc1-8968-097812da59ce",
+      "clock_offset": 0,
+      "clock_calibrated": false,
+      "consent": "granted",
+      "batch_id": "ade5fd86-6120-4179-a6c1-f7d67c841335",
+      "sent_at": 1791964281818,
+      "events": [
+        {
+          "event_id": "aeaf70c6-29c0-4ee3-9ca7-483a9a6d358c",
+          "event_name": "compat_probe",
+          "event_type": "custom",
+          "schema_version": 1,
+          "occurred_at": 1791964280815,
+          "priority": "normal",
+          "dimensions": {
+            "probe": "core-path"
+          }
+        },
+        {
+          "event_id": "952cc406-950a-452b-a773-c2874a295580",
+          "event_name": "web_js_error",
+          "event_type": "error",
+          "schema_version": 1,
+          "occurred_at": 1791964280817,
+          "priority": "normal",
+          "dimensions": {
+            "error_type": "Error",
+            "fingerprint": "fp_18322f0d",
+            "message": "compat-capture-error",
+            "source": "manual"
+          },
+          "metrics": {
+            "count": 1
+          },
+          "attachment": "Error: compat-capture-error\n    at http://0.0.0.0:50198/page:43:32\n    at http://0.0.0.0:50198/page:54:3"
+        }
+      ],
+      "common": {
+        "view_id": "76c73124-a147-4f3c-a3d2-aaec1972e29d",
+        "url": "http://0.0.0.0:50198/page"
+      }
+    }
+  },
+  "pageErrors": [
+    "Error: compat-uncaught"
+  ],
+  "checks": {
+    "serverReceivedBatch": true,
+    "corePath": true,
+    "sdkVersion": true,
+    "trackedEventDelivered": true,
+    "captureErrorDelivered": true,
+    "uncaughtErrorDelivered": true,
+    "browserWindowErrorFired": true,
+    "protocolVersion": true,
+    "appId": true,
+    "secondBatchDelivered": true,
+    "clockCalibrated": true
+  },
+  "status": "pass"
+}

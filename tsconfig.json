@@ -2,7 +2,15 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022"],
-    "types": ["node"]
+    "types": ["node"],
+    // 根程序的 include 是 `*.ts` + `tests/**/*.ts`，即**测试程序**。
+    // `tsconfig.base.json` 为了让包内开发直接吃源码而设了 `customConditions: ["source"]`，
+    // 而 packages/* 的 exports 里也确有 `"source"` 条件 → 一旦某个测试 import 了
+    // `packages/browser/dist/index.js`，它会顺着 browser 的 .d.ts 里对 `@web-report-sdk/core`
+    // 的裸包名引用、按 `source` 条件解析到 **packages/core/src/**，把源码拉进这个
+    // `lib` 不含 DOM 的程序，产生 64 条虚假错误（IDBFactory/SubtleCrypto 等）。
+    // 测试要验的是**构建产物**，所以根程序显式清空 customConditions。
+    "customConditions": []
   },
   "include": ["*.ts", "tests/**/*.ts"]
 }

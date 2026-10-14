@@ -1,0 +1,66 @@
+{
+  "task": "T30",
+  "generatedAt": "2026-10-14T07:51:13.800Z",
+  "cells": [
+    {
+      "id": "import.esm.node",
+      "requirement": "指南 4.2：Vite/Vitest 等 ESM 环境直接导入",
+      "dimension": "接入方式 / ESM 导入",
+      "engine": "node 24",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "/Users/spirit-ai/Desktop/sdk/packages/browser/dist/index.js",
+      "notes": "导入构建产物并读取命名导出与 SDK_VERSION。"
+    },
+    {
+      "id": "import.node.no-dom",
+      "requirement": "指南 4.2：不需要额外配置即可导入（含 SSR/无 DOM 环境）",
+      "dimension": "接入方式 / 无 DOM 导入",
+      "engine": "node 24（无 window/document）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "子进程 node --input-type=module 动态 import，无 window/document",
+      "notes": "导入期不得访问 window/document（模块顶层无副作用）。"
+    },
+    {
+      "id": "import.iife.global",
+      "requirement": "指南 4.2：`<script>` 引入",
+      "dimension": "接入方式 / IIFE 全局",
+      "engine": "node vm（模拟无构建工具的页面）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "/Users/spirit-ai/Desktop/sdk/packages/browser/dist/web-report-sdk.iife.js",
+      "notes": "权威证据是 `pnpm examples:test` 里 examples/script-tag 的 check.mjs（已 exit 0）。"
+    },
+    {
+      "id": "import.exports.conditions",
+      "requirement": "指南 4.2：构建工具直接导入",
+      "dimension": "接入方式 / exports 条件映射",
+      "engine": "node 24",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "/Users/spirit-ai/Desktop/sdk/packages/browser/package.json",
+      "notes": "`.` 与 `./iife` 两个入口的条件齐全性。"
+    },
+    {
+      "id": "import.cjs.require",
+      "requirement": "指南 4.2：Jest（默认 CJS）与 webpack `require` 场景",
+      "dimension": "接入方式 / CJS require",
+      "engine": "node 24",
+      "status": "fail",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "ERR_PACKAGE_PATH_NOT_EXPORTED（见用例内断言与报告）",
+      "notes": "`exports` 没有 `require` 条件，CJS `require(\"@web-report-sdk/browser\")` 直接失败；现有 Jest 示例靠 `--experimental-vm-modules` + `.mjs` 才能跑（属额外配置）。**真实缺口，需决策**。"
+    },
+    {
+      "id": "import.vite.build",
+      "requirement": "指南 4.2：Vite 生产构建",
+      "dimension": "接入方式 / Vite 生产构建",
+      "engine": "vite 8.3.4",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "temp/t30-examples.log（pnpm examples:build exit 0）",
+      "notes": "权威证据是仓库脚本 `pnpm examples:build`；本用例只核对产物存在。"
+    }
+  ]
+}

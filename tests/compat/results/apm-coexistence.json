@@ -1,0 +1,36 @@
+{
+  "task": "T30",
+  "generatedAt": "2026-10-14T07:51:14.055Z",
+  "cells": [
+    {
+      "id": "apm.order.apmFirst",
+      "requirement": "T30 验收：与第三方 APM 共存（第三方先初始化）",
+      "dimension": "共存 / 初始化顺序 A",
+      "engine": "happy-dom（进程内，真实 hook 链）",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "本次运行输出 + results/apm-coexistence.json",
+      "notes": "业务请求双方各计一次；SDK 批次送达且含 web_http；SDK 卸载后第三方包装仍在全局上。实测：该顺序下 SDK 捕获的\"原生\"引用即第三方包装（真实发送会经过第三方）。"
+    },
+    {
+      "id": "apm.order.sdkFirst",
+      "requirement": "T30 验收：与第三方 APM 共存（SDK 先初始化）",
+      "dimension": "共存 / 初始化顺序 B",
+      "engine": "happy-dom（进程内，真实 hook 链）",
+      "status": "fail",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "本次运行输出 + results/apm-coexistence.json（该用例**变红**）",
+      "notes": "**实测不通过**：业务请求双方各计一次、SDK 批次送达均成立，但 `assembly.destroy()` 后第三方包装被抹掉（`globalView.fetch` 变回 SDK hook 前的原生引用）→ 第三方此后不再采集。根因见 `packages/core/src/kernel/global-registry.ts` 的 `dispose()`（无条件还原 `chain.base`）。"
+    },
+    {
+      "id": "apm.error.chain",
+      "requirement": "Q7 第 4 条：卸载后 hook 链完整",
+      "dimension": "共存 / error 监听链",
+      "engine": "happy-dom",
+      "status": "pass",
+      "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
+      "evidence": "本次运行输出（派发 error 事件后第三方计数 1 → 2）",
+      "notes": "SDK 卸载后第三方仍收到 error 事件（只还原自己那一层）。"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "task": "T30",
+  "generatedAt": "2026-10-14T07:51:24.931Z",
+  "engine": "vite 8.3.4",
+  "origin": "http://127.0.0.1:50239",
+  "resolvedSpecifier": "/@fs/Users/spirit-ai/Desktop/sdk/packages/browser/dist/index.js",
+  "resolvedUrl": "http://127.0.0.1:50239/@fs/Users/spirit-ai/Desktop/sdk/packages/browser/dist/index.js",
+  "domText": "web-report-sdk 0.0.0",
+  "pageErrors": [],
+  "checks": {
+    "indexHtml": true,
+    "mainTransformed": true,
+    "specifierResolved": true,
+    "resolvedToDistArtifact": true,
+    "resolvedModuleServed": true,
+    "resolvedModuleExportsSdkVersion": true,
+    "browserRenderedSdkVersion": true,
+    "noPageErrors": true
+  },
+  "status": "pass"
+}
