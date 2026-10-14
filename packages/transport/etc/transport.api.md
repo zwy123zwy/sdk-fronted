@@ -127,9 +127,9 @@ export function combineFixedMetrics(...sources: readonly FixedMetricsPort[]): Fi
 export interface CommitLossReport {
     // (undocumented)
     readonly events: number;
+    readonly observedWindowMs: number;
     // (undocumented)
     readonly sessionIds: readonly string[];
-    // (undocumented)
     readonly windowMs: number;
 }
 
@@ -580,7 +580,7 @@ export interface ExposureStats {
     // (undocumented)
     readonly commitLatencyP95Ms: number | null;
     readonly commitLostEvents: number;
-    // (undocumented)
+    readonly commitLostObservedWindowMs: number | null;
     readonly commitLostWindowMs: number | null;
     // (undocumented)
     readonly oldestPendingMs: number | null;

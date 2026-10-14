@@ -227,6 +227,120 @@ describe('暴露窗口与 CR-001 计数', () => {
     }
   });
 
+  /**
+   * T33：契约字段 `exposure_window_ms`（上界）与 D004 的真实窗口**不是一回事**。
+   *
+   * 时间线（与 T29/T32 的硬杀实测同构）：
+   * - 会话 A：`T0` 产生第 1 批（= 真实窗口的起点），`T0+9` 产生第 2 批，两批都未提交即被强杀；
+   * - 会话 B：`T0+900_000`（强杀 + 重启 + 开探测页的固定开销量级）才打开并对账。
+   *
+   * 于是同一个会话有两组数：
+   * - 上界（契约字段）：`对账时刻 − first_pending_at` = 900_000 ms，含重启开销；
+   * - 真实窗口读数：`最后一个「会话仍存活」证据 − first_pending_at` = 9 ms。
+   * 两者相差 5 个数量级（**真实 D004 实测为 2–3 个数量级**，见
+   * `docs/reports/reliability-reconciliation.md` 缺口 2），说明「上界」不能当真实窗口读。
+   */
+  test('T33 硬杀前后：契约窗口（上界）与真实窗口读数差 2–3 个数量级，且真实窗口是毫秒级', async () => {
+    const dbName = freshDbName();
+    const counters = createCountersSpy();
+    let clockA = T0;
+    const reconcileAt = T0 + 900_000;
+    const storeA = createOfflineStore({
+      appId: 'demo-app',
+      sessionId: 'session-a',
+      backend: neverCommitting(createIdbBackend({ dbName })),
+      now: () => clockA,
+      // 不触发 flush：一旦 flush 开始就会 `pauseAnchors()`，后续锚点不再落痕（D-1 的合并语义），
+      // 而本用例要读的正是「事件已产生、事务尚未提交」这段窗口在库里留下的最后存活证据。
+      limits: { commitBatchSize: 1_000, commitIntervalMs: 600_000 },
+    });
+    try {
+      await storeA.ready();
+      clockA = T0;
+      storeA.prewrite(makeBatch());
+      clockA = T0 + 9;
+      storeA.prewrite(makeBatch());
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 30);
+      });
+      // 硬杀前：窗口是 0–几十 ms（不是秒级），此时还没有"丢失"可对账
+      const live = storeA.stats().exposure;
+      expect(live.pendingEvents).toBe(2);
+      expect(live.oldestPendingMs).toBe(9);
+      expect(live.commitLostEvents).toBe(0);
+      expect(live.commitLostWindowMs).toBeNull();
+    } finally {
+      storeA.dispose();
+    }
+
+    // 硬杀后第 900 秒才重启对账
+    const storeB = createOfflineStore({
+      appId: 'demo-app',
+      sessionId: 'session-b',
+      dbName,
+      now: () => reconcileAt,
+      counters: counters.port,
+    });
+    try {
+      await storeB.ready();
+      const report = storeB.commitLoss();
+      expect(report.events).toBe(2);
+      expect(report.sessionIds).toEqual(['session-a']);
+      // 契约字段 = 上界：结束点是「重启后的对账时刻」，被重启开销支配
+      expect(report.windowMs).toBe(900_000);
+
+      // 真实窗口读数：结束点是「最后一个会话存活证据」，与硬杀前同一量级
+      const observed = report.observedWindowMs;
+      expect(observed).toBe(9);
+      expect(observed).toBeLessThan(1_000);
+
+      // 钉住关系：上界 ≥ 真实窗口，且当前相差 2–3 个数量级（二者确实不是一回事）
+      expect(report.windowMs).toBeGreaterThanOrEqual(observed);
+      expect(report.windowMs / Math.max(1, observed)).toBeGreaterThanOrEqual(100);
+
+      const exposure = storeB.stats().exposure;
+      expect(exposure.commitLostEvents).toBe(2);
+      expect(exposure.commitLostWindowMs).toBe(900_000);
+      expect(exposure.commitLostObservedWindowMs).toBe(9);
+      expect(counters.get(REASON_PREWRITE_COMMIT_LOST)).toBe(2);
+    } finally {
+      storeB.dispose();
+    }
+  });
+
+  test('T33 无丢失时（存活会话未被误判）真实窗口读数也不上报', async () => {
+    const dbName = freshDbName();
+    const storeA = createOfflineStore({
+      appId: 'demo-app',
+      sessionId: 'session-a',
+      dbName,
+      now: () => T0,
+      limits: { commitBatchSize: 1, commitIntervalMs: 5 },
+    });
+    try {
+      await storeA.ready();
+      await storeA.prewrite(makeBatch()).settled;
+    } finally {
+      storeA.dispose();
+    }
+
+    const storeB = createOfflineStore({
+      appId: 'demo-app',
+      sessionId: 'session-b',
+      dbName,
+      now: () => T0 + 10 * DEAD_SESSION_MS,
+    });
+    try {
+      await storeB.ready();
+      const exposure = storeB.stats().exposure;
+      expect(exposure.commitLostEvents).toBe(0);
+      expect(exposure.commitLostWindowMs).toBeNull();
+      expect(exposure.commitLostObservedWindowMs).toBeNull();
+    } finally {
+      storeB.dispose();
+    }
+  });
+
   test('CR-001 指标名与常量已按契约值导出', () => {
     expect(REASON_PREWRITE_COMMIT_LOST).toBe('prewrite_commit_lost');
     expect(METRIC_EXPOSURE_WINDOW_EVENTS).toBe('exposure_window_events');

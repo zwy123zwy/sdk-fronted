@@ -109,7 +109,21 @@ export interface ExposureStats {
   readonly commitLatencyP95Ms: number | null;
   /** 重启后对账出的「已发起预写但事务未提交」事件数（CR-001：`prewrite_commit_lost`）。 */
   readonly commitLostEvents: number;
+  /**
+   * 契约指标 `exposure_window_ms` 的取值：暴露窗口时长的**上界**（到对账时刻为止）。
+   *
+   * 它含「强杀 + 重启 + 开探测页」的开销，**不是** D004 的真实窗口；接收方看板不得
+   * 把它读成真实窗口。`events === 0` 时为 `null`（CR-001 的上报闸门）。
+   */
   readonly commitLostWindowMs: number | null;
+  /**
+   * 真实窗口的可观测读数（**内部观测量，不是契约指标**；`events === 0` 时为 `null`）。
+   *
+   * 结束点是「最后一个会话存活证据」，与 `commitLostWindowMs` 一起把真实窗口夹在
+   * `[commitLostObservedWindowMs, commitLostWindowMs]` 之间。理由与取舍见
+   * `docs/reports/reliability-reconciliation.md` 缺口 2。
+   */
+  readonly commitLostObservedWindowMs: number | null;
 }
 
 /**
@@ -148,7 +162,24 @@ export interface OfflineLimits {
 /** 暴露窗口对账报告（一次检测的结果）。 */
 export interface CommitLossReport {
   readonly events: number;
+  /**
+   * **上界**：`对账时刻 − first_pending_at`，即契约 `exposure_window_ms` 的取值。
+   *
+   * 会话死亡时刻不可观测，窗口只能在重启后的对账时刻闭合 —— 因此它**包含
+   * 「强杀 + 重启 + 打开探测页」的固定开销**（T29/T32 实测 923–1712 ms），
+   * 与 D004 由批写提交延迟决定的真实窗口（毫秒级）**不是一回事**。
+   * 见 `docs/contracts/changes/CR-007-exposure-window-upper-bound.md`。
+   */
   readonly windowMs: number;
+  /**
+   * **真实窗口的可观测读数**：`最后一个「会话仍存活」证据 − first_pending_at`。
+   *
+   * 锚点的 `updated_at` 在每次 `prewrite()` 的同一同步回合改写，是死亡之前**最后一份**
+   * 「会话当时还活着」的持久证据，因此该读数不含重启开销（与 `measuredMsAfterIssue`
+   * 同量级）。真实窗口 W 满足 `observedWindowMs ≤ W ≤ windowMs`：等于下界是因为
+   * 「最后一次存活证据 → 死亡」那一段同样不可观测（提交被卡住时会低估）。
+   */
+  readonly observedWindowMs: number;
   readonly sessionIds: readonly string[];
 }
 

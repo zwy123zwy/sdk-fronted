@@ -87,6 +87,13 @@ C08 每 60 秒聚合一次，作为 `sdk_health` 事件上报（C08-F3），且�
 
 值为 0 的计数不上报，以控制体积。字段键必须满足 `fieldKey` 格式（不超过 64 字符；最长的 `count_config_signature_unavailable` 为 34 字符）。一个窗口内非零指标超过 50 个时，拆成多条 `sdk_health` 事件，每条带相同的 `window_ms` 和 `dimensions`。
 
+**`exposure_window_ms` 是暴露窗口时长的上界，不是真实窗口**（2026-10-13 经 CR-007 写入，兼容澄清，字段名与类型不变）：
+
+- **起点**是事件产生（`first_pending_at`）；**结束点是重启后的对账时刻**——会话死亡时刻在客户端不可观测，窗口只能在下次打开时闭合。
+- 因此该值**包含「强杀 + 重启 + 打开探测页」的固定开销**：T29/T32 实测 **923–1712 ms**，而 D004 的真实窗口由批写提交延迟决定（实测 **0–11 ms**；D004 引用的 p50 1–4.1 ms / p95 3–17 ms），**两者相差 2–3 个数量级**。
+- 该字段的数值随**重启速度**漂移：重启越快，上报的窗口越小。**不得把它读作真实窗口，也不得用于 SLA / 容量判定**。
+- 真实窗口的本地可观测读数见 `packages/transport` 的 `stats().exposure.commitLostObservedWindowMs`（**内部观测量，不是契约指标，不进 `sdk_health`**）。
+
 `dimensions` 取值的口径（2026-10-12 经架构负责人确认；本节其余内容不变）：
 
 - `config_version` 以**十进制字符串**编码（批次 Schema 的 `dimensions` 值类型只能是字符串），取值范围与 `remote-config.schema.json` 的整数 `config_version` 一致（不小于 1）；没有生效配置时不上报。
@@ -101,3 +108,4 @@ C08 每 60 秒聚合一次，作为 `sdk_health` 事件上报（C08-F3），且�
 | 0.2 | 2026-10-10 | 删除 S04 死信原因码，网关 `error` 改为接收方建议取值；每个原因码对应验收用例；新增 `plugin_dependency_missing`、`plugin_install_failed`、`consent_buffer_cleared`、`offline_incompatible`、`config_version_stale`、`config_scope_mismatch`、`config_parse_failed`、`config_consent_mode_rejected`；`processor_error`、`storage_unavailable` 移到只计数；冻结 |
 | 0.2（兼容追加） | 2026-10-13 | 经 CR-001 与架构负责人批准（2026-10-13）：第 1 节新增 `prewrite_commit_lost`（C07，硬杀导致的预写未落盘）；第 4 节 `metrics` 新增 `exposure_window_events`、`exposure_window_ms`。属兼容变更，**不递增文档版本号**（沿用 2026-10-12 对内置事件 Schema 与样例的先例）；`offline_evicted`、`storage_unavailable` 的既有语义不变 |
 | 0.2（兼容追加） | 2026-10-13 | 经 **CR-003** 与架构负责人批准：第 2 节新增 `config_schema_invalid`（C03，「合法 JSON 但不符合 `remote-config.schema.json`」，与 `config_parse_failed`＝非合法 JSON 区分；含使用了 `remote-config.md` 5.1 节未列出的 semver 范围语法）。属兼容变更，**不递增文档版本号**；`config_parse_failed` 的既有语义不变 |
+| 0.2（兼容追加） | 2026-10-13 | 经 **CR-007** 与编排方批准：第 4 节澄清 `exposure_window_ms` 是暴露窗口时长的**上界**（结束点是重启后的对账时刻，含强杀+重启开销，实测 923–1712 ms），**不是** D004 的真实窗口（0–11 ms），不得用于 SLA/容量判定；真实窗口的本地可读量见 `stats().exposure.commitLostObservedWindowMs`（内部观测量，非契约指标）。**未改字段名、类型、取值口径与 Schema**，属兼容澄清，**不递增文档版本号** |

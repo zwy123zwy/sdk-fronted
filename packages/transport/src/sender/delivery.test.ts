@@ -369,7 +369,7 @@ describe('C07 装配层', () => {
         clear: () => Promise.resolve(),
         stats: () => stats,
         quota: () => Promise.resolve(null),
-        commitLoss: () => ({ events: 0, windowMs: 0, sessionIds: [] }),
+        commitLoss: () => ({ events: 0, windowMs: 0, observedWindowMs: 0, sessionIds: [] }),
         ready: () => Promise.resolve(),
         drain: () => Promise.resolve(),
         dispose: () => undefined,
@@ -388,6 +388,7 @@ describe('C07 装配层', () => {
         commitLatencyP95Ms: null,
         commitLostEvents: 0,
         commitLostWindowMs: null,
+        commitLostObservedWindowMs: null,
       }),
     });
     expect(empty.exposureMetrics()).toEqual([]);
@@ -406,6 +407,7 @@ describe('C07 装配层', () => {
         commitLatencyP95Ms: null,
         commitLostEvents: 3,
         commitLostWindowMs: 1200.4,
+        commitLostObservedWindowMs: 4,
       }),
     });
     expect(lost.exposureMetrics()).toEqual([

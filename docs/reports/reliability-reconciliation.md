@@ -267,11 +267,46 @@ node tests/e2e/lib/d004-run.mjs --browser chromium --out tests/reliability/resul
   这是**乐观方向的误导**？不是——它**高估**了暴露窗口，从而让残余风险看起来比实际大 2–3 个数量级；
   但同时它**掩盖**了真正的判据（真实窗口是否仍 ≤ 毫秒级），因为该字段的数值由**重启速度**决定，
   与批写提交延迟无关：**重启越快，上报的"窗口"越小**，指标会随机器性能漂移。
-- **本次不改实现**（`packages/*/src/**` 属禁止修改范围），也不改契约。**需负责人裁定**：
+- **原状态：本次不改实现**（`packages/*/src/**` 原属禁止修改范围），也不改契约。**需负责人裁定**：
   ① 接受该字段是"上界"并在契约/receiver-requirements 里写明语义（最小改动，纯文档）；
   ② 或让实现改用可观测的 `commitLatencyP50Ms/P95Ms`（`stats().exposure` 里已有！）作为窗口口径；
   ③ 或在暂停/离开路径记录"最后一次提交时刻"，让上界退化为真实窗口。
   **本报告的三张表按 JSON 原样列出该字段，并在此显式标注它不是 D004 的窗口。**
+
+#### 缺口 2 的落地（2026-10-13，CR-007 + C07 收尾）
+
+| 裁定 | 落地方式 |
+|---|---|
+| ① 「上界」语义写进契约正文 | **CR-007**（`docs/contracts/changes/CR-007-exposure-window-upper-bound.md`，已批准、标 0.2 兼容追加、**不升版本号**）：`reason-codes.md` 第 4 节补一段字段语义；`receiver-requirements.md` 附录 A.3 第 3 条补充 + 新增第 7 条「不得用于 SLA / 容量判定」。**未改字段名、类型、取值口径、Schema 与 `dependentRequired`** |
+| ② 让「真实窗口」可被看到 | 选了**「把真实窗口变成可观测量」**这一支：新增 `stats().exposure.commitLostObservedWindowMs` 与 `commitLoss().observedWindowMs`（结束点＝**最后一个「会话仍存活」证据**，即 intent 锚点的 `updated_at`；该锚点在每次 `prewrite()` 的同一同步回合改写）。**不是契约指标**，不进 `sdk_health` |
+| ③ 需要时开 CR | 见① |
+
+**为什么没选裁定 ② 的第一支（`commitLatencyP50Ms`/`P95Ms`）**：这两项在**全部 9 个格子**里都是 `null`
+（`tests/e2e/results/d004-chromium.json` 逐格 `reopenStats.exposure.commitLatencyP50Ms === null`，含 `pending-d0` / `bulk-d0` / `preflush-*`
+这些**捕获到窗口**的格子）。原因是结构性的：对账发生在**重启后的新会话**里，而新会话一个事务都没提交过，因此没有任何提交延迟样本。
+它度量的是**优雅提交路径**的延迟，恰好在最需要它的场景里为空。
+
+**读数语义（不可省略）**：真实窗口 W 被**夹在**两个数之间 —— `observedWindowMs ≤ W ≤ windowMs`。
+两端的偏差都是结构性的：「最后一次存活证据 → 进程死亡」不可观测，所以新读数是**下界**（提交被卡住时会低估）；
+「死亡 → 重启后对账」不可观测，所以旧字段是**上界**（含重启开销、被重启速度支配）。**两者都不能单独当 W**；看板应成对引用。
+
+**T33 实测（Chromium，`tests/reliability/results/d004-chromium-observed-window.json`，被测实现 sha256 前缀 `e69a657e87f4e352`，
+2026-10-14T10:25:53.751Z；由 `pnpm test:e2e --project=chromium` 产生，**未覆写 T29 官方产物**）**：
+
+| 格子 | 上界 `windowMs`（契约字段） | 真实窗口读数 `observedWindowMs` | 杀在发出后 `measuredMsAfterIssue` | 对账 |
+|---|---|---|---|---|
+| `pending-d0` | 1084 ms | **1 ms** | 0 ms | 9/9 格 `reconciles=true` ✅ |
+| `bulk-d0` | 1247 ms | **7 ms** | 12 ms | 同上 |
+| `preflush-d0` | 953 ms | **2 ms** | 0 ms | 同上 |
+| `preflush-small` | 1085 ms | **1 ms** | 0 ms | 同上 |
+
+即：新读数 1–7 ms，与 `measuredMsAfterIssue`（0–12 ms）同量级，而上界 953–1247 ms **相差约 3 个数量级**——
+与"上界 ≥ 真实窗口、且二者不是一回事"完全一致。**该轮 `pending-d5` 未捕获窗口（`windowCaptured=false`，属运行间波动，非回归）**：
+本报告仍按原口径不把它记为 0 丢失。
+
+**已知残留（未做）**：本缺口上方的「读表前必读」提示由 `tests/reliability/reconcile.mjs` **生成**，其中交叉引用写作"见缺口 6"，
+实际是**缺口 2**（该脚本不在本次执行范围，未改）；本轮也未把新读数加进生成表的列（同理，生成器未改），
+新读数只在**本节的散文与 T33 产物 JSON**里给出。
 
 ### 缺口 3：WebKit 的 3 个格子没有捕获暴露窗口，JSON 计数为 0 —— **不能算作"完全对账"**
 

@@ -176,7 +176,7 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
   let evictedBatches = 0;
   let evictedEvents = 0;
   let writeFailures = 0;
-  let lossReport: CommitLossReport = { events: 0, windowMs: 0, sessionIds: [] };
+  let lossReport: CommitLossReport = { events: 0, windowMs: 0, observedWindowMs: 0, sessionIds: [] };
 
   function settle(entry: PendingEntry, outcome: PrewriteOutcome): void {
     if (entry.settled) return;
@@ -302,6 +302,7 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
     const reap: string[] = [];
     let events = 0;
     let windowMs = 0;
+    let observedWindowMs = 0;
     const sessionIds: string[] = [];
     for (const entry of entries) {
       const state = parseIntent(entry.value);
@@ -315,8 +316,17 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
       if (lost > 0) {
         events += lost;
         sessionIds.push(state.session_id);
-        // 窗口时长是**上界**：会话死亡时刻不可观测，只能给到对账时刻。
+        // 上界（契约 `exposure_window_ms`）：会话死亡时刻不可观测，只能给到对账时刻。
+        // 因此它含「强杀 + 重启 + 打开探测页」的固定开销（实测 923–1712 ms）。
         windowMs = Math.max(windowMs, Math.max(0, now() - state.first_pending_at));
+        // 真实窗口的**可观测读数**：锚点的 `updated_at` 在每次 `prewrite()` 的同一同步回合
+        // 改写，是死亡前最后一份「会话当时还活着」的证据，故不含重启开销。
+        // 它不是契约指标（不进 `sdk_health`），只用于把真实窗口夹在
+        // `[observedWindowMs, windowMs]` 之间，避免看板只看到一个由重启速度决定的上界。
+        observedWindowMs = Math.max(
+          observedWindowMs,
+          Math.max(0, state.updated_at - state.first_pending_at),
+        );
       }
     }
     if (reap.length > 0) {
@@ -327,7 +337,7 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
       }
     }
     if (events > 0) counters.count(REASON_PREWRITE_COMMIT_LOST, events);
-    return { events, windowMs, sessionIds };
+    return { events, windowMs, observedWindowMs, sessionIds };
   }
 
   /** 当前账目的 intent 值（锚点与提交后的对账锚点共用同一形状）。 */
@@ -736,6 +746,7 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
           commitLatencyP95Ms: percentile(latencySamples, 0.95),
           commitLostEvents: lossReport.events,
           commitLostWindowMs: lossReport.events === 0 ? null : lossReport.windowMs,
+          commitLostObservedWindowMs: lossReport.events === 0 ? null : lossReport.observedWindowMs,
         },
       };
     },
