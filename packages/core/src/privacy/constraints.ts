@@ -8,7 +8,7 @@
  *      （**非法键名归 C04；非法参数归 C01，两者不合并**）
  *   2. 键数量：`dimensions` / `context` / `metrics` 各按键名字典序保留前 50，其余丢弃
  *   3. 值：先脱敏（`Masker`），再按 UTF-16 码元截断到 256（不切断代理对）
- *   4. 附件：截断到 8 KB（UTF-8 字节）
+ *   4. 附件：先脱敏（**与第 3 步同一个 `Masker`**），再截断到 8 KB（UTF-8 字节）
  *   5. 非有限指标：丢弃该字段，计 `non_finite_metric`
  *   6. 单条事件：UTF-8 序列化字节 ≤ 16 KB；超出时依次截断附件 → 最长的维度值 → 整键丢弃；
  *      仍超限则整条丢弃，计 `event_too_large`
@@ -181,7 +181,20 @@ function constrainMetrics(
   return Object.fromEntries(kept);
 }
 
-/** 按 UTF-8 字节上限压缩 `attachment`（记录截断路径）。 */
+/**
+ * 处理 `attachment`：先用**与 `dimensions` / `context` 同一个 `Masker`** 脱敏，
+ * 再按 UTF-8 字节上限压缩（记录截断路径）。
+ *
+ * **顺序：先脱敏、再截断**（与第 3 步的维度值一致），理由有两条：
+ * - 截断在前会把一个敏感值从中间切开，切断后的片段不再匹配任何规则，会以「残片」形式
+ *   原样发出 —— 实测 8 KB 边界落在手机号中间时残留 `1380`。脱敏在前则敏感值整体被替换，
+ *   边界如何移动都不残留片段。
+ * - 8 KB 是**上线字节预算**，必须是最后一步：替换串可能比命中片段更长（远程追加规则由
+ *   接入方定义），先截断就无法保证最终长度仍在限内。
+ *
+ * 这里是 attachment 的唯一脱敏权威：所有 attachment 路径（错误栈、自定义附件等）都汇聚到
+ * 本函数，插件侧**不得**自建 masker（自建只拿得到内置规则，会漏掉动态的 `extra_mask_rules`）。
+ */
 function clampAttachment(
   event: KernelEvent,
   input: ConstrainInput,
@@ -189,10 +202,15 @@ function clampAttachment(
 ): void {
   const attachment = event['attachment'];
   if (typeof attachment !== 'string') return;
-  if (utf8Bytes(attachment) <= input.limits.maxAttachmentBytes) return;
-  recorder.count(PRIVACY_REASON_CODES.truncatedAttachment);
-  recorder.addPath('attachment');
-  event['attachment'] = truncateToBytes(attachment, input.limits.maxAttachmentBytes);
+  const masked = input.masker.apply(attachment);
+  if (utf8Bytes(masked) > input.limits.maxAttachmentBytes) {
+    recorder.count(PRIVACY_REASON_CODES.truncatedAttachment);
+    recorder.addPath('attachment');
+    event['attachment'] = truncateToBytes(masked, input.limits.maxAttachmentBytes);
+    return;
+  }
+  // 未命中任何规则时不写入，保持「已合规事件零写入」。
+  if (masked !== attachment) event['attachment'] = masked;
 }
 
 /** 按 UTF-8 字节上限压缩 `url`（Schema `maxLength: 2048`，此处按字节兜底）。 */
@@ -227,6 +245,9 @@ function collectStringSlots(event: KernelEvent): { container: Record<string, unk
  * 这一步保证「所有值 ≤ `maxDimensionValueLength`」，此后事件体的字节数只受
  * 「键数量 × 键长」支配：50 键 × (64 + 256) ≈ 16 KB 是上界，因此**合法输入必然能落回限内**，
  * 后续的整键丢弃只对异常输入（超出 Schema 的额外字段/超长键）才需要。
+ *
+ * 本步骤会顺带压掉 `attachment`（顶层字符串）：它在 `clampAttachment` 里**已经过 masker**，
+ * 这里只做长度压缩，因此不构成绕过脱敏的路径。
  */
 function clampAllStringValues(event: KernelEvent, recorder: ReturnType<typeof createRecorder>): boolean {
   const limit = 256;

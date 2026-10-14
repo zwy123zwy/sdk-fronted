@@ -104,7 +104,7 @@ export interface JsErrorEvent {
   readonly occurred_at: number;
   readonly dimensions: NormalizedJsDimensions;
   readonly metrics: JsErrorMetrics;
-  /** 脱敏前的错误栈；脱敏由 C04 负责（`attachment` 只被 C04 按字节截断）。 */
+  /** 脱敏前的错误栈；脱敏由 C04 负责（`attachment` 经 C04 的 masker 脱敏后按 8 KB 字节截断）。 */
   readonly attachment?: string | undefined;
   /**
    * 行为面包屑的承载（见 `breadcrumbs.ts` 的 `BREADCRUMB_CONTEXT_PREFIX`）。

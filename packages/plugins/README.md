@@ -42,10 +42,11 @@
   与动作类型，**绝不记录输入框的 `value`**；路由面包屑只记路径（去掉 `?query`/`#hash`）。
   承载方式：`web_js_error.dimensions` 是契约里的**封闭四键**、`metrics` 只认 `count/line/column`，
   因此面包屑写在事件的 `context` 上（`bc_00`…`bc_19`，键名匹配 Schema 的 `fieldKey`）。
-- **脱敏边界**：本插件**不做**脱敏，只把原始 message/stack 交给管线（脱敏归 C04）。
-  ⚠️ 已知缺口：C04 的 `constrainEvent` 只对 `dimensions`/`context` 的字符串值脱敏，
-  `attachment`（错误栈）**只做 8 KB 截断、不脱敏**——AC-01 的"脱敏后的错误栈"当前只覆盖到
-  `dimensions.message`，待 C04 修复后回改（修复后 `src/error/capture.test.ts` 里那条哨兵会变红，那是预期）。
+- **脱敏边界**：本插件**不做**脱敏，只把原始 message/stack 交给管线（脱敏归 C04），
+  且插件侧**不得**自建 masker：远程 `extra_mask_rules` 是动态的，自建只拿得到内置规则。
+  ✅ 缺口已修复（原 C04 缺口）：C04 的 `constrainEvent` 现在让 `attachment`（错误栈）与
+  `dimensions`/`context` 走**同一个** masker —— 先脱敏、再按 8 KB 字节截断，因此 AC-01 的
+  "脱敏后的错误栈"由 attachment 本身成立（`src/error/capture.test.ts` 的哨兵已翻转为断言已脱敏）。
 
 ### F2 性能插件（`/perf`）
 

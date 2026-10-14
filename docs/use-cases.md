@@ -92,7 +92,7 @@ AC-13 的构建产物检查方式、AC-20 的共存模式声明方式均已裁�
 |---|---|---|
 | 1 | **面包屑的承载方式**（问题 5 只定了归属，未定字段） | 契约里 `web_js_error.dimensions` 是**封闭四键**、`metrics` 只认 `count/line/column`，没有面包屑字段。落地为事件 `context` 的 `bc_00`…`bc_19`（键名匹配 Schema 的 `fieldKey`）；容量固定 20，不开放配置 |
 | 2 | **AC-03 的 `count` 与“上报次数受控”不可兼得** | 落地为 **1 秒聚合窗口**：窗口内同指纹只上报一条、`metrics.count` 为窗口内总次数；折叠计 `filtered_by_plugin`；`flush()`／`pagehide`／隐藏／卸载都会立即结算。**用户可见变化：错误事件最多延迟 1 个窗口（≤1s）** |
-| 3 | **AC-01 的“脱敏后的错误栈”当前不成立**（C04 缺口） | C04 的 `constrainEvent` 只对 `dimensions`/`context` 的字符串值调 masker，`attachment`（错误栈）**只做 8 KB 截断、不脱敏**。按负责人裁定**修在 C04 侧**（不在插件里自建 masker：远程 `extra_mask_rules` 是动态的，自建只会拿到内置规则，会造成“看起来补上了、实际只补了一半”）。T18 侧按事实标注：AC-01 只覆盖到 `dimensions.message`；`src/error/capture.test.ts` 保留一条“attachment 目前未脱敏”的哨兵，**C04 修好后它会变红，需同步回改** |
+| 3 | **AC-01 的“脱敏后的错误栈”曾不成立**（C04 缺口，**已修复**） | 原因：C04 的 `constrainEvent` 只对 `dimensions`/`context` 的字符串值调 masker，`attachment`（错误栈）**只做 8 KB 截断、不脱敏**。按负责人裁定**修在 C04 侧**（不在插件里自建 masker：远程 `extra_mask_rules` 是动态的，自建只会拿到内置规则，会造成“看起来补上了、实际只补了一半”）。**修复**：`constraints.ts` 的 `clampAttachment` 改为先经**同一个** masker 脱敏、再按 8 KB 字节截断（顺序理由：先截断会把敏感值切成不匹配的残片，且替换串可能变长使最终长度失控），覆盖全部 attachment 路径。`src/error/capture.test.ts` 的哨兵已翻转为“断言已脱敏”，`packages/plugins/README.md` 的缺口标注已同步回改 |
 
 ## 确认前还剩的两件小事（不阻塞签字）
 

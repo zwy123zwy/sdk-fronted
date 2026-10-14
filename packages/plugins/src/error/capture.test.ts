@@ -159,8 +159,11 @@ describe('C05-AC-01 未捕获异常上报 web_js_error 且 source=window_error',
     // C04 对 dimensions / context 的字符串值做脱敏（message 里的数字已被归一化剥离）
     expect(masked.dimensions.message, 'C04 必须脱敏 dimensions.message 中的 JWT').not.toContain(FAKE_JWT);
     expect(masked.dimensions.message).toContain('Bearer ***');
-    // 已知缺口：C04 只按字节截断 attachment，不对其脱敏（见本文件顶部与报告）
-    expect(masked.attachment, 'C04 当前不对 attachment 脱敏').toContain(FAKE_MOBILE);
+    // C04 缺口已修复（见 docs/use-cases.md 第 3 行）：`attachment` 与 `dimensions`/`context`
+    // 走**同一个** masker，因此 AC-01 的「附带脱敏后的错误栈」现在由 attachment 本身成立。
+    expect(masked.attachment, 'C04 必须对 attachment 脱敏（与 dimensions 同一 masker）').not.toContain(FAKE_MOBILE);
+    expect(masked.attachment).not.toContain(FAKE_JWT);
+    expect(masked.attachment).toContain('Bearer ***');
 
     // 脱敏后的产出仍然满足真实 Schema（真实链路，不是空转）
     const validate = compileJsError();
