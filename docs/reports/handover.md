@@ -6,7 +6,7 @@
 
 | 项 | 值 |
 |---|---|
-| `main` | `d86d813`（2026-10-13 收尾时；CR-005 已应用） |
+| `main` | `d2bbc45`（2026-10-13 收尾时） |
 | 门禁 | **`pnpm gates` exit 0**（**111 个测试文件 / 1172 个测试**；含新增的 `security` project） |
 | 体积（门禁口径） | browser 10.98/13 kB、core 18.35/21 kB、plugins 642 B/20 kB、transport 14.81/18 kB |
 | 测试 project | `unit`（packages/tools 的 src）、`contract`（tests/contract）、**`security`（tests/security，2026-10-13 新增）** |
@@ -110,6 +110,36 @@ Q2（首期试点应用与对接人）**待负责人确认**；记录里写明�
 
 - T35 依赖 T31/T32/T33；**发布前必须完成整张预算表的重新推导**与 `docs/guides/` 的整体复核。
 - `CHANGELOG.md` 首个版本号留给 T35（当前条目为 `[0.0.0] — 未发布`）。
+
+## 2.5 已核实清单（2026-10-13 逐条查证过，接手不必重查）
+
+| 对象 | 核实结果 |
+|---|---|
+| 契约变更 | **CR-001～CR-005 全部已批准并应用**；契约版本仍为 0.2（均为兼容追加、未升版本号） |
+| 评审记录 | **R-001～R-016 全部已关闭**（15 条「已关闭」+ 1 条「已关闭（延后项）」）——这是 T01 的验收条件「本表不得有待处理」 |
+| D002 的「需要改的文档」 | **全部完成**（最后一项：`docs/guides/integration.md` 第 6.2 节已写明 `full` 只能在初始化参数设置、需接入方法务确认） |
+| D003 的「需要改的文档」 | **已完成**（容量建议那条由 CR-005 补上） |
+| D004 的「需要改的文档」 | ①容量建议 **已完成**（CR-005）；②**4 个 C08 原因码未实施**——见下 |
+| T31 的机械可验项 | **已完成**（供应链零第三方依赖、秘密形态扫描、端上脱敏独立样本、URL 白名单）；`security` project 已获批并纳入门禁 |
+
+### 唯一"已识别、有据、未实施"的缺口：4 个 C08 原因码
+
+`beacon_rejected`、`flush_skipped_due_to_budget`、`leader_lost`、`recovery_duplicate`
+（`prewrite_commit_lost` 已由 CR-001 落入契约）。经核实：**契约里不存在、实现里也没发出**
+（逐文件检索 0 命中）→ **不是契约违规**，而是**可观测性缺失**。
+
+起草 CR 前**必须先定这三件事**（POC 未给，属设计决定）：
+1. `leader_lost` 的语义，以及它是 count 还是 drop；
+2. `recovery_duplicate` 的粒度（按事件还是按批次？**与 CR-005 的「重复 ≈1 倍 critical 流量」如何对齐？**）；
+3. 每个码的归属模块（C07 发送/离线/选主，还是 C08 自监控）。
+
+已定的原料：POC 原文出处与状态（`docs/poc/POC-1.md:326`，原文写明「尚未确定」「只作为建议」）、
+`beacon_rejected` 与 `flush_skipped_due_to_budget` 的语义（同文件 323/326 行）、
+以及**可直接搬运的既有实现** `poc/poc-1/public/poc-sdk.js`（其计数器已按此粒度实现）。
+落地步骤：契约（`reason-codes.md` + Schema 的 `^count_…$`/`^drop_…$` patternProperties，
+**注意 `monitor/reason-codes.test.ts` 是与 Schema 的漂移检测器，改码会让它先变红**）
+→ C07/C08 的**发出点** → `pnpm api:update`（`COUNT_REASON_CODES` 是公开 API）。
+建议在 T18 之后、T20 之前立项（它也是 T20 基准口径的输入之一）。
 
 ## 3. 跨任务的累积义务（都在看板里，这里给索引）
 
