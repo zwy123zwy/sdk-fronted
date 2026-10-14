@@ -1,0 +1,3242 @@
+{
+  "task": "T29 / D004 硬杀落盘复测",
+  "generatedAt": "2026-10-14T09:16:59.442Z",
+  "browser": "webkit",
+  "driver": {
+    "id": "npx-cache-playwright-core-1.60.0",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/webkit-2287/pw_run.sh",
+    "exactPairing": true
+  },
+  "transport": {
+    "path": "packages/transport/dist/index.js",
+    "bytes": 105790,
+    "mtime": "2026-10-14T08:43:31.556Z",
+    "sha256": "26c232e4112442c6",
+    "note": "被复测的真实实现（单包 build 产物，源码 packages/transport/src/offline/**）"
+  },
+  "serverUrl": "http://127.0.0.1:63467",
+  "profileRoot": "/var/folders/tz/dg5xqq7n68v05f2rbtnjsvp80000gn/T/t29-e2e-d004-webkit-1791969403972",
+  "cells": [
+    {
+      "name": "durable",
+      "group": "oncomplete",
+      "scheduledDelayMs": null,
+      "awaitSettled": true,
+      "count": 100,
+      "eventsPerBatch": 10,
+      "padBytes": 0,
+      "limits": null,
+      "expectedEvents": 1000,
+      "dbName": "e2e-d004-durable",
+      "profile": "profile-durable",
+      "open": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "issue": {
+        "issued": 100,
+        "ms": 4.000000000000028,
+        "batchIds": [
+          "durable-batch-0",
+          "durable-batch-1",
+          "durable-batch-2",
+          "durable-batch-3",
+          "durable-batch-4",
+          "durable-batch-5",
+          "durable-batch-6",
+          "durable-batch-7",
+          "durable-batch-8",
+          "durable-batch-9",
+          "durable-batch-10",
+          "durable-batch-11",
+          "durable-batch-12",
+          "durable-batch-13",
+          "durable-batch-14",
+          "durable-batch-15",
+          "durable-batch-16",
+          "durable-batch-17",
+          "durable-batch-18",
+          "durable-batch-19",
+          "durable-batch-20",
+          "durable-batch-21",
+          "durable-batch-22",
+          "durable-batch-23",
+          "durable-batch-24",
+          "durable-batch-25",
+          "durable-batch-26",
+          "durable-batch-27",
+          "durable-batch-28",
+          "durable-batch-29",
+          "durable-batch-30",
+          "durable-batch-31",
+          "durable-batch-32",
+          "durable-batch-33",
+          "durable-batch-34",
+          "durable-batch-35",
+          "durable-batch-36",
+          "durable-batch-37",
+          "durable-batch-38",
+          "durable-batch-39",
+          "durable-batch-40",
+          "durable-batch-41",
+          "durable-batch-42",
+          "durable-batch-43",
+          "durable-batch-44",
+          "durable-batch-45",
+          "durable-batch-46",
+          "durable-batch-47",
+          "durable-batch-48",
+          "durable-batch-49",
+          "durable-batch-50",
+          "durable-batch-51",
+          "durable-batch-52",
+          "durable-batch-53",
+          "durable-batch-54",
+          "durable-batch-55",
+          "durable-batch-56",
+          "durable-batch-57",
+          "durable-batch-58",
+          "durable-batch-59",
+          "durable-batch-60",
+          "durable-batch-61",
+          "durable-batch-62",
+          "durable-batch-63",
+          "durable-batch-64",
+          "durable-batch-65",
+          "durable-batch-66",
+          "durable-batch-67",
+          "durable-batch-68",
+          "durable-batch-69",
+          "durable-batch-70",
+          "durable-batch-71",
+          "durable-batch-72",
+          "durable-batch-73",
+          "durable-batch-74",
+          "durable-batch-75",
+          "durable-batch-76",
+          "durable-batch-77",
+          "durable-batch-78",
+          "durable-batch-79",
+          "durable-batch-80",
+          "durable-batch-81",
+          "durable-batch-82",
+          "durable-batch-83",
+          "durable-batch-84",
+          "durable-batch-85",
+          "durable-batch-86",
+          "durable-batch-87",
+          "durable-batch-88",
+          "durable-batch-89",
+          "durable-batch-90",
+          "durable-batch-91",
+          "durable-batch-92",
+          "durable-batch-93",
+          "durable-batch-94",
+          "durable-batch-95",
+          "durable-batch-96",
+          "durable-batch-97",
+          "durable-batch-98",
+          "durable-batch-99"
+        ]
+      },
+      "settle": {
+        "total": 100,
+        "tally": {
+          "durable": 100
+        },
+        "settled": [
+          {
+            "batchId": "durable-batch-0",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-1",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-2",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-3",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-4",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-5",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-6",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-7",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-8",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-9",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-10",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-11",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-12",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-13",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-14",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-15",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-16",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-17",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-18",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-19",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-20",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-21",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-22",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-23",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-24",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-25",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-26",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-27",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-28",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-29",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-30",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-31",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-32",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-33",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-34",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-35",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-36",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-37",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-38",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-39",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-40",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-41",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-42",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-43",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-44",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-45",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-46",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-47",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-48",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-49",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-50",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-51",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-52",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-53",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-54",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-55",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-56",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-57",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-58",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-59",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-60",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-61",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-62",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-63",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-64",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-65",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-66",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-67",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-68",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-69",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-70",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-71",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-72",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-73",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-74",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-75",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-76",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-77",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-78",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-79",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-80",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-81",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-82",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-83",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-84",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-85",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-86",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-87",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-88",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-89",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-90",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-91",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-92",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-93",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-94",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-95",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-96",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-97",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-98",
+            "status": "durable"
+          },
+          {
+            "batchId": "durable-batch-99",
+            "status": "durable"
+          }
+        ],
+        "elapsedMs": 10
+      },
+      "kill": {
+        "mode": "SIGKILL via launch-pids=49533,49539",
+        "pid": 49533,
+        "killAt": 1791969406240
+      },
+      "measuredMsAfterIssue": 16,
+      "processExited": true,
+      "rawDumpBeforeOpen": {
+        "stores": [
+          "meta",
+          "records",
+          "summaries"
+        ],
+        "counts": {
+          "meta": 2,
+          "records": 100,
+          "summaries": 100
+        },
+        "meta": [
+          {
+            "key": "format",
+            "value": "1"
+          },
+          {
+            "key": "intent:durable-first",
+            "value": "{\"session_id\":\"durable-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1791969406216,\"updated_at\":1791969406226}"
+          }
+        ],
+        "metaParsed": [
+          {
+            "key": "format",
+            "value": 1
+          },
+          {
+            "key": "intent:durable-first",
+            "value": {
+              "session_id": "durable-first",
+              "total_enqueued": 1000,
+              "total_committed": 1000,
+              "first_pending_at": 1791969406216,
+              "updated_at": 1791969406226
+            }
+          }
+        ]
+      },
+      "reopen": {
+        "stats": {
+          "storedBatches": 100,
+          "storedEvents": 1000,
+          "storedBytes": 205500,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "inventoryCounts": {
+        "indexed": 100
+      },
+      "reopenStats": {
+        "storedBatches": 100,
+        "storedEvents": 1000,
+        "storedBytes": 205500,
+        "evictedBatches": 0,
+        "evictedEvents": 0,
+        "writeFailures": 0,
+        "ready": true,
+        "available": true,
+        "exposure": {
+          "pendingBatches": 0,
+          "pendingEvents": 0,
+          "oldestPendingMs": null,
+          "commitLatencyP50Ms": null,
+          "commitLatencyP95Ms": null,
+          "commitLostEvents": 0,
+          "commitLostWindowMs": null
+        }
+      },
+      "reopenCommitLoss": {
+        "events": 0,
+        "windowMs": 0,
+        "sessionIds": []
+      },
+      "evictedOnReopen": false,
+      "expectedBatchIds": 100,
+      "survived": {
+        "batches": 100,
+        "events": 1000,
+        "missingEvents": 0,
+        "missingIdsSample": [],
+        "unexpectedEvents": 0,
+        "partiallyReadable": 0,
+        "rate": 1
+      },
+      "d004": {
+        "oncompleteSurvivors": 100,
+        "uncommittedFromIntent": 0,
+        "commitLostWindowMs": 0
+      },
+      "exposureReconciles": true,
+      "windowCaptured": false,
+      "nothingCommitted": false
+    },
+    {
+      "name": "pending-d0",
+      "group": "unsettled",
+      "scheduledDelayMs": 0,
+      "awaitSettled": false,
+      "count": 100,
+      "eventsPerBatch": 10,
+      "padBytes": 0,
+      "limits": null,
+      "expectedEvents": 1000,
+      "dbName": "e2e-d004-pending-d0",
+      "profile": "profile-pending-d0",
+      "open": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "issue": {
+        "issued": 100,
+        "ms": 1,
+        "batchIds": [
+          "pending-d0-batch-0",
+          "pending-d0-batch-1",
+          "pending-d0-batch-2",
+          "pending-d0-batch-3",
+          "pending-d0-batch-4",
+          "pending-d0-batch-5",
+          "pending-d0-batch-6",
+          "pending-d0-batch-7",
+          "pending-d0-batch-8",
+          "pending-d0-batch-9",
+          "pending-d0-batch-10",
+          "pending-d0-batch-11",
+          "pending-d0-batch-12",
+          "pending-d0-batch-13",
+          "pending-d0-batch-14",
+          "pending-d0-batch-15",
+          "pending-d0-batch-16",
+          "pending-d0-batch-17",
+          "pending-d0-batch-18",
+          "pending-d0-batch-19",
+          "pending-d0-batch-20",
+          "pending-d0-batch-21",
+          "pending-d0-batch-22",
+          "pending-d0-batch-23",
+          "pending-d0-batch-24",
+          "pending-d0-batch-25",
+          "pending-d0-batch-26",
+          "pending-d0-batch-27",
+          "pending-d0-batch-28",
+          "pending-d0-batch-29",
+          "pending-d0-batch-30",
+          "pending-d0-batch-31",
+          "pending-d0-batch-32",
+          "pending-d0-batch-33",
+          "pending-d0-batch-34",
+          "pending-d0-batch-35",
+          "pending-d0-batch-36",
+          "pending-d0-batch-37",
+          "pending-d0-batch-38",
+          "pending-d0-batch-39",
+          "pending-d0-batch-40",
+          "pending-d0-batch-41",
+          "pending-d0-batch-42",
+          "pending-d0-batch-43",
+          "pending-d0-batch-44",
+          "pending-d0-batch-45",
+          "pending-d0-batch-46",
+          "pending-d0-batch-47",
+          "pending-d0-batch-48",
+          "pending-d0-batch-49",
+          "pending-d0-batch-50",
+          "pending-d0-batch-51",
+          "pending-d0-batch-52",
+          "pending-d0-batch-53",
+          "pending-d0-batch-54",
+          "pending-d0-batch-55",
+          "pending-d0-batch-56",
+          "pending-d0-batch-57",
+          "pending-d0-batch-58",
+          "pending-d0-batch-59",
+          "pending-d0-batch-60",
+          "pending-d0-batch-61",
+          "pending-d0-batch-62",
+          "pending-d0-batch-63",
+          "pending-d0-batch-64",
+          "pending-d0-batch-65",
+          "pending-d0-batch-66",
+          "pending-d0-batch-67",
+          "pending-d0-batch-68",
+          "pending-d0-batch-69",
+          "pending-d0-batch-70",
+          "pending-d0-batch-71",
+          "pending-d0-batch-72",
+          "pending-d0-batch-73",
+          "pending-d0-batch-74",
+          "pending-d0-batch-75",
+          "pending-d0-batch-76",
+          "pending-d0-batch-77",
+          "pending-d0-batch-78",
+          "pending-d0-batch-79",
+          "pending-d0-batch-80",
+          "pending-d0-batch-81",
+          "pending-d0-batch-82",
+          "pending-d0-batch-83",
+          "pending-d0-batch-84",
+          "pending-d0-batch-85",
+          "pending-d0-batch-86",
+          "pending-d0-batch-87",
+          "pending-d0-batch-88",
+          "pending-d0-batch-89",
+          "pending-d0-batch-90",
+          "pending-d0-batch-91",
+          "pending-d0-batch-92",
+          "pending-d0-batch-93",
+          "pending-d0-batch-94",
+          "pending-d0-batch-95",
+          "pending-d0-batch-96",
+          "pending-d0-batch-97",
+          "pending-d0-batch-98",
+          "pending-d0-batch-99"
+        ]
+      },
+      "kill": {
+        "mode": "SIGKILL via launch-pids=49737,49743",
+        "pid": 49737,
+        "killAt": 1791969408224
+      },
+      "measuredMsAfterIssue": 0,
+      "processExited": true,
+      "rawDumpBeforeOpen": {
+        "stores": [
+          "meta",
+          "records",
+          "summaries"
+        ],
+        "counts": {
+          "meta": 1,
+          "records": 0,
+          "summaries": 0
+        },
+        "meta": [
+          {
+            "key": "format",
+            "value": "1"
+          }
+        ],
+        "metaParsed": [
+          {
+            "key": "format",
+            "value": 1
+          }
+        ]
+      },
+      "reopen": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "inventoryCounts": {
+        "indexed": 0
+      },
+      "reopenStats": {
+        "storedBatches": 0,
+        "storedEvents": 0,
+        "storedBytes": 0,
+        "evictedBatches": 0,
+        "evictedEvents": 0,
+        "writeFailures": 0,
+        "ready": true,
+        "available": true,
+        "exposure": {
+          "pendingBatches": 0,
+          "pendingEvents": 0,
+          "oldestPendingMs": null,
+          "commitLatencyP50Ms": null,
+          "commitLatencyP95Ms": null,
+          "commitLostEvents": 0,
+          "commitLostWindowMs": null
+        }
+      },
+      "reopenCommitLoss": {
+        "events": 0,
+        "windowMs": 0,
+        "sessionIds": []
+      },
+      "evictedOnReopen": false,
+      "expectedBatchIds": 100,
+      "survived": {
+        "batches": 0,
+        "events": 0,
+        "missingEvents": 1000,
+        "missingIdsSample": [
+          "pending-d0-0-0",
+          "pending-d0-0-1",
+          "pending-d0-0-2",
+          "pending-d0-0-3",
+          "pending-d0-0-4"
+        ],
+        "unexpectedEvents": 0,
+        "partiallyReadable": 0,
+        "rate": 0
+      },
+      "d004": {
+        "oncompleteSurvivors": null,
+        "uncommittedFromIntent": 0,
+        "commitLostWindowMs": 0
+      },
+      "exposureReconciles": {
+        "survivors": 0,
+        "commitLost": 0,
+        "expected": 1000
+      },
+      "windowCaptured": false,
+      "nothingCommitted": true
+    },
+    {
+      "name": "pending-d5",
+      "group": "unsettled",
+      "scheduledDelayMs": 5,
+      "awaitSettled": false,
+      "count": 100,
+      "eventsPerBatch": 10,
+      "padBytes": 0,
+      "limits": null,
+      "expectedEvents": 1000,
+      "dbName": "e2e-d004-pending-d5",
+      "profile": "profile-pending-d5",
+      "open": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "issue": {
+        "issued": 100,
+        "ms": 2,
+        "batchIds": [
+          "pending-d5-batch-0",
+          "pending-d5-batch-1",
+          "pending-d5-batch-2",
+          "pending-d5-batch-3",
+          "pending-d5-batch-4",
+          "pending-d5-batch-5",
+          "pending-d5-batch-6",
+          "pending-d5-batch-7",
+          "pending-d5-batch-8",
+          "pending-d5-batch-9",
+          "pending-d5-batch-10",
+          "pending-d5-batch-11",
+          "pending-d5-batch-12",
+          "pending-d5-batch-13",
+          "pending-d5-batch-14",
+          "pending-d5-batch-15",
+          "pending-d5-batch-16",
+          "pending-d5-batch-17",
+          "pending-d5-batch-18",
+          "pending-d5-batch-19",
+          "pending-d5-batch-20",
+          "pending-d5-batch-21",
+          "pending-d5-batch-22",
+          "pending-d5-batch-23",
+          "pending-d5-batch-24",
+          "pending-d5-batch-25",
+          "pending-d5-batch-26",
+          "pending-d5-batch-27",
+          "pending-d5-batch-28",
+          "pending-d5-batch-29",
+          "pending-d5-batch-30",
+          "pending-d5-batch-31",
+          "pending-d5-batch-32",
+          "pending-d5-batch-33",
+          "pending-d5-batch-34",
+          "pending-d5-batch-35",
+          "pending-d5-batch-36",
+          "pending-d5-batch-37",
+          "pending-d5-batch-38",
+          "pending-d5-batch-39",
+          "pending-d5-batch-40",
+          "pending-d5-batch-41",
+          "pending-d5-batch-42",
+          "pending-d5-batch-43",
+          "pending-d5-batch-44",
+          "pending-d5-batch-45",
+          "pending-d5-batch-46",
+          "pending-d5-batch-47",
+          "pending-d5-batch-48",
+          "pending-d5-batch-49",
+          "pending-d5-batch-50",
+          "pending-d5-batch-51",
+          "pending-d5-batch-52",
+          "pending-d5-batch-53",
+          "pending-d5-batch-54",
+          "pending-d5-batch-55",
+          "pending-d5-batch-56",
+          "pending-d5-batch-57",
+          "pending-d5-batch-58",
+          "pending-d5-batch-59",
+          "pending-d5-batch-60",
+          "pending-d5-batch-61",
+          "pending-d5-batch-62",
+          "pending-d5-batch-63",
+          "pending-d5-batch-64",
+          "pending-d5-batch-65",
+          "pending-d5-batch-66",
+          "pending-d5-batch-67",
+          "pending-d5-batch-68",
+          "pending-d5-batch-69",
+          "pending-d5-batch-70",
+          "pending-d5-batch-71",
+          "pending-d5-batch-72",
+          "pending-d5-batch-73",
+          "pending-d5-batch-74",
+          "pending-d5-batch-75",
+          "pending-d5-batch-76",
+          "pending-d5-batch-77",
+          "pending-d5-batch-78",
+          "pending-d5-batch-79",
+          "pending-d5-batch-80",
+          "pending-d5-batch-81",
+          "pending-d5-batch-82",
+          "pending-d5-batch-83",
+          "pending-d5-batch-84",
+          "pending-d5-batch-85",
+          "pending-d5-batch-86",
+          "pending-d5-batch-87",
+          "pending-d5-batch-88",
+          "pending-d5-batch-89",
+          "pending-d5-batch-90",
+          "pending-d5-batch-91",
+          "pending-d5-batch-92",
+          "pending-d5-batch-93",
+          "pending-d5-batch-94",
+          "pending-d5-batch-95",
+          "pending-d5-batch-96",
+          "pending-d5-batch-97",
+          "pending-d5-batch-98",
+          "pending-d5-batch-99"
+        ]
+      },
+      "kill": {
+        "mode": "SIGKILL via launch-pids=49978,49985",
+        "pid": 49978,
+        "killAt": 1791969409710
+      },
+      "measuredMsAfterIssue": 6,
+      "processExited": true,
+      "rawDumpBeforeOpen": {
+        "stores": [
+          "meta",
+          "records",
+          "summaries"
+        ],
+        "counts": {
+          "meta": 2,
+          "records": 0,
+          "summaries": 0
+        },
+        "meta": [
+          {
+            "key": "format",
+            "value": "1"
+          },
+          {
+            "key": "intent:pending-d5-first",
+            "value": "{\"session_id\":\"pending-d5-first\",\"total_enqueued\":1000,\"total_committed\":0,\"first_pending_at\":1791969409701,\"updated_at\":1791969409703}"
+          }
+        ],
+        "metaParsed": [
+          {
+            "key": "format",
+            "value": 1
+          },
+          {
+            "key": "intent:pending-d5-first",
+            "value": {
+              "session_id": "pending-d5-first",
+              "total_enqueued": 1000,
+              "total_committed": 0,
+              "first_pending_at": 1791969409701,
+              "updated_at": 1791969409703
+            }
+          }
+        ]
+      },
+      "reopen": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 1000,
+            "commitLostWindowMs": 923
+          }
+        },
+        "commitLoss": {
+          "events": 1000,
+          "windowMs": 923,
+          "sessionIds": [
+            "pending-d5-first"
+          ]
+        }
+      },
+      "inventoryCounts": {
+        "indexed": 0
+      },
+      "reopenStats": {
+        "storedBatches": 0,
+        "storedEvents": 0,
+        "storedBytes": 0,
+        "evictedBatches": 0,
+        "evictedEvents": 0,
+        "writeFailures": 0,
+        "ready": true,
+        "available": true,
+        "exposure": {
+          "pendingBatches": 0,
+          "pendingEvents": 0,
+          "oldestPendingMs": null,
+          "commitLatencyP50Ms": null,
+          "commitLatencyP95Ms": null,
+          "commitLostEvents": 1000,
+          "commitLostWindowMs": 923
+        }
+      },
+      "reopenCommitLoss": {
+        "events": 1000,
+        "windowMs": 923,
+        "sessionIds": [
+          "pending-d5-first"
+        ]
+      },
+      "evictedOnReopen": false,
+      "expectedBatchIds": 100,
+      "survived": {
+        "batches": 0,
+        "events": 0,
+        "missingEvents": 1000,
+        "missingIdsSample": [
+          "pending-d5-0-0",
+          "pending-d5-0-1",
+          "pending-d5-0-2",
+          "pending-d5-0-3",
+          "pending-d5-0-4"
+        ],
+        "unexpectedEvents": 0,
+        "partiallyReadable": 0,
+        "rate": 0
+      },
+      "d004": {
+        "oncompleteSurvivors": null,
+        "uncommittedFromIntent": 1000,
+        "commitLostWindowMs": 923
+      },
+      "exposureReconciles": true,
+      "windowCaptured": true,
+      "nothingCommitted": false
+    },
+    {
+      "name": "pending-d20",
+      "group": "unsettled",
+      "scheduledDelayMs": 20,
+      "awaitSettled": false,
+      "count": 100,
+      "eventsPerBatch": 10,
+      "padBytes": 0,
+      "limits": null,
+      "expectedEvents": 1000,
+      "dbName": "e2e-d004-pending-d20",
+      "profile": "profile-pending-d20",
+      "open": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "issue": {
+        "issued": 100,
+        "ms": 1,
+        "batchIds": [
+          "pending-d20-batch-0",
+          "pending-d20-batch-1",
+          "pending-d20-batch-2",
+          "pending-d20-batch-3",
+          "pending-d20-batch-4",
+          "pending-d20-batch-5",
+          "pending-d20-batch-6",
+          "pending-d20-batch-7",
+          "pending-d20-batch-8",
+          "pending-d20-batch-9",
+          "pending-d20-batch-10",
+          "pending-d20-batch-11",
+          "pending-d20-batch-12",
+          "pending-d20-batch-13",
+          "pending-d20-batch-14",
+          "pending-d20-batch-15",
+          "pending-d20-batch-16",
+          "pending-d20-batch-17",
+          "pending-d20-batch-18",
+          "pending-d20-batch-19",
+          "pending-d20-batch-20",
+          "pending-d20-batch-21",
+          "pending-d20-batch-22",
+          "pending-d20-batch-23",
+          "pending-d20-batch-24",
+          "pending-d20-batch-25",
+          "pending-d20-batch-26",
+          "pending-d20-batch-27",
+          "pending-d20-batch-28",
+          "pending-d20-batch-29",
+          "pending-d20-batch-30",
+          "pending-d20-batch-31",
+          "pending-d20-batch-32",
+          "pending-d20-batch-33",
+          "pending-d20-batch-34",
+          "pending-d20-batch-35",
+          "pending-d20-batch-36",
+          "pending-d20-batch-37",
+          "pending-d20-batch-38",
+          "pending-d20-batch-39",
+          "pending-d20-batch-40",
+          "pending-d20-batch-41",
+          "pending-d20-batch-42",
+          "pending-d20-batch-43",
+          "pending-d20-batch-44",
+          "pending-d20-batch-45",
+          "pending-d20-batch-46",
+          "pending-d20-batch-47",
+          "pending-d20-batch-48",
+          "pending-d20-batch-49",
+          "pending-d20-batch-50",
+          "pending-d20-batch-51",
+          "pending-d20-batch-52",
+          "pending-d20-batch-53",
+          "pending-d20-batch-54",
+          "pending-d20-batch-55",
+          "pending-d20-batch-56",
+          "pending-d20-batch-57",
+          "pending-d20-batch-58",
+          "pending-d20-batch-59",
+          "pending-d20-batch-60",
+          "pending-d20-batch-61",
+          "pending-d20-batch-62",
+          "pending-d20-batch-63",
+          "pending-d20-batch-64",
+          "pending-d20-batch-65",
+          "pending-d20-batch-66",
+          "pending-d20-batch-67",
+          "pending-d20-batch-68",
+          "pending-d20-batch-69",
+          "pending-d20-batch-70",
+          "pending-d20-batch-71",
+          "pending-d20-batch-72",
+          "pending-d20-batch-73",
+          "pending-d20-batch-74",
+          "pending-d20-batch-75",
+          "pending-d20-batch-76",
+          "pending-d20-batch-77",
+          "pending-d20-batch-78",
+          "pending-d20-batch-79",
+          "pending-d20-batch-80",
+          "pending-d20-batch-81",
+          "pending-d20-batch-82",
+          "pending-d20-batch-83",
+          "pending-d20-batch-84",
+          "pending-d20-batch-85",
+          "pending-d20-batch-86",
+          "pending-d20-batch-87",
+          "pending-d20-batch-88",
+          "pending-d20-batch-89",
+          "pending-d20-batch-90",
+          "pending-d20-batch-91",
+          "pending-d20-batch-92",
+          "pending-d20-batch-93",
+          "pending-d20-batch-94",
+          "pending-d20-batch-95",
+          "pending-d20-batch-96",
+          "pending-d20-batch-97",
+          "pending-d20-batch-98",
+          "pending-d20-batch-99"
+        ]
+      },
+      "kill": {
+        "mode": "SIGKILL via launch-pids=50164,50170",
+        "pid": 50164,
+        "killAt": 1791969411551
+      },
+      "measuredMsAfterIssue": 21,
+      "processExited": true,
+      "rawDumpBeforeOpen": {
+        "stores": [
+          "meta",
+          "records",
+          "summaries"
+        ],
+        "counts": {
+          "meta": 2,
+          "records": 100,
+          "summaries": 100
+        },
+        "meta": [
+          {
+            "key": "format",
+            "value": "1"
+          },
+          {
+            "key": "intent:pending-d20-first",
+            "value": "{\"session_id\":\"pending-d20-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1791969411527,\"updated_at\":1791969411530}"
+          }
+        ],
+        "metaParsed": [
+          {
+            "key": "format",
+            "value": 1
+          },
+          {
+            "key": "intent:pending-d20-first",
+            "value": {
+              "session_id": "pending-d20-first",
+              "total_enqueued": 1000,
+              "total_committed": 1000,
+              "first_pending_at": 1791969411527,
+              "updated_at": 1791969411530
+            }
+          }
+        ]
+      },
+      "reopen": {
+        "stats": {
+          "storedBatches": 100,
+          "storedEvents": 1000,
+          "storedBytes": 209500,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "inventoryCounts": {
+        "indexed": 100
+      },
+      "reopenStats": {
+        "storedBatches": 100,
+        "storedEvents": 1000,
+        "storedBytes": 209500,
+        "evictedBatches": 0,
+        "evictedEvents": 0,
+        "writeFailures": 0,
+        "ready": true,
+        "available": true,
+        "exposure": {
+          "pendingBatches": 0,
+          "pendingEvents": 0,
+          "oldestPendingMs": null,
+          "commitLatencyP50Ms": null,
+          "commitLatencyP95Ms": null,
+          "commitLostEvents": 0,
+          "commitLostWindowMs": null
+        }
+      },
+      "reopenCommitLoss": {
+        "events": 0,
+        "windowMs": 0,
+        "sessionIds": []
+      },
+      "evictedOnReopen": false,
+      "expectedBatchIds": 100,
+      "survived": {
+        "batches": 100,
+        "events": 1000,
+        "missingEvents": 0,
+        "missingIdsSample": [],
+        "unexpectedEvents": 0,
+        "partiallyReadable": 0,
+        "rate": 1
+      },
+      "d004": {
+        "oncompleteSurvivors": null,
+        "uncommittedFromIntent": 0,
+        "commitLostWindowMs": 0
+      },
+      "exposureReconciles": true,
+      "windowCaptured": false,
+      "nothingCommitted": false
+    },
+    {
+      "name": "pending-d60",
+      "group": "unsettled",
+      "scheduledDelayMs": 60,
+      "awaitSettled": false,
+      "count": 100,
+      "eventsPerBatch": 10,
+      "padBytes": 0,
+      "limits": null,
+      "expectedEvents": 1000,
+      "dbName": "e2e-d004-pending-d60",
+      "profile": "profile-pending-d60",
+      "open": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "issue": {
+        "issued": 100,
+        "ms": 3,
+        "batchIds": [
+          "pending-d60-batch-0",
+          "pending-d60-batch-1",
+          "pending-d60-batch-2",
+          "pending-d60-batch-3",
+          "pending-d60-batch-4",
+          "pending-d60-batch-5",
+          "pending-d60-batch-6",
+          "pending-d60-batch-7",
+          "pending-d60-batch-8",
+          "pending-d60-batch-9",
+          "pending-d60-batch-10",
+          "pending-d60-batch-11",
+          "pending-d60-batch-12",
+          "pending-d60-batch-13",
+          "pending-d60-batch-14",
+          "pending-d60-batch-15",
+          "pending-d60-batch-16",
+          "pending-d60-batch-17",
+          "pending-d60-batch-18",
+          "pending-d60-batch-19",
+          "pending-d60-batch-20",
+          "pending-d60-batch-21",
+          "pending-d60-batch-22",
+          "pending-d60-batch-23",
+          "pending-d60-batch-24",
+          "pending-d60-batch-25",
+          "pending-d60-batch-26",
+          "pending-d60-batch-27",
+          "pending-d60-batch-28",
+          "pending-d60-batch-29",
+          "pending-d60-batch-30",
+          "pending-d60-batch-31",
+          "pending-d60-batch-32",
+          "pending-d60-batch-33",
+          "pending-d60-batch-34",
+          "pending-d60-batch-35",
+          "pending-d60-batch-36",
+          "pending-d60-batch-37",
+          "pending-d60-batch-38",
+          "pending-d60-batch-39",
+          "pending-d60-batch-40",
+          "pending-d60-batch-41",
+          "pending-d60-batch-42",
+          "pending-d60-batch-43",
+          "pending-d60-batch-44",
+          "pending-d60-batch-45",
+          "pending-d60-batch-46",
+          "pending-d60-batch-47",
+          "pending-d60-batch-48",
+          "pending-d60-batch-49",
+          "pending-d60-batch-50",
+          "pending-d60-batch-51",
+          "pending-d60-batch-52",
+          "pending-d60-batch-53",
+          "pending-d60-batch-54",
+          "pending-d60-batch-55",
+          "pending-d60-batch-56",
+          "pending-d60-batch-57",
+          "pending-d60-batch-58",
+          "pending-d60-batch-59",
+          "pending-d60-batch-60",
+          "pending-d60-batch-61",
+          "pending-d60-batch-62",
+          "pending-d60-batch-63",
+          "pending-d60-batch-64",
+          "pending-d60-batch-65",
+          "pending-d60-batch-66",
+          "pending-d60-batch-67",
+          "pending-d60-batch-68",
+          "pending-d60-batch-69",
+          "pending-d60-batch-70",
+          "pending-d60-batch-71",
+          "pending-d60-batch-72",
+          "pending-d60-batch-73",
+          "pending-d60-batch-74",
+          "pending-d60-batch-75",
+          "pending-d60-batch-76",
+          "pending-d60-batch-77",
+          "pending-d60-batch-78",
+          "pending-d60-batch-79",
+          "pending-d60-batch-80",
+          "pending-d60-batch-81",
+          "pending-d60-batch-82",
+          "pending-d60-batch-83",
+          "pending-d60-batch-84",
+          "pending-d60-batch-85",
+          "pending-d60-batch-86",
+          "pending-d60-batch-87",
+          "pending-d60-batch-88",
+          "pending-d60-batch-89",
+          "pending-d60-batch-90",
+          "pending-d60-batch-91",
+          "pending-d60-batch-92",
+          "pending-d60-batch-93",
+          "pending-d60-batch-94",
+          "pending-d60-batch-95",
+          "pending-d60-batch-96",
+          "pending-d60-batch-97",
+          "pending-d60-batch-98",
+          "pending-d60-batch-99"
+        ]
+      },
+      "kill": {
+        "mode": "SIGKILL via launch-pids=50369,50377",
+        "pid": 50369,
+        "killAt": 1791969412956
+      },
+      "measuredMsAfterIssue": 61,
+      "processExited": true,
+      "rawDumpBeforeOpen": {
+        "stores": [
+          "meta",
+          "records",
+          "summaries"
+        ],
+        "counts": {
+          "meta": 2,
+          "records": 100,
+          "summaries": 100
+        },
+        "meta": [
+          {
+            "key": "format",
+            "value": "1"
+          },
+          {
+            "key": "intent:pending-d60-first",
+            "value": "{\"session_id\":\"pending-d60-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1791969412889,\"updated_at\":1791969412894}"
+          }
+        ],
+        "metaParsed": [
+          {
+            "key": "format",
+            "value": 1
+          },
+          {
+            "key": "intent:pending-d60-first",
+            "value": {
+              "session_id": "pending-d60-first",
+              "total_enqueued": 1000,
+              "total_committed": 1000,
+              "first_pending_at": 1791969412889,
+              "updated_at": 1791969412894
+            }
+          }
+        ]
+      },
+      "reopen": {
+        "stats": {
+          "storedBatches": 100,
+          "storedEvents": 1000,
+          "storedBytes": 209500,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "inventoryCounts": {
+        "indexed": 100
+      },
+      "reopenStats": {
+        "storedBatches": 100,
+        "storedEvents": 1000,
+        "storedBytes": 209500,
+        "evictedBatches": 0,
+        "evictedEvents": 0,
+        "writeFailures": 0,
+        "ready": true,
+        "available": true,
+        "exposure": {
+          "pendingBatches": 0,
+          "pendingEvents": 0,
+          "oldestPendingMs": null,
+          "commitLatencyP50Ms": null,
+          "commitLatencyP95Ms": null,
+          "commitLostEvents": 0,
+          "commitLostWindowMs": null
+        }
+      },
+      "reopenCommitLoss": {
+        "events": 0,
+        "windowMs": 0,
+        "sessionIds": []
+      },
+      "evictedOnReopen": false,
+      "expectedBatchIds": 100,
+      "survived": {
+        "batches": 100,
+        "events": 1000,
+        "missingEvents": 0,
+        "missingIdsSample": [],
+        "unexpectedEvents": 0,
+        "partiallyReadable": 0,
+        "rate": 1
+      },
+      "d004": {
+        "oncompleteSurvivors": null,
+        "uncommittedFromIntent": 0,
+        "commitLostWindowMs": 0
+      },
+      "exposureReconciles": true,
+      "windowCaptured": false,
+      "nothingCommitted": false
+    },
+    {
+      "name": "pending-d200",
+      "group": "unsettled",
+      "scheduledDelayMs": 200,
+      "awaitSettled": false,
+      "count": 100,
+      "eventsPerBatch": 10,
+      "padBytes": 0,
+      "limits": null,
+      "expectedEvents": 1000,
+      "dbName": "e2e-d004-pending-d200",
+      "profile": "profile-pending-d200",
+      "open": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "issue": {
+        "issued": 100,
+        "ms": 1,
+        "batchIds": [
+          "pending-d200-batch-0",
+          "pending-d200-batch-1",
+          "pending-d200-batch-2",
+          "pending-d200-batch-3",
+          "pending-d200-batch-4",
+          "pending-d200-batch-5",
+          "pending-d200-batch-6",
+          "pending-d200-batch-7",
+          "pending-d200-batch-8",
+          "pending-d200-batch-9",
+          "pending-d200-batch-10",
+          "pending-d200-batch-11",
+          "pending-d200-batch-12",
+          "pending-d200-batch-13",
+          "pending-d200-batch-14",
+          "pending-d200-batch-15",
+          "pending-d200-batch-16",
+          "pending-d200-batch-17",
+          "pending-d200-batch-18",
+          "pending-d200-batch-19",
+          "pending-d200-batch-20",
+          "pending-d200-batch-21",
+          "pending-d200-batch-22",
+          "pending-d200-batch-23",
+          "pending-d200-batch-24",
+          "pending-d200-batch-25",
+          "pending-d200-batch-26",
+          "pending-d200-batch-27",
+          "pending-d200-batch-28",
+          "pending-d200-batch-29",
+          "pending-d200-batch-30",
+          "pending-d200-batch-31",
+          "pending-d200-batch-32",
+          "pending-d200-batch-33",
+          "pending-d200-batch-34",
+          "pending-d200-batch-35",
+          "pending-d200-batch-36",
+          "pending-d200-batch-37",
+          "pending-d200-batch-38",
+          "pending-d200-batch-39",
+          "pending-d200-batch-40",
+          "pending-d200-batch-41",
+          "pending-d200-batch-42",
+          "pending-d200-batch-43",
+          "pending-d200-batch-44",
+          "pending-d200-batch-45",
+          "pending-d200-batch-46",
+          "pending-d200-batch-47",
+          "pending-d200-batch-48",
+          "pending-d200-batch-49",
+          "pending-d200-batch-50",
+          "pending-d200-batch-51",
+          "pending-d200-batch-52",
+          "pending-d200-batch-53",
+          "pending-d200-batch-54",
+          "pending-d200-batch-55",
+          "pending-d200-batch-56",
+          "pending-d200-batch-57",
+          "pending-d200-batch-58",
+          "pending-d200-batch-59",
+          "pending-d200-batch-60",
+          "pending-d200-batch-61",
+          "pending-d200-batch-62",
+          "pending-d200-batch-63",
+          "pending-d200-batch-64",
+          "pending-d200-batch-65",
+          "pending-d200-batch-66",
+          "pending-d200-batch-67",
+          "pending-d200-batch-68",
+          "pending-d200-batch-69",
+          "pending-d200-batch-70",
+          "pending-d200-batch-71",
+          "pending-d200-batch-72",
+          "pending-d200-batch-73",
+          "pending-d200-batch-74",
+          "pending-d200-batch-75",
+          "pending-d200-batch-76",
+          "pending-d200-batch-77",
+          "pending-d200-batch-78",
+          "pending-d200-batch-79",
+          "pending-d200-batch-80",
+          "pending-d200-batch-81",
+          "pending-d200-batch-82",
+          "pending-d200-batch-83",
+          "pending-d200-batch-84",
+          "pending-d200-batch-85",
+          "pending-d200-batch-86",
+          "pending-d200-batch-87",
+          "pending-d200-batch-88",
+          "pending-d200-batch-89",
+          "pending-d200-batch-90",
+          "pending-d200-batch-91",
+          "pending-d200-batch-92",
+          "pending-d200-batch-93",
+          "pending-d200-batch-94",
+          "pending-d200-batch-95",
+          "pending-d200-batch-96",
+          "pending-d200-batch-97",
+          "pending-d200-batch-98",
+          "pending-d200-batch-99"
+        ]
+      },
+      "kill": {
+        "mode": "SIGKILL via launch-pids=50542,50548",
+        "pid": 50542,
+        "killAt": 1791969414661
+      },
+      "measuredMsAfterIssue": 202,
+      "processExited": true,
+      "rawDumpBeforeOpen": {
+        "stores": [
+          "meta",
+          "records",
+          "summaries"
+        ],
+        "counts": {
+          "meta": 2,
+          "records": 100,
+          "summaries": 100
+        },
+        "meta": [
+          {
+            "key": "format",
+            "value": "1"
+          },
+          {
+            "key": "intent:pending-d200-first",
+            "value": "{\"session_id\":\"pending-d200-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1791969414457,\"updated_at\":1791969414459}"
+          }
+        ],
+        "metaParsed": [
+          {
+            "key": "format",
+            "value": 1
+          },
+          {
+            "key": "intent:pending-d200-first",
+            "value": {
+              "session_id": "pending-d200-first",
+              "total_enqueued": 1000,
+              "total_committed": 1000,
+              "first_pending_at": 1791969414457,
+              "updated_at": 1791969414459
+            }
+          }
+        ]
+      },
+      "reopen": {
+        "stats": {
+          "storedBatches": 100,
+          "storedEvents": 1000,
+          "storedBytes": 210500,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "inventoryCounts": {
+        "indexed": 100
+      },
+      "reopenStats": {
+        "storedBatches": 100,
+        "storedEvents": 1000,
+        "storedBytes": 210500,
+        "evictedBatches": 0,
+        "evictedEvents": 0,
+        "writeFailures": 0,
+        "ready": true,
+        "available": true,
+        "exposure": {
+          "pendingBatches": 0,
+          "pendingEvents": 0,
+          "oldestPendingMs": null,
+          "commitLatencyP50Ms": null,
+          "commitLatencyP95Ms": null,
+          "commitLostEvents": 0,
+          "commitLostWindowMs": null
+        }
+      },
+      "reopenCommitLoss": {
+        "events": 0,
+        "windowMs": 0,
+        "sessionIds": []
+      },
+      "evictedOnReopen": false,
+      "expectedBatchIds": 100,
+      "survived": {
+        "batches": 100,
+        "events": 1000,
+        "missingEvents": 0,
+        "missingIdsSample": [],
+        "unexpectedEvents": 0,
+        "partiallyReadable": 0,
+        "rate": 1
+      },
+      "d004": {
+        "oncompleteSurvivors": null,
+        "uncommittedFromIntent": 0,
+        "commitLostWindowMs": 0
+      },
+      "exposureReconciles": true,
+      "windowCaptured": false,
+      "nothingCommitted": false
+    },
+    {
+      "name": "bulk-d0",
+      "group": "unsettled",
+      "scheduledDelayMs": 10,
+      "awaitSettled": false,
+      "count": 500,
+      "eventsPerBatch": 10,
+      "padBytes": 16384,
+      "limits": {
+        "maxEvents": 50000,
+        "maxBatches": 50000,
+        "maxBytes": 524288000,
+        "commitBatchSize": 10
+      },
+      "expectedEvents": 5000,
+      "dbName": "e2e-d004-bulk-d0",
+      "profile": "profile-bulk-d0",
+      "open": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "issue": {
+        "issued": 500,
+        "ms": 6,
+        "batchIds": [
+          "bulk-d0-batch-0",
+          "bulk-d0-batch-1",
+          "bulk-d0-batch-2",
+          "bulk-d0-batch-3",
+          "bulk-d0-batch-4",
+          "bulk-d0-batch-5",
+          "bulk-d0-batch-6",
+          "bulk-d0-batch-7",
+          "bulk-d0-batch-8",
+          "bulk-d0-batch-9",
+          "bulk-d0-batch-10",
+          "bulk-d0-batch-11",
+          "bulk-d0-batch-12",
+          "bulk-d0-batch-13",
+          "bulk-d0-batch-14",
+          "bulk-d0-batch-15",
+          "bulk-d0-batch-16",
+          "bulk-d0-batch-17",
+          "bulk-d0-batch-18",
+          "bulk-d0-batch-19",
+          "bulk-d0-batch-20",
+          "bulk-d0-batch-21",
+          "bulk-d0-batch-22",
+          "bulk-d0-batch-23",
+          "bulk-d0-batch-24",
+          "bulk-d0-batch-25",
+          "bulk-d0-batch-26",
+          "bulk-d0-batch-27",
+          "bulk-d0-batch-28",
+          "bulk-d0-batch-29",
+          "bulk-d0-batch-30",
+          "bulk-d0-batch-31",
+          "bulk-d0-batch-32",
+          "bulk-d0-batch-33",
+          "bulk-d0-batch-34",
+          "bulk-d0-batch-35",
+          "bulk-d0-batch-36",
+          "bulk-d0-batch-37",
+          "bulk-d0-batch-38",
+          "bulk-d0-batch-39",
+          "bulk-d0-batch-40",
+          "bulk-d0-batch-41",
+          "bulk-d0-batch-42",
+          "bulk-d0-batch-43",
+          "bulk-d0-batch-44",
+          "bulk-d0-batch-45",
+          "bulk-d0-batch-46",
+          "bulk-d0-batch-47",
+          "bulk-d0-batch-48",
+          "bulk-d0-batch-49",
+          "bulk-d0-batch-50",
+          "bulk-d0-batch-51",
+          "bulk-d0-batch-52",
+          "bulk-d0-batch-53",
+          "bulk-d0-batch-54",
+          "bulk-d0-batch-55",
+          "bulk-d0-batch-56",
+          "bulk-d0-batch-57",
+          "bulk-d0-batch-58",
+          "bulk-d0-batch-59",
+          "bulk-d0-batch-60",
+          "bulk-d0-batch-61",
+          "bulk-d0-batch-62",
+          "bulk-d0-batch-63",
+          "bulk-d0-batch-64",
+          "bulk-d0-batch-65",
+          "bulk-d0-batch-66",
+          "bulk-d0-batch-67",
+          "bulk-d0-batch-68",
+          "bulk-d0-batch-69",
+          "bulk-d0-batch-70",
+          "bulk-d0-batch-71",
+          "bulk-d0-batch-72",
+          "bulk-d0-batch-73",
+          "bulk-d0-batch-74",
+          "bulk-d0-batch-75",
+          "bulk-d0-batch-76",
+          "bulk-d0-batch-77",
+          "bulk-d0-batch-78",
+          "bulk-d0-batch-79",
+          "bulk-d0-batch-80",
+          "bulk-d0-batch-81",
+          "bulk-d0-batch-82",
+          "bulk-d0-batch-83",
+          "bulk-d0-batch-84",
+          "bulk-d0-batch-85",
+          "bulk-d0-batch-86",
+          "bulk-d0-batch-87",
+          "bulk-d0-batch-88",
+          "bulk-d0-batch-89",
+          "bulk-d0-batch-90",
+          "bulk-d0-batch-91",
+          "bulk-d0-batch-92",
+          "bulk-d0-batch-93",
+          "bulk-d0-batch-94",
+          "bulk-d0-batch-95",
+          "bulk-d0-batch-96",
+          "bulk-d0-batch-97",
+          "bulk-d0-batch-98",
+          "bulk-d0-batch-99",
+          "bulk-d0-batch-100",
+          "bulk-d0-batch-101",
+          "bulk-d0-batch-102",
+          "bulk-d0-batch-103",
+          "bulk-d0-batch-104",
+          "bulk-d0-batch-105",
+          "bulk-d0-batch-106",
+          "bulk-d0-batch-107",
+          "bulk-d0-batch-108",
+          "bulk-d0-batch-109",
+          "bulk-d0-batch-110",
+          "bulk-d0-batch-111",
+          "bulk-d0-batch-112",
+          "bulk-d0-batch-113",
+          "bulk-d0-batch-114",
+          "bulk-d0-batch-115",
+          "bulk-d0-batch-116",
+          "bulk-d0-batch-117",
+          "bulk-d0-batch-118",
+          "bulk-d0-batch-119",
+          "bulk-d0-batch-120",
+          "bulk-d0-batch-121",
+          "bulk-d0-batch-122",
+          "bulk-d0-batch-123",
+          "bulk-d0-batch-124",
+          "bulk-d0-batch-125",
+          "bulk-d0-batch-126",
+          "bulk-d0-batch-127",
+          "bulk-d0-batch-128",
+          "bulk-d0-batch-129",
+          "bulk-d0-batch-130",
+          "bulk-d0-batch-131",
+          "bulk-d0-batch-132",
+          "bulk-d0-batch-133",
+          "bulk-d0-batch-134",
+          "bulk-d0-batch-135",
+          "bulk-d0-batch-136",
+          "bulk-d0-batch-137",
+          "bulk-d0-batch-138",
+          "bulk-d0-batch-139",
+          "bulk-d0-batch-140",
+          "bulk-d0-batch-141",
+          "bulk-d0-batch-142",
+          "bulk-d0-batch-143",
+          "bulk-d0-batch-144",
+          "bulk-d0-batch-145",
+          "bulk-d0-batch-146",
+          "bulk-d0-batch-147",
+          "bulk-d0-batch-148",
+          "bulk-d0-batch-149",
+          "bulk-d0-batch-150",
+          "bulk-d0-batch-151",
+          "bulk-d0-batch-152",
+          "bulk-d0-batch-153",
+          "bulk-d0-batch-154",
+          "bulk-d0-batch-155",
+          "bulk-d0-batch-156",
+          "bulk-d0-batch-157",
+          "bulk-d0-batch-158",
+          "bulk-d0-batch-159",
+          "bulk-d0-batch-160",
+          "bulk-d0-batch-161",
+          "bulk-d0-batch-162",
+          "bulk-d0-batch-163",
+          "bulk-d0-batch-164",
+          "bulk-d0-batch-165",
+          "bulk-d0-batch-166",
+          "bulk-d0-batch-167",
+          "bulk-d0-batch-168",
+          "bulk-d0-batch-169",
+          "bulk-d0-batch-170",
+          "bulk-d0-batch-171",
+          "bulk-d0-batch-172",
+          "bulk-d0-batch-173",
+          "bulk-d0-batch-174",
+          "bulk-d0-batch-175",
+          "bulk-d0-batch-176",
+          "bulk-d0-batch-177",
+          "bulk-d0-batch-178",
+          "bulk-d0-batch-179",
+          "bulk-d0-batch-180",
+          "bulk-d0-batch-181",
+          "bulk-d0-batch-182",
+          "bulk-d0-batch-183",
+          "bulk-d0-batch-184",
+          "bulk-d0-batch-185",
+          "bulk-d0-batch-186",
+          "bulk-d0-batch-187",
+          "bulk-d0-batch-188",
+          "bulk-d0-batch-189",
+          "bulk-d0-batch-190",
+          "bulk-d0-batch-191",
+          "bulk-d0-batch-192",
+          "bulk-d0-batch-193",
+          "bulk-d0-batch-194",
+          "bulk-d0-batch-195",
+          "bulk-d0-batch-196",
+          "bulk-d0-batch-197",
+          "bulk-d0-batch-198",
+          "bulk-d0-batch-199",
+          "bulk-d0-batch-200",
+          "bulk-d0-batch-201",
+          "bulk-d0-batch-202",
+          "bulk-d0-batch-203",
+          "bulk-d0-batch-204",
+          "bulk-d0-batch-205",
+          "bulk-d0-batch-206",
+          "bulk-d0-batch-207",
+          "bulk-d0-batch-208",
+          "bulk-d0-batch-209",
+          "bulk-d0-batch-210",
+          "bulk-d0-batch-211",
+          "bulk-d0-batch-212",
+          "bulk-d0-batch-213",
+          "bulk-d0-batch-214",
+          "bulk-d0-batch-215",
+          "bulk-d0-batch-216",
+          "bulk-d0-batch-217",
+          "bulk-d0-batch-218",
+          "bulk-d0-batch-219",
+          "bulk-d0-batch-220",
+          "bulk-d0-batch-221",
+          "bulk-d0-batch-222",
+          "bulk-d0-batch-223",
+          "bulk-d0-batch-224",
+          "bulk-d0-batch-225",
+          "bulk-d0-batch-226",
+          "bulk-d0-batch-227",
+          "bulk-d0-batch-228",
+          "bulk-d0-batch-229",
+          "bulk-d0-batch-230",
+          "bulk-d0-batch-231",
+          "bulk-d0-batch-232",
+          "bulk-d0-batch-233",
+          "bulk-d0-batch-234",
+          "bulk-d0-batch-235",
+          "bulk-d0-batch-236",
+          "bulk-d0-batch-237",
+          "bulk-d0-batch-238",
+          "bulk-d0-batch-239",
+          "bulk-d0-batch-240",
+          "bulk-d0-batch-241",
+          "bulk-d0-batch-242",
+          "bulk-d0-batch-243",
+          "bulk-d0-batch-244",
+          "bulk-d0-batch-245",
+          "bulk-d0-batch-246",
+          "bulk-d0-batch-247",
+          "bulk-d0-batch-248",
+          "bulk-d0-batch-249",
+          "bulk-d0-batch-250",
+          "bulk-d0-batch-251",
+          "bulk-d0-batch-252",
+          "bulk-d0-batch-253",
+          "bulk-d0-batch-254",
+          "bulk-d0-batch-255",
+          "bulk-d0-batch-256",
+          "bulk-d0-batch-257",
+          "bulk-d0-batch-258",
+          "bulk-d0-batch-259",
+          "bulk-d0-batch-260",
+          "bulk-d0-batch-261",
+          "bulk-d0-batch-262",
+          "bulk-d0-batch-263",
+          "bulk-d0-batch-264",
+          "bulk-d0-batch-265",
+          "bulk-d0-batch-266",
+          "bulk-d0-batch-267",
+          "bulk-d0-batch-268",
+          "bulk-d0-batch-269",
+          "bulk-d0-batch-270",
+          "bulk-d0-batch-271",
+          "bulk-d0-batch-272",
+          "bulk-d0-batch-273",
+          "bulk-d0-batch-274",
+          "bulk-d0-batch-275",
+          "bulk-d0-batch-276",
+          "bulk-d0-batch-277",
+          "bulk-d0-batch-278",
+          "bulk-d0-batch-279",
+          "bulk-d0-batch-280",
+          "bulk-d0-batch-281",
+          "bulk-d0-batch-282",
+          "bulk-d0-batch-283",
+          "bulk-d0-batch-284",
+          "bulk-d0-batch-285",
+          "bulk-d0-batch-286",
+          "bulk-d0-batch-287",
+          "bulk-d0-batch-288",
+          "bulk-d0-batch-289",
+          "bulk-d0-batch-290",
+          "bulk-d0-batch-291",
+          "bulk-d0-batch-292",
+          "bulk-d0-batch-293",
+          "bulk-d0-batch-294",
+          "bulk-d0-batch-295",
+          "bulk-d0-batch-296",
+          "bulk-d0-batch-297",
+          "bulk-d0-batch-298",
+          "bulk-d0-batch-299",
+          "bulk-d0-batch-300",
+          "bulk-d0-batch-301",
+          "bulk-d0-batch-302",
+          "bulk-d0-batch-303",
+          "bulk-d0-batch-304",
+          "bulk-d0-batch-305",
+          "bulk-d0-batch-306",
+          "bulk-d0-batch-307",
+          "bulk-d0-batch-308",
+          "bulk-d0-batch-309",
+          "bulk-d0-batch-310",
+          "bulk-d0-batch-311",
+          "bulk-d0-batch-312",
+          "bulk-d0-batch-313",
+          "bulk-d0-batch-314",
+          "bulk-d0-batch-315",
+          "bulk-d0-batch-316",
+          "bulk-d0-batch-317",
+          "bulk-d0-batch-318",
+          "bulk-d0-batch-319",
+          "bulk-d0-batch-320",
+          "bulk-d0-batch-321",
+          "bulk-d0-batch-322",
+          "bulk-d0-batch-323",
+          "bulk-d0-batch-324",
+          "bulk-d0-batch-325",
+          "bulk-d0-batch-326",
+          "bulk-d0-batch-327",
+          "bulk-d0-batch-328",
+          "bulk-d0-batch-329",
+          "bulk-d0-batch-330",
+          "bulk-d0-batch-331",
+          "bulk-d0-batch-332",
+          "bulk-d0-batch-333",
+          "bulk-d0-batch-334",
+          "bulk-d0-batch-335",
+          "bulk-d0-batch-336",
+          "bulk-d0-batch-337",
+          "bulk-d0-batch-338",
+          "bulk-d0-batch-339",
+          "bulk-d0-batch-340",
+          "bulk-d0-batch-341",
+          "bulk-d0-batch-342",
+          "bulk-d0-batch-343",
+          "bulk-d0-batch-344",
+          "bulk-d0-batch-345",
+          "bulk-d0-batch-346",
+          "bulk-d0-batch-347",
+          "bulk-d0-batch-348",
+          "bulk-d0-batch-349",
+          "bulk-d0-batch-350",
+          "bulk-d0-batch-351",
+          "bulk-d0-batch-352",
+          "bulk-d0-batch-353",
+          "bulk-d0-batch-354",
+          "bulk-d0-batch-355",
+          "bulk-d0-batch-356",
+          "bulk-d0-batch-357",
+          "bulk-d0-batch-358",
+          "bulk-d0-batch-359",
+          "bulk-d0-batch-360",
+          "bulk-d0-batch-361",
+          "bulk-d0-batch-362",
+          "bulk-d0-batch-363",
+          "bulk-d0-batch-364",
+          "bulk-d0-batch-365",
+          "bulk-d0-batch-366",
+          "bulk-d0-batch-367",
+          "bulk-d0-batch-368",
+          "bulk-d0-batch-369",
+          "bulk-d0-batch-370",
+          "bulk-d0-batch-371",
+          "bulk-d0-batch-372",
+          "bulk-d0-batch-373",
+          "bulk-d0-batch-374",
+          "bulk-d0-batch-375",
+          "bulk-d0-batch-376",
+          "bulk-d0-batch-377",
+          "bulk-d0-batch-378",
+          "bulk-d0-batch-379",
+          "bulk-d0-batch-380",
+          "bulk-d0-batch-381",
+          "bulk-d0-batch-382",
+          "bulk-d0-batch-383",
+          "bulk-d0-batch-384",
+          "bulk-d0-batch-385",
+          "bulk-d0-batch-386",
+          "bulk-d0-batch-387",
+          "bulk-d0-batch-388",
+          "bulk-d0-batch-389",
+          "bulk-d0-batch-390",
+          "bulk-d0-batch-391",
+          "bulk-d0-batch-392",
+          "bulk-d0-batch-393",
+          "bulk-d0-batch-394",
+          "bulk-d0-batch-395",
+          "bulk-d0-batch-396",
+          "bulk-d0-batch-397",
+          "bulk-d0-batch-398",
+          "bulk-d0-batch-399",
+          "bulk-d0-batch-400",
+          "bulk-d0-batch-401",
+          "bulk-d0-batch-402",
+          "bulk-d0-batch-403",
+          "bulk-d0-batch-404",
+          "bulk-d0-batch-405",
+          "bulk-d0-batch-406",
+          "bulk-d0-batch-407",
+          "bulk-d0-batch-408",
+          "bulk-d0-batch-409",
+          "bulk-d0-batch-410",
+          "bulk-d0-batch-411",
+          "bulk-d0-batch-412",
+          "bulk-d0-batch-413",
+          "bulk-d0-batch-414",
+          "bulk-d0-batch-415",
+          "bulk-d0-batch-416",
+          "bulk-d0-batch-417",
+          "bulk-d0-batch-418",
+          "bulk-d0-batch-419",
+          "bulk-d0-batch-420",
+          "bulk-d0-batch-421",
+          "bulk-d0-batch-422",
+          "bulk-d0-batch-423",
+          "bulk-d0-batch-424",
+          "bulk-d0-batch-425",
+          "bulk-d0-batch-426",
+          "bulk-d0-batch-427",
+          "bulk-d0-batch-428",
+          "bulk-d0-batch-429",
+          "bulk-d0-batch-430",
+          "bulk-d0-batch-431",
+          "bulk-d0-batch-432",
+          "bulk-d0-batch-433",
+          "bulk-d0-batch-434",
+          "bulk-d0-batch-435",
+          "bulk-d0-batch-436",
+          "bulk-d0-batch-437",
+          "bulk-d0-batch-438",
+          "bulk-d0-batch-439",
+          "bulk-d0-batch-440",
+          "bulk-d0-batch-441",
+          "bulk-d0-batch-442",
+          "bulk-d0-batch-443",
+          "bulk-d0-batch-444",
+          "bulk-d0-batch-445",
+          "bulk-d0-batch-446",
+          "bulk-d0-batch-447",
+          "bulk-d0-batch-448",
+          "bulk-d0-batch-449",
+          "bulk-d0-batch-450",
+          "bulk-d0-batch-451",
+          "bulk-d0-batch-452",
+          "bulk-d0-batch-453",
+          "bulk-d0-batch-454",
+          "bulk-d0-batch-455",
+          "bulk-d0-batch-456",
+          "bulk-d0-batch-457",
+          "bulk-d0-batch-458",
+          "bulk-d0-batch-459",
+          "bulk-d0-batch-460",
+          "bulk-d0-batch-461",
+          "bulk-d0-batch-462",
+          "bulk-d0-batch-463",
+          "bulk-d0-batch-464",
+          "bulk-d0-batch-465",
+          "bulk-d0-batch-466",
+          "bulk-d0-batch-467",
+          "bulk-d0-batch-468",
+          "bulk-d0-batch-469",
+          "bulk-d0-batch-470",
+          "bulk-d0-batch-471",
+          "bulk-d0-batch-472",
+          "bulk-d0-batch-473",
+          "bulk-d0-batch-474",
+          "bulk-d0-batch-475",
+          "bulk-d0-batch-476",
+          "bulk-d0-batch-477",
+          "bulk-d0-batch-478",
+          "bulk-d0-batch-479",
+          "bulk-d0-batch-480",
+          "bulk-d0-batch-481",
+          "bulk-d0-batch-482",
+          "bulk-d0-batch-483",
+          "bulk-d0-batch-484",
+          "bulk-d0-batch-485",
+          "bulk-d0-batch-486",
+          "bulk-d0-batch-487",
+          "bulk-d0-batch-488",
+          "bulk-d0-batch-489",
+          "bulk-d0-batch-490",
+          "bulk-d0-batch-491",
+          "bulk-d0-batch-492",
+          "bulk-d0-batch-493",
+          "bulk-d0-batch-494",
+          "bulk-d0-batch-495",
+          "bulk-d0-batch-496",
+          "bulk-d0-batch-497",
+          "bulk-d0-batch-498",
+          "bulk-d0-batch-499"
+        ]
+      },
+      "kill": {
+        "mode": "SIGKILL via launch-pids=50748,50756",
+        "pid": 50748,
+        "killAt": 1791969415984
+      },
+      "measuredMsAfterIssue": 11,
+      "processExited": true,
+      "rawDumpBeforeOpen": {
+        "stores": [
+          "meta",
+          "records",
+          "summaries"
+        ],
+        "counts": {
+          "meta": 2,
+          "records": 0,
+          "summaries": 0
+        },
+        "meta": [
+          {
+            "key": "format",
+            "value": "1"
+          },
+          {
+            "key": "intent:bulk-d0-first",
+            "value": "{\"session_id\":\"bulk-d0-first\",\"total_enqueued\":5000,\"total_committed\":0,\"first_pending_at\":1791969415964,\"updated_at\":1791969415972}"
+          }
+        ],
+        "metaParsed": [
+          {
+            "key": "format",
+            "value": 1
+          },
+          {
+            "key": "intent:bulk-d0-first",
+            "value": {
+              "session_id": "bulk-d0-first",
+              "total_enqueued": 5000,
+              "total_committed": 0,
+              "first_pending_at": 1791969415964,
+              "updated_at": 1791969415972
+            }
+          }
+        ]
+      },
+      "reopen": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 5000,
+            "commitLostWindowMs": 656
+          }
+        },
+        "commitLoss": {
+          "events": 5000,
+          "windowMs": 656,
+          "sessionIds": [
+            "bulk-d0-first"
+          ]
+        }
+      },
+      "inventoryCounts": {
+        "indexed": 0
+      },
+      "reopenStats": {
+        "storedBatches": 0,
+        "storedEvents": 0,
+        "storedBytes": 0,
+        "evictedBatches": 0,
+        "evictedEvents": 0,
+        "writeFailures": 0,
+        "ready": true,
+        "available": true,
+        "exposure": {
+          "pendingBatches": 0,
+          "pendingEvents": 0,
+          "oldestPendingMs": null,
+          "commitLatencyP50Ms": null,
+          "commitLatencyP95Ms": null,
+          "commitLostEvents": 5000,
+          "commitLostWindowMs": 656
+        }
+      },
+      "reopenCommitLoss": {
+        "events": 5000,
+        "windowMs": 656,
+        "sessionIds": [
+          "bulk-d0-first"
+        ]
+      },
+      "evictedOnReopen": false,
+      "expectedBatchIds": 500,
+      "survived": {
+        "batches": 0,
+        "events": 0,
+        "missingEvents": 5000,
+        "missingIdsSample": [
+          "bulk-d0-0-0",
+          "bulk-d0-0-1",
+          "bulk-d0-0-2",
+          "bulk-d0-0-3",
+          "bulk-d0-0-4"
+        ],
+        "unexpectedEvents": 0,
+        "partiallyReadable": 0,
+        "rate": 0
+      },
+      "d004": {
+        "oncompleteSurvivors": null,
+        "uncommittedFromIntent": 5000,
+        "commitLostWindowMs": 656
+      },
+      "exposureReconciles": true,
+      "windowCaptured": true,
+      "nothingCommitted": false
+    },
+    {
+      "name": "preflush-d0",
+      "group": "preflush",
+      "scheduledDelayMs": 0,
+      "awaitSettled": false,
+      "count": 100,
+      "eventsPerBatch": 10,
+      "padBytes": 0,
+      "limits": {
+        "commitBatchSize": 1000000000,
+        "commitIntervalMs": 1000000000
+      },
+      "expectedEvents": 1000,
+      "dbName": "e2e-d004-preflush-d0",
+      "profile": "profile-preflush-d0",
+      "open": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "issue": {
+        "issued": 100,
+        "ms": 1.000000000000007,
+        "batchIds": [
+          "preflush-d0-batch-0",
+          "preflush-d0-batch-1",
+          "preflush-d0-batch-2",
+          "preflush-d0-batch-3",
+          "preflush-d0-batch-4",
+          "preflush-d0-batch-5",
+          "preflush-d0-batch-6",
+          "preflush-d0-batch-7",
+          "preflush-d0-batch-8",
+          "preflush-d0-batch-9",
+          "preflush-d0-batch-10",
+          "preflush-d0-batch-11",
+          "preflush-d0-batch-12",
+          "preflush-d0-batch-13",
+          "preflush-d0-batch-14",
+          "preflush-d0-batch-15",
+          "preflush-d0-batch-16",
+          "preflush-d0-batch-17",
+          "preflush-d0-batch-18",
+          "preflush-d0-batch-19",
+          "preflush-d0-batch-20",
+          "preflush-d0-batch-21",
+          "preflush-d0-batch-22",
+          "preflush-d0-batch-23",
+          "preflush-d0-batch-24",
+          "preflush-d0-batch-25",
+          "preflush-d0-batch-26",
+          "preflush-d0-batch-27",
+          "preflush-d0-batch-28",
+          "preflush-d0-batch-29",
+          "preflush-d0-batch-30",
+          "preflush-d0-batch-31",
+          "preflush-d0-batch-32",
+          "preflush-d0-batch-33",
+          "preflush-d0-batch-34",
+          "preflush-d0-batch-35",
+          "preflush-d0-batch-36",
+          "preflush-d0-batch-37",
+          "preflush-d0-batch-38",
+          "preflush-d0-batch-39",
+          "preflush-d0-batch-40",
+          "preflush-d0-batch-41",
+          "preflush-d0-batch-42",
+          "preflush-d0-batch-43",
+          "preflush-d0-batch-44",
+          "preflush-d0-batch-45",
+          "preflush-d0-batch-46",
+          "preflush-d0-batch-47",
+          "preflush-d0-batch-48",
+          "preflush-d0-batch-49",
+          "preflush-d0-batch-50",
+          "preflush-d0-batch-51",
+          "preflush-d0-batch-52",
+          "preflush-d0-batch-53",
+          "preflush-d0-batch-54",
+          "preflush-d0-batch-55",
+          "preflush-d0-batch-56",
+          "preflush-d0-batch-57",
+          "preflush-d0-batch-58",
+          "preflush-d0-batch-59",
+          "preflush-d0-batch-60",
+          "preflush-d0-batch-61",
+          "preflush-d0-batch-62",
+          "preflush-d0-batch-63",
+          "preflush-d0-batch-64",
+          "preflush-d0-batch-65",
+          "preflush-d0-batch-66",
+          "preflush-d0-batch-67",
+          "preflush-d0-batch-68",
+          "preflush-d0-batch-69",
+          "preflush-d0-batch-70",
+          "preflush-d0-batch-71",
+          "preflush-d0-batch-72",
+          "preflush-d0-batch-73",
+          "preflush-d0-batch-74",
+          "preflush-d0-batch-75",
+          "preflush-d0-batch-76",
+          "preflush-d0-batch-77",
+          "preflush-d0-batch-78",
+          "preflush-d0-batch-79",
+          "preflush-d0-batch-80",
+          "preflush-d0-batch-81",
+          "preflush-d0-batch-82",
+          "preflush-d0-batch-83",
+          "preflush-d0-batch-84",
+          "preflush-d0-batch-85",
+          "preflush-d0-batch-86",
+          "preflush-d0-batch-87",
+          "preflush-d0-batch-88",
+          "preflush-d0-batch-89",
+          "preflush-d0-batch-90",
+          "preflush-d0-batch-91",
+          "preflush-d0-batch-92",
+          "preflush-d0-batch-93",
+          "preflush-d0-batch-94",
+          "preflush-d0-batch-95",
+          "preflush-d0-batch-96",
+          "preflush-d0-batch-97",
+          "preflush-d0-batch-98",
+          "preflush-d0-batch-99"
+        ]
+      },
+      "kill": {
+        "mode": "SIGKILL via launch-pids=50891,50897",
+        "pid": 50891,
+        "killAt": 1791969417334
+      },
+      "measuredMsAfterIssue": 0,
+      "processExited": true,
+      "rawDumpBeforeOpen": {
+        "stores": [
+          "meta",
+          "records",
+          "summaries"
+        ],
+        "counts": {
+          "meta": 1,
+          "records": 0,
+          "summaries": 0
+        },
+        "meta": [
+          {
+            "key": "format",
+            "value": "1"
+          }
+        ],
+        "metaParsed": [
+          {
+            "key": "format",
+            "value": 1
+          }
+        ]
+      },
+      "reopen": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "inventoryCounts": {
+        "indexed": 0
+      },
+      "reopenStats": {
+        "storedBatches": 0,
+        "storedEvents": 0,
+        "storedBytes": 0,
+        "evictedBatches": 0,
+        "evictedEvents": 0,
+        "writeFailures": 0,
+        "ready": true,
+        "available": true,
+        "exposure": {
+          "pendingBatches": 0,
+          "pendingEvents": 0,
+          "oldestPendingMs": null,
+          "commitLatencyP50Ms": null,
+          "commitLatencyP95Ms": null,
+          "commitLostEvents": 0,
+          "commitLostWindowMs": null
+        }
+      },
+      "reopenCommitLoss": {
+        "events": 0,
+        "windowMs": 0,
+        "sessionIds": []
+      },
+      "evictedOnReopen": false,
+      "expectedBatchIds": 100,
+      "survived": {
+        "batches": 0,
+        "events": 0,
+        "missingEvents": 1000,
+        "missingIdsSample": [
+          "preflush-d0-0-0",
+          "preflush-d0-0-1",
+          "preflush-d0-0-2",
+          "preflush-d0-0-3",
+          "preflush-d0-0-4"
+        ],
+        "unexpectedEvents": 0,
+        "partiallyReadable": 0,
+        "rate": 0
+      },
+      "d004": {
+        "oncompleteSurvivors": null,
+        "uncommittedFromIntent": 0,
+        "commitLostWindowMs": 0
+      },
+      "exposureReconciles": {
+        "survivors": 0,
+        "commitLost": 0,
+        "expected": 1000
+      },
+      "windowCaptured": false,
+      "nothingCommitted": true
+    },
+    {
+      "name": "preflush-small",
+      "group": "preflush",
+      "scheduledDelayMs": 0,
+      "awaitSettled": false,
+      "count": 10,
+      "eventsPerBatch": 10,
+      "padBytes": 0,
+      "limits": null,
+      "expectedEvents": 100,
+      "dbName": "e2e-d004-preflush-small",
+      "profile": "profile-preflush-small",
+      "open": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "issue": {
+        "issued": 10,
+        "ms": 0,
+        "batchIds": [
+          "preflush-small-batch-0",
+          "preflush-small-batch-1",
+          "preflush-small-batch-2",
+          "preflush-small-batch-3",
+          "preflush-small-batch-4",
+          "preflush-small-batch-5",
+          "preflush-small-batch-6",
+          "preflush-small-batch-7",
+          "preflush-small-batch-8",
+          "preflush-small-batch-9"
+        ]
+      },
+      "kill": {
+        "mode": "SIGKILL via launch-pids=51095,51101",
+        "pid": 51095,
+        "killAt": 1791969418751
+      },
+      "measuredMsAfterIssue": 0,
+      "processExited": true,
+      "rawDumpBeforeOpen": {
+        "stores": [
+          "meta",
+          "records",
+          "summaries"
+        ],
+        "counts": {
+          "meta": 1,
+          "records": 0,
+          "summaries": 0
+        },
+        "meta": [
+          {
+            "key": "format",
+            "value": "1"
+          }
+        ],
+        "metaParsed": [
+          {
+            "key": "format",
+            "value": 1
+          }
+        ]
+      },
+      "reopen": {
+        "stats": {
+          "storedBatches": 0,
+          "storedEvents": 0,
+          "storedBytes": 0,
+          "evictedBatches": 0,
+          "evictedEvents": 0,
+          "writeFailures": 0,
+          "ready": true,
+          "available": true,
+          "exposure": {
+            "pendingBatches": 0,
+            "pendingEvents": 0,
+            "oldestPendingMs": null,
+            "commitLatencyP50Ms": null,
+            "commitLatencyP95Ms": null,
+            "commitLostEvents": 0,
+            "commitLostWindowMs": null
+          }
+        },
+        "commitLoss": {
+          "events": 0,
+          "windowMs": 0,
+          "sessionIds": []
+        }
+      },
+      "inventoryCounts": {
+        "indexed": 0
+      },
+      "reopenStats": {
+        "storedBatches": 0,
+        "storedEvents": 0,
+        "storedBytes": 0,
+        "evictedBatches": 0,
+        "evictedEvents": 0,
+        "writeFailures": 0,
+        "ready": true,
+        "available": true,
+        "exposure": {
+          "pendingBatches": 0,
+          "pendingEvents": 0,
+          "oldestPendingMs": null,
+          "commitLatencyP50Ms": null,
+          "commitLatencyP95Ms": null,
+          "commitLostEvents": 0,
+          "commitLostWindowMs": null
+        }
+      },
+      "reopenCommitLoss": {
+        "events": 0,
+        "windowMs": 0,
+        "sessionIds": []
+      },
+      "evictedOnReopen": false,
+      "expectedBatchIds": 10,
+      "survived": {
+        "batches": 0,
+        "events": 0,
+        "missingEvents": 100,
+        "missingIdsSample": [
+          "preflush-small-0-0",
+          "preflush-small-0-1",
+          "preflush-small-0-2",
+          "preflush-small-0-3",
+          "preflush-small-0-4"
+        ],
+        "unexpectedEvents": 0,
+        "partiallyReadable": 0,
+        "rate": 0
+      },
+      "d004": {
+        "oncompleteSurvivors": null,
+        "uncommittedFromIntent": 0,
+        "commitLostWindowMs": 0
+      },
+      "exposureReconciles": {
+        "survivors": 0,
+        "commitLost": 0,
+        "expected": 100
+      },
+      "windowCaptured": false,
+      "nothingCommitted": true
+    }
+  ],
+  "grouped": {
+    "oncomplete": [
+      {
+        "name": "durable",
+        "scheduledDelayMs": null,
+        "measuredMsAfterIssue": 16,
+        "survivedEvents": 1000,
+        "expectedEvents": 1000,
+        "rate": 1,
+        "commitLostEvents": 0,
+        "commitLostWindowMs": 0,
+        "windowCaptured": false,
+        "reconciles": true
+      }
+    ],
+    "unsettled": [
+      {
+        "name": "pending-d0",
+        "scheduledDelayMs": 0,
+        "measuredMsAfterIssue": 0,
+        "survivedEvents": 0,
+        "expectedEvents": 1000,
+        "rate": 0,
+        "commitLostEvents": 0,
+        "commitLostWindowMs": 0,
+        "windowCaptured": false,
+        "reconciles": {
+          "survivors": 0,
+          "commitLost": 0,
+          "expected": 1000
+        }
+      },
+      {
+        "name": "pending-d5",
+        "scheduledDelayMs": 5,
+        "measuredMsAfterIssue": 6,
+        "survivedEvents": 0,
+        "expectedEvents": 1000,
+        "rate": 0,
+        "commitLostEvents": 1000,
+        "commitLostWindowMs": 923,
+        "windowCaptured": true,
+        "reconciles": true
+      },
+      {
+        "name": "pending-d20",
+        "scheduledDelayMs": 20,
+        "measuredMsAfterIssue": 21,
+        "survivedEvents": 1000,
+        "expectedEvents": 1000,
+        "rate": 1,
+        "commitLostEvents": 0,
+        "commitLostWindowMs": 0,
+        "windowCaptured": false,
+        "reconciles": true
+      },
+      {
+        "name": "pending-d60",
+        "scheduledDelayMs": 60,
+        "measuredMsAfterIssue": 61,
+        "survivedEvents": 1000,
+        "expectedEvents": 1000,
+        "rate": 1,
+        "commitLostEvents": 0,
+        "commitLostWindowMs": 0,
+        "windowCaptured": false,
+        "reconciles": true
+      },
+      {
+        "name": "pending-d200",
+        "scheduledDelayMs": 200,
+        "measuredMsAfterIssue": 202,
+        "survivedEvents": 1000,
+        "expectedEvents": 1000,
+        "rate": 1,
+        "commitLostEvents": 0,
+        "commitLostWindowMs": 0,
+        "windowCaptured": false,
+        "reconciles": true
+      },
+      {
+        "name": "bulk-d0",
+        "scheduledDelayMs": 10,
+        "measuredMsAfterIssue": 11,
+        "survivedEvents": 0,
+        "expectedEvents": 5000,
+        "rate": 0,
+        "commitLostEvents": 5000,
+        "commitLostWindowMs": 656,
+        "windowCaptured": true,
+        "reconciles": true
+      }
+    ],
+    "preflush": [
+      {
+        "name": "preflush-d0",
+        "scheduledDelayMs": 0,
+        "measuredMsAfterIssue": 0,
+        "survivedEvents": 0,
+        "expectedEvents": 1000,
+        "rate": 0,
+        "commitLostEvents": 0,
+        "commitLostWindowMs": 0,
+        "windowCaptured": false,
+        "reconciles": {
+          "survivors": 0,
+          "commitLost": 0,
+          "expected": 1000
+        }
+      },
+      {
+        "name": "preflush-small",
+        "scheduledDelayMs": 0,
+        "measuredMsAfterIssue": 0,
+        "survivedEvents": 0,
+        "expectedEvents": 100,
+        "rate": 0,
+        "commitLostEvents": 0,
+        "commitLostWindowMs": 0,
+        "windowCaptured": false,
+        "reconciles": {
+          "survivors": 0,
+          "commitLost": 0,
+          "expected": 100
+        }
+      }
+    ]
+  }
+}
