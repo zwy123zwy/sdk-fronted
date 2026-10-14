@@ -7,7 +7,9 @@
  * - 多上限同时生效、最严者先触发，溢出**先淘汰 normal**；每淘汰一条计 `offline_evicted`；
  * - 配额/不可用一律降级为 `rejected` 计数，**绝不向业务抛错**；
  * - 暴露窗口（「已产生但事务未提交」）单独计量：pending 观测量 + intent 对账
- *   （CR-001 的 `prewrite_commit_lost`）；
+ *   （CR-001 的 `prewrite_commit_lost`）；intent 锚点在 `prewrite()` 的**同一同步回合**
+ *   落痕（D-1 修复），使该窗口一产生就有痕迹；**锚点只为计数，`oncomplete` 仍是唯一
+ *   durability 点**（锚点只写 `meta`，未提交的 `records` / `summaries` 不可读回）；
  * - **完全不用 `localStorage`**（D004）。
  */
 import { createBatchAssembler } from '../batch/assembler';
@@ -158,6 +160,19 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
   let firstPendingAt: number | null = null;
   /** 正在提交中的记录（已离开 `pending`，但事务尚未完成）——暴露窗口的一部分。 */
   let inFlight: readonly PendingEntry[] = [];
+  /**
+   * intent 锚点（**只为计数**，不是 durability 点）。
+   *
+   * D-1 修复：锚点在 `prewrite()` 的**同一同步回合**发起，使「事件已产生但事务未提交」
+   * 这段窗口在库里立即有痕迹；`oncomplete` 仍是唯一 durability 点 —— 锚点只写 `meta`，
+   * 未提交的 `records` / `summaries` 不会因此被读回。
+   */
+  let anchorsEnabled = false;
+  let anchorsPaused = false;
+  let anchorBusy = false;
+  let anchorQueued = false;
+  let anchorTail: Promise<void> = Promise.resolve();
+  let resolveAnchorTail: (() => void) | null = null;
   let evictedBatches = 0;
   let evictedEvents = 0;
   let writeFailures = 0;
@@ -186,6 +201,7 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
   function markUnavailable(): void {
     if (available === false) return;
     available = false;
+    anchorsEnabled = false;
     counters.count(REASON_STORAGE_UNAVAILABLE);
     failPending('unavailable', false);
   }
@@ -314,6 +330,74 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
     return { events, windowMs, sessionIds };
   }
 
+  /** 当前账目的 intent 值（锚点与提交后的对账锚点共用同一形状）。 */
+  function intentValue(): string {
+    const intent: IntentState = {
+      session_id: sessionId,
+      total_enqueued: totalEnqueued,
+      total_committed: totalCommitted,
+      first_pending_at: firstPendingAt ?? now(),
+      updated_at: now(),
+    };
+    return JSON.stringify(intent);
+  }
+
+  /**
+   * 同步发起一次 intent 锚点写入（D-1 修复）。
+   *
+   * - **只为计数**：只写 `meta`，绝不写 `records` / `summaries`，因此未提交的数据
+   *   不会因为锚点而被 `list()` / `read()` 读回；`oncomplete` 仍是唯一 durability 点。
+   * - **同步发起**：`backend.putMeta` 内联创建 IndexedDB 事务，窗口从 `commitIntervalMs`
+   *   （默认 200 ms）缩到一次 meta 事务往返，使「事件已产生但事务未提交」有痕迹可对账。
+   * - **在途合并**：写入值在真正写时按当前 `totalEnqueued` / `totalCommitted` 计算，
+   *   突发 prewrite 合并成「最新一次」，不让热路径退化成逐条事务。
+   * - **提交前置**：`flush()` 用 `pauseAnchors()` 等在途锚点结束，保证锚点事务排在数据
+   *   事务之前，已提交的 `settledIntent` 不会被旧锚点覆盖（否则正常路径会被多计成 lost）。
+   */
+  function requestAnchor(): void {
+    if (disposed) return;
+    if (!anchorsEnabled || anchorsPaused || anchorBusy) {
+      anchorQueued = true;
+      return;
+    }
+    anchorBusy = true;
+    anchorQueued = false;
+    anchorTail = new Promise<void>((resolve) => {
+      resolveAnchorTail = resolve;
+    });
+    const value = intentValue();
+    // `putMeta` 可能**同步**抛错（例如 versionchange 已把连接关掉）：锚点失败只能吞掉，
+    // `prewrite` 绝不向业务抛错，也不能因此改变 durability 语义。
+    let write: Promise<void>;
+    try {
+      write = backend.putMeta({ key: intentKey, value });
+    } catch {
+      write = Promise.resolve();
+    }
+    void write
+      .catch(() => undefined)
+      .then(() => {
+        anchorBusy = false;
+        const resolve = resolveAnchorTail;
+        resolveAnchorTail = null;
+        if (resolve !== null) resolve();
+        if (anchorQueued && !anchorsPaused && !disposed) requestAnchor();
+      });
+  }
+
+  /** 提交事务创建前调用：暂停新锚点并等在途锚点写入结束（保证事务先后顺序）。 */
+  async function pauseAnchors(): Promise<void> {
+    anchorsPaused = true;
+    await anchorTail;
+  }
+
+  /** 提交事务结束后调用：放行锚点；期间累积的合并请求在此刻以最新账目写出。 */
+  function resumeAnchors(): void {
+    anchorsPaused = false;
+    if (disposed) return;
+    if (anchorQueued) requestAnchor();
+  }
+
   function scheduleFlush(delayMs: number): void {
     if (disposed || available === false) return;
     if (timer !== null) {
@@ -380,22 +464,26 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
       const writable = records.filter((record) => !droppedSet.has(record.batch_id));
       if (writable.length === 0) return;
 
-      const intent: IntentState = {
-        session_id: sessionId,
-        total_enqueued: totalEnqueued,
-        total_committed: totalCommitted,
-        first_pending_at: firstPendingAt ?? startedAt,
-        updated_at: now(),
-      };
-      // 事务 1：先落 intent（暴露窗口对账的锚点）。
+      // 锚点已在 `prewrite()` 里同步落痕（D-1）；这里再做一次**整批**写入：
+      // `pauseAnchors()` 会把合并中的后续锚点暂停掉，而本批的 `total_enqueued` 必须
+      // 一次性落定，否则突发批次只会留下第一条锚点的计数（D-1 复测就抓到过这一点）。
+      // 因为它创建在提交事务之前（且锚点已暂停），本事务内的 `settledIntent`
+      // 一定是「最新且已提交」的那一份。
+      await pauseAnchors();
       try {
-        await backend.putMeta({ key: intentKey, value: JSON.stringify(intent) });
+        await backend.putMeta({ key: intentKey, value: intentValue() });
       } catch {
         // intent 写失败只是少一次对账锚点，不能阻塞数据落盘。
       }
       const settledIntent: MetaEntry = {
         key: intentKey,
-        value: JSON.stringify({ ...intent, total_committed: totalEnqueued, updated_at: now() }),
+        value: JSON.stringify({
+          session_id: sessionId,
+          total_enqueued: totalEnqueued,
+          total_committed: totalEnqueued,
+          first_pending_at: firstPendingAt ?? startedAt,
+          updated_at: now(),
+        } satisfies IntentState),
       };
       const attempt = await commitWithRetry(writable, settledIntent);
       if (attempt.ok) {
@@ -419,10 +507,8 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
       totalEnqueued = totalCommitted;
       if (pending.length === 0) firstPendingAt = null;
       try {
-        await backend.putMeta({
-          key: intentKey,
-          value: JSON.stringify({ ...intent, total_enqueued: totalCommitted, updated_at: now() }),
-        });
+        // 修正为「没有未提交事件」：锚点仍只为计数，不改变 durability 语义。
+        await backend.putMeta({ key: intentKey, value: intentValue() });
       } catch {
         // 修正失败只会让暴露窗口偏保守（多报未提交），可接受。
       }
@@ -431,6 +517,7 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
       failPending('unavailable', false);
       counters.count(REASON_STORAGE_UNAVAILABLE);
     } finally {
+      resumeAnchors();
       inFlight = [];
       committing = false;
       if (!disposed && pending.length > 0) scheduleFlush(0);
@@ -497,6 +584,10 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
         }
         available = true;
         await loadState();
+        // 锚点能力在 `loadState()`（含 intent 对账回收）之后才开启：
+        // 否则本会话刚写的锚点可能被自己的启动对账当成"上次会话"回收掉。
+        anchorsEnabled = true;
+        if (anchorQueued) requestAnchor();
       } catch {
         markUnavailable();
       }
@@ -534,6 +625,9 @@ export function createOfflineStore(options: OfflineStoreOptions): OfflineStore {
     totalEnqueued += record.event_count;
     if (firstPendingAt === null) firstPendingAt = enqueuedAt;
     void openInternal();
+    // D-1：在**同一同步回合**落下 intent 锚点（只为计数），
+    // 这样「事件已产生但事务未提交」的窗口一产生就有痕迹可对账。
+    requestAnchor();
     if (pending.length >= limits.commitBatchSize) scheduleFlush(0);
     else scheduleFlush(limits.commitIntervalMs);
     return handle;

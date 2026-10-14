@@ -1,6 +1,6 @@
 {
   "task": "T29 / D004 硬杀落盘复测",
-  "generatedAt": "2026-10-14T09:17:14.854Z",
+  "generatedAt": "2026-10-14T09:27:33.471Z",
   "browser": "chromium",
   "driver": {
     "id": "npx-cache-playwright-core-1.60.0",
@@ -9,13 +9,13 @@
   },
   "transport": {
     "path": "packages/transport/dist/index.js",
-    "bytes": 105790,
-    "mtime": "2026-10-14T08:43:31.556Z",
-    "sha256": "26c232e4112442c6",
+    "bytes": 107257,
+    "mtime": "2026-10-14T09:27:05.379Z",
+    "sha256": "454fbb9008176f86",
     "note": "被复测的真实实现（单包 build 产物，源码 packages/transport/src/offline/**）"
   },
-  "serverUrl": "http://127.0.0.1:63468",
-  "profileRoot": "/var/folders/tz/dg5xqq7n68v05f2rbtnjsvp80000gn/T/t29-e2e-d004-chromium-1791969403973",
+  "serverUrl": "http://127.0.0.1:51752",
+  "profileRoot": "/var/folders/tz/dg5xqq7n68v05f2rbtnjsvp80000gn/T/t29-e2e-d004-chromium-1791970026718",
   "cells": [
     {
       "name": "durable",
@@ -57,7 +57,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 5,
+        "ms": 2,
         "batchIds": [
           "durable-batch-0",
           "durable-batch-1",
@@ -568,14 +568,14 @@
             "status": "durable"
           }
         ],
-        "elapsedMs": 18.400000005960464
+        "elapsedMs": 11.699999988079071
       },
       "kill": {
-        "mode": "SIGKILL via CDP SystemInfo pid=49532",
-        "pid": 49532,
-        "killAt": 1791969407860
+        "mode": "SIGKILL via CDP SystemInfo pid=67038",
+        "pid": 67038,
+        "killAt": 1791970028481
       },
-      "measuredMsAfterIssue": 31,
+      "measuredMsAfterIssue": 17,
       "processExited": true,
       "rawDumpBeforeOpen": {
         "stores": [
@@ -595,7 +595,7 @@
           },
           {
             "key": "intent:durable-first",
-            "value": "{\"session_id\":\"durable-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1791969407818,\"updated_at\":1791969407825}"
+            "value": "{\"session_id\":\"durable-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1791970028477,\"updated_at\":1791970028477}"
           }
         ],
         "metaParsed": [
@@ -609,8 +609,8 @@
               "session_id": "durable-first",
               "total_enqueued": 1000,
               "total_committed": 1000,
-              "first_pending_at": 1791969407818,
-              "updated_at": 1791969407825
+              "first_pending_at": 1791970028477,
+              "updated_at": 1791970028477
             }
           }
         ]
@@ -728,7 +728,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 1.7999999821186066,
+        "ms": 1.4000000059604645,
         "batchIds": [
           "pending-d0-batch-0",
           "pending-d0-batch-1",
@@ -833,9 +833,9 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via CDP SystemInfo pid=50115",
-        "pid": 50115,
-        "killAt": 1791969412112
+        "mode": "SIGKILL via CDP SystemInfo pid=67223",
+        "pid": 67223,
+        "killAt": 1791970032095
       },
       "measuredMsAfterIssue": 0,
       "processExited": true,
@@ -857,7 +857,7 @@
           },
           {
             "key": "intent:pending-d0-first",
-            "value": "{\"session_id\":\"pending-d0-first\",\"total_enqueued\":1000,\"total_committed\":0,\"first_pending_at\":1791969412108,\"updated_at\":1791969412110}"
+            "value": "{\"session_id\":\"pending-d0-first\",\"total_enqueued\":1000,\"total_committed\":0,\"first_pending_at\":1791970032093,\"updated_at\":1791970032095}"
           }
         ],
         "metaParsed": [
@@ -871,8 +871,8 @@
               "session_id": "pending-d0-first",
               "total_enqueued": 1000,
               "total_committed": 0,
-              "first_pending_at": 1791969412108,
-              "updated_at": 1791969412110
+              "first_pending_at": 1791970032093,
+              "updated_at": 1791970032095
             }
           }
         ]
@@ -894,12 +894,12 @@
             "commitLatencyP50Ms": null,
             "commitLatencyP95Ms": null,
             "commitLostEvents": 1000,
-            "commitLostWindowMs": 1596
+            "commitLostWindowMs": 1213
           }
         },
         "commitLoss": {
           "events": 1000,
-          "windowMs": 1596,
+          "windowMs": 1213,
           "sessionIds": [
             "pending-d0-first"
           ]
@@ -924,12 +924,12 @@
           "commitLatencyP50Ms": null,
           "commitLatencyP95Ms": null,
           "commitLostEvents": 1000,
-          "commitLostWindowMs": 1596
+          "commitLostWindowMs": 1213
         }
       },
       "reopenCommitLoss": {
         "events": 1000,
-        "windowMs": 1596,
+        "windowMs": 1213,
         "sessionIds": [
           "pending-d0-first"
         ]
@@ -954,7 +954,7 @@
       "d004": {
         "oncompleteSurvivors": null,
         "uncommittedFromIntent": 1000,
-        "commitLostWindowMs": 1596
+        "commitLostWindowMs": 1213
       },
       "exposureReconciles": true,
       "windowCaptured": true,
@@ -1000,7 +1000,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 1.5,
+        "ms": 1.199999988079071,
         "batchIds": [
           "pending-d5-batch-0",
           "pending-d5-batch-1",
@@ -1105,9 +1105,9 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via CDP SystemInfo pid=50506",
-        "pid": 50506,
-        "killAt": 1791969415252
+        "mode": "SIGKILL via CDP SystemInfo pid=67359",
+        "pid": 67359,
+        "killAt": 1791970034738
       },
       "measuredMsAfterIssue": 6,
       "processExited": true,
@@ -1129,7 +1129,7 @@
           },
           {
             "key": "intent:pending-d5-first",
-            "value": "{\"session_id\":\"pending-d5-first\",\"total_enqueued\":1000,\"total_committed\":0,\"first_pending_at\":1791969415243,\"updated_at\":1791969415245}"
+            "value": "{\"session_id\":\"pending-d5-first\",\"total_enqueued\":1000,\"total_committed\":0,\"first_pending_at\":1791970034731,\"updated_at\":1791970034732}"
           }
         ],
         "metaParsed": [
@@ -1143,8 +1143,8 @@
               "session_id": "pending-d5-first",
               "total_enqueued": 1000,
               "total_committed": 0,
-              "first_pending_at": 1791969415243,
-              "updated_at": 1791969415245
+              "first_pending_at": 1791970034731,
+              "updated_at": 1791970034732
             }
           }
         ]
@@ -1166,12 +1166,12 @@
             "commitLatencyP50Ms": null,
             "commitLatencyP95Ms": null,
             "commitLostEvents": 1000,
-            "commitLostWindowMs": 1775
+            "commitLostWindowMs": 1213
           }
         },
         "commitLoss": {
           "events": 1000,
-          "windowMs": 1775,
+          "windowMs": 1213,
           "sessionIds": [
             "pending-d5-first"
           ]
@@ -1196,12 +1196,12 @@
           "commitLatencyP50Ms": null,
           "commitLatencyP95Ms": null,
           "commitLostEvents": 1000,
-          "commitLostWindowMs": 1775
+          "commitLostWindowMs": 1213
         }
       },
       "reopenCommitLoss": {
         "events": 1000,
-        "windowMs": 1775,
+        "windowMs": 1213,
         "sessionIds": [
           "pending-d5-first"
         ]
@@ -1226,7 +1226,7 @@
       "d004": {
         "oncompleteSurvivors": null,
         "uncommittedFromIntent": 1000,
-        "commitLostWindowMs": 1775
+        "commitLostWindowMs": 1213
       },
       "exposureReconciles": true,
       "windowCaptured": true,
@@ -1272,7 +1272,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 1.2999999821186066,
+        "ms": 1.300000011920929,
         "batchIds": [
           "pending-d20-batch-0",
           "pending-d20-batch-1",
@@ -1377,9 +1377,9 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via CDP SystemInfo pid=50932",
-        "pid": 50932,
-        "killAt": 1791969418937
+        "mode": "SIGKILL via CDP SystemInfo pid=67491",
+        "pid": 67491,
+        "killAt": 1791970037202
       },
       "measuredMsAfterIssue": 21,
       "processExited": true,
@@ -1401,7 +1401,7 @@
           },
           {
             "key": "intent:pending-d20-first",
-            "value": "{\"session_id\":\"pending-d20-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1791969418914,\"updated_at\":1791969418916}"
+            "value": "{\"session_id\":\"pending-d20-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1791970037187,\"updated_at\":1791970037187}"
           }
         ],
         "metaParsed": [
@@ -1415,8 +1415,8 @@
               "session_id": "pending-d20-first",
               "total_enqueued": 1000,
               "total_committed": 1000,
-              "first_pending_at": 1791969418914,
-              "updated_at": 1791969418916
+              "first_pending_at": 1791970037187,
+              "updated_at": 1791970037187
             }
           }
         ]
@@ -1534,7 +1534,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 2,
+        "ms": 1.5,
         "batchIds": [
           "pending-d60-batch-0",
           "pending-d60-batch-1",
@@ -1639,11 +1639,11 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via CDP SystemInfo pid=51351",
-        "pid": 51351,
-        "killAt": 1791969421990
+        "mode": "SIGKILL via CDP SystemInfo pid=67621",
+        "pid": 67621,
+        "killAt": 1791970039740
       },
-      "measuredMsAfterIssue": 62,
+      "measuredMsAfterIssue": 61,
       "processExited": true,
       "rawDumpBeforeOpen": {
         "stores": [
@@ -1663,7 +1663,7 @@
           },
           {
             "key": "intent:pending-d60-first",
-            "value": "{\"session_id\":\"pending-d60-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1791969421923,\"updated_at\":1791969421927}"
+            "value": "{\"session_id\":\"pending-d60-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1791970039686,\"updated_at\":1791970039686}"
           }
         ],
         "metaParsed": [
@@ -1677,8 +1677,8 @@
               "session_id": "pending-d60-first",
               "total_enqueued": 1000,
               "total_committed": 1000,
-              "first_pending_at": 1791969421923,
-              "updated_at": 1791969421927
+              "first_pending_at": 1791970039686,
+              "updated_at": 1791970039686
             }
           }
         ]
@@ -1796,7 +1796,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 1.5999999940395355,
+        "ms": 2,
         "batchIds": [
           "pending-d200-batch-0",
           "pending-d200-batch-1",
@@ -1901,9 +1901,9 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via CDP SystemInfo pid=51588",
-        "pid": 51588,
-        "killAt": 1791969425638
+        "mode": "SIGKILL via CDP SystemInfo pid=67795",
+        "pid": 67795,
+        "killAt": 1791970043515
       },
       "measuredMsAfterIssue": 201,
       "processExited": false,
@@ -1925,7 +1925,7 @@
           },
           {
             "key": "intent:pending-d200-first",
-            "value": "{\"session_id\":\"pending-d200-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1791969425434,\"updated_at\":1791969425436}"
+            "value": "{\"session_id\":\"pending-d200-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1791970043325,\"updated_at\":1791970043325}"
           }
         ],
         "metaParsed": [
@@ -1939,8 +1939,8 @@
               "session_id": "pending-d200-first",
               "total_enqueued": 1000,
               "total_committed": 1000,
-              "first_pending_at": 1791969425434,
-              "updated_at": 1791969425436
+              "first_pending_at": 1791970043325,
+              "updated_at": 1791970043325
             }
           }
         ]
@@ -2063,7 +2063,7 @@
       },
       "issue": {
         "issued": 500,
-        "ms": 6.4000000059604645,
+        "ms": 5.5999999940395355,
         "batchIds": [
           "bulk-d0-batch-0",
           "bulk-d0-batch-1",
@@ -2568,11 +2568,11 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via CDP SystemInfo pid=51761",
-        "pid": 51761,
-        "killAt": 1791969428943
+        "mode": "SIGKILL via CDP SystemInfo pid=67972",
+        "pid": 67972,
+        "killAt": 1791970047005
       },
-      "measuredMsAfterIssue": 11,
+      "measuredMsAfterIssue": 10,
       "processExited": true,
       "rawDumpBeforeOpen": {
         "stores": [
@@ -2592,7 +2592,7 @@
           },
           {
             "key": "intent:bulk-d0-first",
-            "value": "{\"session_id\":\"bulk-d0-first\",\"total_enqueued\":5000,\"total_committed\":0,\"first_pending_at\":1791969428924,\"updated_at\":1791969428930}"
+            "value": "{\"session_id\":\"bulk-d0-first\",\"total_enqueued\":5000,\"total_committed\":0,\"first_pending_at\":1791970046986,\"updated_at\":1791970046993}"
           }
         ],
         "metaParsed": [
@@ -2606,8 +2606,8 @@
               "session_id": "bulk-d0-first",
               "total_enqueued": 5000,
               "total_committed": 0,
-              "first_pending_at": 1791969428924,
-              "updated_at": 1791969428930
+              "first_pending_at": 1791970046986,
+              "updated_at": 1791970046993
             }
           }
         ]
@@ -2629,12 +2629,12 @@
             "commitLatencyP50Ms": null,
             "commitLatencyP95Ms": null,
             "commitLostEvents": 5000,
-            "commitLostWindowMs": 1219
+            "commitLostWindowMs": 1712
           }
         },
         "commitLoss": {
           "events": 5000,
-          "windowMs": 1219,
+          "windowMs": 1712,
           "sessionIds": [
             "bulk-d0-first"
           ]
@@ -2659,12 +2659,12 @@
           "commitLatencyP50Ms": null,
           "commitLatencyP95Ms": null,
           "commitLostEvents": 5000,
-          "commitLostWindowMs": 1219
+          "commitLostWindowMs": 1712
         }
       },
       "reopenCommitLoss": {
         "events": 5000,
-        "windowMs": 1219,
+        "windowMs": 1712,
         "sessionIds": [
           "bulk-d0-first"
         ]
@@ -2689,7 +2689,7 @@
       "d004": {
         "oncompleteSurvivors": null,
         "uncommittedFromIntent": 5000,
-        "commitLostWindowMs": 1219
+        "commitLostWindowMs": 1712
       },
       "exposureReconciles": true,
       "windowCaptured": true,
@@ -2738,7 +2738,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 1.199999988079071,
+        "ms": 1.4000000059604645,
         "batchIds": [
           "preflush-d0-batch-0",
           "preflush-d0-batch-1",
@@ -2843,9 +2843,9 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via CDP SystemInfo pid=51901",
-        "pid": 51901,
-        "killAt": 1791969431346
+        "mode": "SIGKILL via CDP SystemInfo pid=68156",
+        "pid": 68156,
+        "killAt": 1791970049985
       },
       "measuredMsAfterIssue": 0,
       "processExited": true,
@@ -2856,7 +2856,7 @@
           "summaries"
         ],
         "counts": {
-          "meta": 1,
+          "meta": 2,
           "records": 0,
           "summaries": 0
         },
@@ -2864,12 +2864,26 @@
           {
             "key": "format",
             "value": "1"
+          },
+          {
+            "key": "intent:preflush-d0-first",
+            "value": "{\"session_id\":\"preflush-d0-first\",\"total_enqueued\":1000,\"total_committed\":0,\"first_pending_at\":1791970049983,\"updated_at\":1791970049984}"
           }
         ],
         "metaParsed": [
           {
             "key": "format",
             "value": 1
+          },
+          {
+            "key": "intent:preflush-d0-first",
+            "value": {
+              "session_id": "preflush-d0-first",
+              "total_enqueued": 1000,
+              "total_committed": 0,
+              "first_pending_at": 1791970049983,
+              "updated_at": 1791970049984
+            }
           }
         ]
       },
@@ -2889,14 +2903,16 @@
             "oldestPendingMs": null,
             "commitLatencyP50Ms": null,
             "commitLatencyP95Ms": null,
-            "commitLostEvents": 0,
-            "commitLostWindowMs": null
+            "commitLostEvents": 1000,
+            "commitLostWindowMs": 935
           }
         },
         "commitLoss": {
-          "events": 0,
-          "windowMs": 0,
-          "sessionIds": []
+          "events": 1000,
+          "windowMs": 935,
+          "sessionIds": [
+            "preflush-d0-first"
+          ]
         }
       },
       "inventoryCounts": {
@@ -2917,14 +2933,16 @@
           "oldestPendingMs": null,
           "commitLatencyP50Ms": null,
           "commitLatencyP95Ms": null,
-          "commitLostEvents": 0,
-          "commitLostWindowMs": null
+          "commitLostEvents": 1000,
+          "commitLostWindowMs": 935
         }
       },
       "reopenCommitLoss": {
-        "events": 0,
-        "windowMs": 0,
-        "sessionIds": []
+        "events": 1000,
+        "windowMs": 935,
+        "sessionIds": [
+          "preflush-d0-first"
+        ]
       },
       "evictedOnReopen": false,
       "expectedBatchIds": 100,
@@ -2945,16 +2963,12 @@
       },
       "d004": {
         "oncompleteSurvivors": null,
-        "uncommittedFromIntent": 0,
-        "commitLostWindowMs": 0
+        "uncommittedFromIntent": 1000,
+        "commitLostWindowMs": 935
       },
-      "exposureReconciles": {
-        "survivors": 0,
-        "commitLost": 0,
-        "expected": 1000
-      },
-      "windowCaptured": false,
-      "nothingCommitted": true
+      "exposureReconciles": true,
+      "windowCaptured": true,
+      "nothingCommitted": false
     },
     {
       "name": "preflush-small",
@@ -2996,7 +3010,7 @@
       },
       "issue": {
         "issued": 10,
-        "ms": 0.3999999761581421,
+        "ms": 0.5,
         "batchIds": [
           "preflush-small-batch-0",
           "preflush-small-batch-1",
@@ -3011,9 +3025,9 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via CDP SystemInfo pid=52028",
-        "pid": 52028,
-        "killAt": 1791969433712
+        "mode": "SIGKILL via CDP SystemInfo pid=68287",
+        "pid": 68287,
+        "killAt": 1791970052243
       },
       "measuredMsAfterIssue": 0,
       "processExited": true,
@@ -3024,7 +3038,7 @@
           "summaries"
         ],
         "counts": {
-          "meta": 1,
+          "meta": 2,
           "records": 0,
           "summaries": 0
         },
@@ -3032,12 +3046,26 @@
           {
             "key": "format",
             "value": "1"
+          },
+          {
+            "key": "intent:preflush-small-first",
+            "value": "{\"session_id\":\"preflush-small-first\",\"total_enqueued\":100,\"total_committed\":0,\"first_pending_at\":1791970052243,\"updated_at\":1791970052243}"
           }
         ],
         "metaParsed": [
           {
             "key": "format",
             "value": 1
+          },
+          {
+            "key": "intent:preflush-small-first",
+            "value": {
+              "session_id": "preflush-small-first",
+              "total_enqueued": 100,
+              "total_committed": 0,
+              "first_pending_at": 1791970052243,
+              "updated_at": 1791970052243
+            }
           }
         ]
       },
@@ -3057,14 +3085,16 @@
             "oldestPendingMs": null,
             "commitLatencyP50Ms": null,
             "commitLatencyP95Ms": null,
-            "commitLostEvents": 0,
-            "commitLostWindowMs": null
+            "commitLostEvents": 100,
+            "commitLostWindowMs": 1205
           }
         },
         "commitLoss": {
-          "events": 0,
-          "windowMs": 0,
-          "sessionIds": []
+          "events": 100,
+          "windowMs": 1205,
+          "sessionIds": [
+            "preflush-small-first"
+          ]
         }
       },
       "inventoryCounts": {
@@ -3085,14 +3115,16 @@
           "oldestPendingMs": null,
           "commitLatencyP50Ms": null,
           "commitLatencyP95Ms": null,
-          "commitLostEvents": 0,
-          "commitLostWindowMs": null
+          "commitLostEvents": 100,
+          "commitLostWindowMs": 1205
         }
       },
       "reopenCommitLoss": {
-        "events": 0,
-        "windowMs": 0,
-        "sessionIds": []
+        "events": 100,
+        "windowMs": 1205,
+        "sessionIds": [
+          "preflush-small-first"
+        ]
       },
       "evictedOnReopen": false,
       "expectedBatchIds": 10,
@@ -3113,16 +3145,12 @@
       },
       "d004": {
         "oncompleteSurvivors": null,
-        "uncommittedFromIntent": 0,
-        "commitLostWindowMs": 0
+        "uncommittedFromIntent": 100,
+        "commitLostWindowMs": 1205
       },
-      "exposureReconciles": {
-        "survivors": 0,
-        "commitLost": 0,
-        "expected": 100
-      },
-      "windowCaptured": false,
-      "nothingCommitted": true
+      "exposureReconciles": true,
+      "windowCaptured": true,
+      "nothingCommitted": false
     }
   ],
   "grouped": {
@@ -3130,7 +3158,7 @@
       {
         "name": "durable",
         "scheduledDelayMs": null,
-        "measuredMsAfterIssue": 31,
+        "measuredMsAfterIssue": 17,
         "survivedEvents": 1000,
         "expectedEvents": 1000,
         "rate": 1,
@@ -3149,7 +3177,7 @@
         "expectedEvents": 1000,
         "rate": 0,
         "commitLostEvents": 1000,
-        "commitLostWindowMs": 1596,
+        "commitLostWindowMs": 1213,
         "windowCaptured": true,
         "reconciles": true
       },
@@ -3161,7 +3189,7 @@
         "expectedEvents": 1000,
         "rate": 0,
         "commitLostEvents": 1000,
-        "commitLostWindowMs": 1775,
+        "commitLostWindowMs": 1213,
         "windowCaptured": true,
         "reconciles": true
       },
@@ -3180,7 +3208,7 @@
       {
         "name": "pending-d60",
         "scheduledDelayMs": 60,
-        "measuredMsAfterIssue": 62,
+        "measuredMsAfterIssue": 61,
         "survivedEvents": 1000,
         "expectedEvents": 1000,
         "rate": 1,
@@ -3204,12 +3232,12 @@
       {
         "name": "bulk-d0",
         "scheduledDelayMs": 10,
-        "measuredMsAfterIssue": 11,
+        "measuredMsAfterIssue": 10,
         "survivedEvents": 0,
         "expectedEvents": 5000,
         "rate": 0,
         "commitLostEvents": 5000,
-        "commitLostWindowMs": 1219,
+        "commitLostWindowMs": 1712,
         "windowCaptured": true,
         "reconciles": true
       }
@@ -3222,14 +3250,10 @@
         "survivedEvents": 0,
         "expectedEvents": 1000,
         "rate": 0,
-        "commitLostEvents": 0,
-        "commitLostWindowMs": 0,
-        "windowCaptured": false,
-        "reconciles": {
-          "survivors": 0,
-          "commitLost": 0,
-          "expected": 1000
-        }
+        "commitLostEvents": 1000,
+        "commitLostWindowMs": 935,
+        "windowCaptured": true,
+        "reconciles": true
       },
       {
         "name": "preflush-small",
@@ -3238,14 +3262,10 @@
         "survivedEvents": 0,
         "expectedEvents": 100,
         "rate": 0,
-        "commitLostEvents": 0,
-        "commitLostWindowMs": 0,
-        "windowCaptured": false,
-        "reconciles": {
-          "survivors": 0,
-          "commitLost": 0,
-          "expected": 100
-        }
+        "commitLostEvents": 100,
+        "commitLostWindowMs": 1205,
+        "windowCaptured": true,
+        "reconciles": true
       }
     ]
   }
