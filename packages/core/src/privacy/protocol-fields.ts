@@ -32,10 +32,12 @@
  * 症状正是「单跑必过、全量多数通过、偶发红」—— 即 `api/schema-validation.test.ts`「多实例」
  * 用例那条长期未定位的间歇失败。而 `view_id` 本身是 uuid，**结构上不可能含 PII**。
  *
- * 遗留口径（**待裁定**，本条不擅自实现）：`context/page.ts` 的 `noteLocation(url, explicitViewId)`
+ * 遗留口径（**2026-10-14 已收口**）：`context/page.ts` 的 `noteLocation(url, explicitViewId)`
  * 允许装配根传入**任意** `view_id`（接管场景）。本清单生效后这类**非 uuid** 的 `view_id` 不再被
- * 兜底脱敏——它本来就会让事件过不了 `$defs/uuid`，但"本地不再兜底"这一点需要装配根侧补格式
- * 校验才能彻底收口；记在 `docs/tasks/board.md` 待裁定。
+ * 兜底脱敏——它本来就会让事件过不了 `$defs/uuid`。收口方式：`page.ts` 在采用显式值前按
+ * `$defs/uuid` 校验，**非 uuid 的输入按未传入处理**（丢弃 + 退回自动生成的合法 uuid，与
+ * `normalizePageId` 丢弃非法 `page_id` 的先例一致；不截断/不改写成"像 uuid"的标识符）。
+ * 判据与 Schema 的漂移由 `context/page.test.ts` 读真实 `$defs/uuid.pattern` 逐样本锁定。
  *
  * ## 漂移检测
  *

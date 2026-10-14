@@ -12,9 +12,23 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import batchSchema from '../../../../docs/contracts/schemas/batch.schema.json';
 import type { KernelEvent } from '../kernel';
 import { createPageTracker } from './page';
 import type { ContextSnapshot } from '../privacy/types';
+
+/** 取出真实 Schema 的 `$defs/uuid.pattern`（形态判据的唯一权威，不手写副本）。 */
+function schemaUuidPattern(schema: unknown): string {
+  const root = typeof schema === 'object' && schema !== null ? (schema as Record<string, unknown>) : {};
+  const defs = root['$defs'];
+  const uuid = typeof defs === 'object' && defs !== null ? (defs as Record<string, unknown>)['uuid'] : undefined;
+  const pattern = typeof uuid === 'object' && uuid !== null ? (uuid as Record<string, unknown>)['pattern'] : undefined;
+  if (typeof pattern !== 'string') throw new Error('batch.schema.json 缺少 $defs/uuid.pattern');
+  return pattern;
+}
+
+/** `$defs/uuid` 的形态（v4 + variant `[89ab]`，小写）。 */
+const SCHEMA_UUID_PATTERN = new RegExp(schemaUuidPattern(batchSchema));
 
 /** 递增的 UUID 生成器（确定性测试）。 */
 function idFactory() {
@@ -170,5 +184,90 @@ describe('C04-AC-03 入队快照的时序', () => {
     tracker.setPage('/a');
     expect(tracker.isSamePage('/a')).toBe(true);
     expect(tracker.isSamePage('/b')).toBe(false);
+  });
+});
+
+/**
+ * `view_id` 的**格式校验**（上轮遗留：排除清单生效后非 uuid 的显式值不再被兜底脱敏）。
+ *
+ * `view_id` 在 `batch.schema.json` 里是 `$ref uuid`，且已进 C04 的协议字段排除清单
+ * （UUID 结构上不可能含 PII → 不脱敏）。于是 `noteLocation(url, explicitViewId)`
+ * 允许显式传入的**任意**值不再被兜底改写，会带着一个注定过不了 `$defs/uuid` 的值上报。
+ * 口径：非 uuid 的显式值**按未传入处理**（丢弃 + 退回 SDK 自动生成的合法 uuid，
+ * 与 `normalizePageId` 丢弃非法 `page_id` 的先例一致）；**不**截断/改写成"像 uuid"的标识符。
+ */
+describe('view_id 格式校验：显式值必须过 $defs/uuid，否则按未传入处理', () => {
+  const VALID_VIEW_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+  /** 非 uuid 的显式值（全部是格式合法的伪造数据，不含真实个人信息）。 */
+  const INVALID_EXPLICIT_VIEW_IDS: readonly (readonly [string, string])[] = [
+    ['PII 形态的路径', '/user/13800138000'],
+    ['非 uuid 短串', 'abc'],
+    ['空串', ''],
+    ['超长串', 'x'.repeat(300)],
+    ['被截断的 uuid 前缀', '00000000-0000-4000-8000'],
+    ['v1 uuid（是 uuid，但过不了 Schema 的 v4 + variant 约束）', '6ba7b810-9dad-11d1-80b4-00c04fd430c8'],
+  ];
+
+  it('显式传入合法 uuid → 原样采用（接管场景），并更新 url', () => {
+    const tracker = makeTracker({ url: 'https://a.example/a' });
+    tracker.noteLocation('https://a.example/b', VALID_VIEW_ID);
+    expect(tracker.snapshot().view_id).toBe(VALID_VIEW_ID);
+    expect(tracker.snapshot().url).toBe('https://a.example/b');
+  });
+
+  it.each(INVALID_EXPLICIT_VIEW_IDS)(
+    '显式传入%s → 不得进入事件，退回自动生成的合法 uuid（URL 变化时照常轮换）',
+    (_label, bad) => {
+      const tracker = makeTracker({ url: 'https://a.example/a' });
+      const before = tracker.snapshot().view_id;
+      tracker.noteLocation('https://a.example/b', bad);
+      const after = tracker.snapshot().view_id;
+      expect(after).not.toBe(bad);
+      expect(after).toMatch(SCHEMA_UUID_PATTERN);
+      expect(after).not.toBe(before);
+    },
+  );
+
+  it.each(INVALID_EXPLICIT_VIEW_IDS)('非法显式值%s不会出现在 enrich 后的事件体里', (_label, bad) => {
+    const tracker = makeTracker();
+    tracker.noteLocation('https://a.example/a', bad);
+    expect(tracker.enrich(makeEvent())['view_id']).toMatch(SCHEMA_UUID_PATTERN);
+  });
+
+  it('非法显式值等价于「未传入」：同一 URL 下不轮换，仍是自动生成的合法 uuid', () => {
+    const tracker = makeTracker({ url: 'https://a.example/a' });
+    const before = tracker.snapshot().view_id;
+    tracker.noteLocation('https://a.example/a', '/user/13800138000');
+    expect(tracker.snapshot().view_id).toBe(before);
+    expect(tracker.snapshot().view_id).toMatch(SCHEMA_UUID_PATTERN);
+  });
+
+  it('未显式传入 → 由 SDK 生成合法 uuid（回归）', () => {
+    const tracker = makeTracker({ url: 'https://a.example/a' });
+    const first = tracker.snapshot().view_id;
+    expect(first).toMatch(SCHEMA_UUID_PATTERN);
+    tracker.noteLocation('https://a.example/b');
+    expect(tracker.snapshot().view_id).toMatch(SCHEMA_UUID_PATTERN);
+    expect(tracker.snapshot().view_id).not.toBe(first);
+  });
+
+  it('漂移锁定：接受判定与真实 Schema 的 $defs/uuid.pattern 逐样本一致', () => {
+    const samples = [
+      VALID_VIEW_ID,
+      '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
+      'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA',
+      'aaaaaaaa-aaaa-4aaa-7aaa-aaaaaaaaaaaa',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaaa',
+      'abc',
+      '',
+    ];
+    for (const sample of samples) {
+      const tracker = makeTracker({ url: 'https://a.example/a' });
+      tracker.noteLocation('https://a.example/a', sample);
+      const accepted = tracker.snapshot().view_id === sample;
+      expect(accepted, sample).toBe(SCHEMA_UUID_PATTERN.test(sample));
+    }
   });
 });
