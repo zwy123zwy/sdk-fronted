@@ -62,6 +62,10 @@ D003 第 2 条把硬杀场景定为「best-effort，不适用 0.1%」，并写�
 - [ ] POC 建议新增的 C08 原因码——**部分完成**：`prewrite_commit_lost` 已由 **CR-001** 落入 `reason-codes.md` 第 1 节。
   **2026-10-13 核实**：其余 4 个（`beacon_rejected`、`flush_skipped_due_to_budget`、`leader_lost`、`recovery_duplicate`）**在 `docs/contracts/reason-codes.md` 中不存在，在实现中也没有被发出**（对 `packages/*/src` 逐个检索均为 0 命中）。
   因此**这不是契约违规**（实现没有发出未登记的码），而是**可观测性缺失**：POC 实测到的这些事件目前对接收方看板不可见。补齐需要两件事，且必须一起做：① 契约变更（`reason-codes.md` + `sdk_health.schema.json` 的 `^count_…$`/`^drop_…$` patternProperties，注意 `monitor/reason-codes.test.ts` 是与 Schema 的漂移检测器，改码会让它变红直到同步）；② 在 C07/C08 的实现里补上**发出点**（否则加了码也不会被计数）。另注意 `COUNT_REASON_CODES` 是公开 API，改完要跑 `pnpm api:update`。
+  **起草原料（2026-10-13 编排方补，免得下一个会话重读 POC）**：建议出自 `docs/poc/POC-1.md` 第 326 行，原文**明确写着「需走契约变更请求，尚未确定」「本报告只作为建议，不代表已确定」**。
+  POC 给出的语义：`beacon_rejected` = `sendBeacon` 返回 false；`flush_skipped_due_to_budget` = 离开时预算用尽而停手（见同文件第 323 行：按 critical 优先、时间倒序切片，预算用尽就停手并计数，剩余明确交给下次加载补发）；`prewrite_commit_lost` = 重启后发现离线副本缺失/回退（**已由 CR-001 落入契约**）。
+  **POC 未给出、必须由设计决定的部分（起草 CR 前先定这三点）**：① `leader_lost` 的语义与它是 count 还是 drop（POC 正文只列了名字）；② `recovery_duplicate` 的语义与粒度（按事件还是按批次？与 CR-005 的「重复 ≈1 倍 critical 流量」如何对齐？）；③ 每个码的归属模块（C07 发送/离线/选主 还是 C08 自监控）。
+  **可搬运的既有实现**：POC 的计数器已按这个粒度实现在 `poc/poc-1/public/poc-sdk.js`（同文件第 326 行原文："可以直接搬"）。
   其中 `recovery_duplicate` 与 CR-005 的「重复 ≈1 倍 critical 流量」口径直接相关：有了它，接收方才能把"去重前的收到量"拆解出「补发导致的重复」这一部分。**规模**：契约 + Schema + 实现 + 测试，建议在 T18 装配根之后、T20 之前单独立项（或并入 T20，因为它是基准口径的输入之一）。
 
 ## 遗留限制（本记录不改变）
