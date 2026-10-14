@@ -17,7 +17,8 @@
 
 ```bash
 # ① 进程内兼容用例（node 环境，import 的是构建产物 packages/*/dist）
-#    注意：共存用例「顺序 B」是**已知缺陷**（destroy 抹掉第三方包装），该套件**按设计 exit 1**。
+#    注意：共存用例「顺序 B」（SDK 先装、第三方后装）曾是**已知缺陷**（destroy 抹掉第三方包装），
+#    **已于 2026-10-13 修复**（`a3c9ae5`：`dispose()` 与增量注销统一为 `restoreChainIfOwned`），该套件现全绿。
 pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false
 
 # ② 真实 Chromium 的核心路径（可执行文件用 executablePath 指向本机已装版本）
@@ -26,7 +27,7 @@ node tests/compat/scripts/browser-core-path.mjs           # 结果写 results/br
 # ③ Vite 开发服务器（指南 4.2 要求「开发服务器」也要能直接导入）
 node tests/compat/scripts/vite-dev-server.mjs             # 结果写 results/vite-dev-server.json
 
-# ④ 兼容缺陷独立复现（exit 1 = 复现成功）
+# ④ 兼容缺陷独立复现（**2026-10-13 已修复：现 exit 0 = 符合 Q7 第 4 条**；修复前 exit 1 = 复现缺陷）
 node tests/compat/scripts/repro-destroy-overwrites-wrapper.mjs
 
 # ⑤ 汇总矩阵（把 results/*.json 与进程内用例结论合成矩阵）
@@ -58,7 +59,7 @@ node tests/compat/scripts/summarize.mjs                   # 写 results/matrix.j
 | `apm-coexistence.test.ts` | Q7 第 4 条：与第三方 APM 的 hook 链，先后初始化顺序各一次，卸载后链完整 |
 | `scripts/browser-core-path.mjs` | 真实 Chromium（`executablePath`）：`init`→`track`→`flush`→接收方收到批次 |
 | `scripts/vite-dev-server.mjs` | 以 `examples/vite` 为接入方，程序化起 Vite dev server 并取回转换后的模块 |
-| `scripts/repro-destroy-overwrites-wrapper.mjs` | 缺陷②的独立复现（`destroy()` 抹掉第三方包装；exit 1 = 复现成功） |
+| `scripts/repro-destroy-overwrites-wrapper.mjs` | 缺陷②的独立复现（`destroy()` 抹掉第三方包装）。**2026-10-13 已修复：现 exit 0 = 符合 Q7 第 4 条**；修复前 exit 1 = 复现缺陷 |
 | `scripts/summarize.mjs` | 汇总 `results/*.json` → `results/matrix.json` |
 | `results/` | 证据落盘（JSON；由脚本写出） |
 

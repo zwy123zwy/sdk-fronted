@@ -156,16 +156,18 @@
 
 | 命令 | 结果 |
 |---|---|
-| `pnpm exec eslint tests/compat` | **0 error / 0 warning** |
-| `pnpm exec tsc -p tsconfig.json`（含 `tests/compat`） | 64 error |
-| `pnpm exec tsc -p tsconfig.json`（把 `tests/compat` 移出 `tests/**` 后） | **64 error** |
+| `pnpm exec eslint tests/compat` | **0 error / 0 warning**（含本次新增的 `webpack-matrix.test.ts`） |
+| `node node_modules/typescript/bin/tsc -p tsconfig.json`（2026-10-14 复核） | 65 error，**全部来自 `tests/security/guard-test-source-imports.test.ts`**（该文件正在被并发编辑，是语法级错误） |
+| 同上，错误按文件分组 | `tests/compat/**`、`examples/webpack/**` **0 行** |
 
-结论：**`tests/compat/**` 新增 0 个类型错误**（两次都是 64，且输出里没有任何 `tests/compat` 行）。
+结论：**本次新增的 `tests/compat/webpack-matrix.test.ts` 与 `examples/webpack/**` 新增 0 个类型错误**
+（tsc 输出里没有任何这两个路径的行）。注意 `examples/webpack/**` 是 `.mjs`、且不在根 `tsconfig.json`
+的 include 里，本来就不参与根类型检查。
 
-⚠ **给负责人的旁注（不是 T30 的问题）**：那 64 个错误**全部来自 `packages/*/src`**（`idb-backend.ts` 18、
-`core/src/config/cache.ts` 10、`route/plugin.ts` 5 …），是根程序把这些源码拉进来导致的 lib 冲突
-（根 `tsconfig.json` 是 `lib: ["ES2022"] + types: ["node"]`，各包源码含 DOM）。**基线本来就是这个数**，
-与 T30 无关；但这意味着 `pnpm typecheck` 的 root 步在 main 上是否真的绿，值得单独核一次。
+⚠ **给负责人的旁注（不是 webpack 补测的问题）**：现存的类型错误**全部集中在一个文件**
+`tests/security/guard-test-source-imports.test.ts`（65 条，`TS1443/TS1005/TS1128` 级别的语法错误，
+`import` 名没加引号）。T30 当时的 64 条 `packages/*/src` lib 冲突错误本次已看不到。
+这意味着当前 `pnpm typecheck` 的 root 步是**红的**，且红因是那一个文件——值得单独核一次。
 T30 的用例为此专门采用「变量说明符动态 import + 结构类型」加载各包产物（`tests/compat/lib/entries.ts`），
 以免自己成为新的拉入点。
 
