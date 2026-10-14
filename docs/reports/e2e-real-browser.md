@@ -79,3 +79,92 @@
 - 修复后的单测/类型/eslint（当前工作区状态）：`packages/transport` + `packages/browser` 的 unit project
   **294 passed / 35 files**；`tsc -p packages/transport`、`tsc -p packages/browser` 均 0 错；
   `eslint` 改动文件 0 错。体积：`packages/browser/dist/index.js` 11.30 kB（预算 35 KB，未触限）。
+
+## 追加节：AC-03（C07-AC-03 离开通道**切片路径**）实测 —— Chromium
+
+- 执行：A09 子任务（AC-03 切片路径验证），2026-10-14
+- 背景：T29 已实测**单次** 80 KB `sendBeacon` 在 Chromium 与 WebKit 都返回 `false`（见上「真实 80 KB 信标」一行），
+  因此 AC-03 只能按**切片路径**验证；而 T29 只测了 5 个事件 / 1112 B / `requests=1`，**切片路径此前没有被测过**。
+  本节只**追加**结论，不改 T29 已写的任何判定。
+- 被测对象：`packages/transport/dist/index.js`（真实实现；本次改动只落在 `tests/e2e/**` 与本节，未改 `packages/` 下任何文件）
+- 用例（新增，未改既有断言）：`tests/e2e/leave-slice.spec.mjs` + 探针 `tests/e2e/probes/leave-slice.html`、`probes/leave-slice-driver.js`
+- 复现命令：
+  - `pnpm test:e2e --project=chromium --grep "C07-AC-03"`（4 绿 / 2 红，红即本节的 AC-03 不合格判定）
+  - 变异：`AC03_TRANSPORT_VARIANT=mutant pnpm test:e2e --project=chromium --grep "接收端送达"`
+
+### 验收口径（`tests/acceptance/C07.md:9` 原文）
+
+> | C07-AC-03 | C07-F1 | 页面离开时冲刷 80 KB 数据 | 使用信标通道，拆成至少两个不超过 60 KB 的请求；`Content-Type` 为 `text/plain`；令牌在 `auth` 字段 |
+
+### 切片实现的关键参数（读自 `packages/transport/src/sender/`）
+
+| 参数 | 值 | 出处 |
+|---|---|---|
+| 单请求上限 `BEACON_MAX_BYTES` | `60 * 1024` | `sender/constants.ts:32` |
+| 切片阈值（传给 `sliceForBeacon`） | `BEACON_MAX_BYTES - 256` = `61184` | `sender/page-leave.ts:156` |
+| 切片度量 | `estimateEventBytes(event) + 2` 累加，超阈值即开新片 | `sender/page-leave.ts:96-114` |
+| 顺序 | 保持原事件顺序；`event_id` 不变、`batch_id` 每片重新生成 | 同上 |
+| 离开预算 `LEAVE_BUDGET` | `{maxBytes: 49152, maxEvents: 200, maxBatches: 4, maxMs: 50}`（实测读到） | `sender/constants.ts:35-41` |
+| 信标失败重试 | **不重试**：`sendBeacon` 返回 `false` 只 `counters.count('retry_network')` | `sender/page-leave.ts:186` |
+| 离开通道终态 | `complete('failed')`，**不删离线副本**（AC-13） | `sender/delivery.ts:277-289` |
+
+### 实测结果（真实 Chromium + 真实 `navigator.sendBeacon`，载荷 112 事件 / 序列化 83603 B / 估算 103600 B）
+
+| 场景 | SDK 侧 `leave.stats()` | 接收端实际收到 | AC-03 |
+|---|---|---|---|
+| 对照组：单次 80 KB `sendBeacon` | — | `accepted=false`（复现 T29） | — |
+| 对照组：单次 32 KB | — | `accepted=true`，真的到达 | — |
+| **默认配置**（`leaveBudget` 不传） | `{sent:46, skipped:66, bytes:34575, requests:1}` | **1 片** 34575 B / 46 事件 / 起下标 66 | ❌ 不通过 |
+| **预算放宽**（`leaveBudget.maxBytes=4 MB`） | `{sent:112, skipped:0, bytes:84030, requests:2}`，`counters={retry_network:1}` | **1 片** 49455 B / 66 事件 / 起下标 0（第二片被浏览器拒绝） | ❌ 不通过 |
+
+- 每片均满足 `Content-Type: text/plain;charset=UTF-8`、令牌在 `auth` 字段（无 `x-write-token` 请求头）、
+  片内事件顺序与原始一致、已送达部分**无重复无丢失**（按 `event_id` 逐项重组核对）。
+  **但两次都没做到「拆成至少两个请求且 80 KB 全部送达」**，且丢失是静默的：默认配置丢前 66 条，
+  放宽预算丢后 46 条，接收端只看到一个请求。
+
+### 根因对照（与实现无关的纯浏览器特性刻画）
+
+同任务内连续调用真实 `sendBeacon`：
+
+| 尺寸序列 | 返回值 | 实际到达 |
+|---|---|---|
+| `[60 KB]` | `[true]` | `61440 B` |
+| `[40 KB, 40 KB]` | `[true, false]` | 只有 `40960 B` |
+| `[30 KB, 30 KB]` | `[true, true]` | `30720 B` + `30720 B` |
+| `[49 KB, 34 KB]` | `[true, false]` | 只有 `50176 B` |
+
+→ Chromium 除单次上限外还有**累计在途额度**（实测 ≈ 64 KiB）：两片合计 > 64 KiB 时，后一片的
+`sendBeacon` 直接返回 `false`。因此「每片 ≤ 60 KB」这一条本身**不足以**让 80 KB 通过信标通道离页。
+
+### 结论：AC-03 **不通过**（两条独立原因；切片算法本身正确）
+
+1. **默认配置**：离开预算 `maxBytes=49152` **小于**切片阈值 `61184`，且预算判断是「整片丢弃」
+   （`usedBytes + size > maxBytes` → `skipped`，不二次切片）。结果是**第一片（前 66 条）被预算整片丢掉**，
+   只发出尾部 46 条 —— `requests=1`，AC-03 的「至少两个」与「80 KB」都不成立。
+2. **预算放宽后**：实现确实切成了 2 片（`requests=2, sent=112, skipped=0`，切点/顺序/`event_id`/`batch_id`
+   口径全部正确），但 49455 B + 34575 B 合计超过浏览器累计在途额度，**第二片被 `sendBeacon` 拒绝**
+   （`retry_network=1`），46 条丢失。
+3. 因此：**切片逻辑「此前只是没测」，不是坏的；坏的是参数** —— 片大小（≈60 KB）贴着浏览器上限，
+   且离开预算（48 KB）比切片阈值还小。修复属实现方决策（如把片大小降到 32 KB 量级并让预算 ≥ 载荷 /
+   对超预算的片二次切片），本节只报不改。
+4. 另注：两条路径的丢失都没有对外的原因码（`beacon_rejected` / `flush_skipped_due_to_budget`
+   按 D004 第 63-66 行**未登记**），只能从 `metrics().leave.skipped` 与内部 `retry_network` 计数看到。
+
+### 变异验证（三要素）
+
+- **变异体**：把真实产物复制一份，只把 `var BEACON_MAX_BYTES = 60 * 1024;` 改成
+  `var BEACON_MAX_BYTES = 10 * 1024 * 1024;`（等价于关掉切片）。产物由 `beforeAll` 从 `dist` 现场生成到
+  `tests/e2e/probes/mutant-transport.js`，`diff` 确认与 `dist` **只差这一行**；`packages/` 下无改动，
+  不需要还原（不碰 `src`，每次运行重新生成）。
+- **被杀死的断言**：`C07-AC-03 接收端送达…` → `slices.length >= 2`（判据函数 `ac03Violations` 同时报出
+  `信标请求数 0 < 2` 与 `重组事件数 0 ≠ 原始 112（丢失 112）`）。真实产物在同一用例上是
+  `信标请求数 1 < 2（丢失 46）`（且另有「浏览器拒绝了 1 次信标」），二者都是红。
+- **判别力**：变异体下 `leave.stats().requests` 从 2 掉到 1、单请求体从 49455 B 涨到 83653 B，
+  接收端从 1 片掉到 0 片（整批被浏览器拒绝）——同一判据两种红，说明用例对「切片存在/不存在」敏感；
+  对照用例（单次 80 KB=false、32 KB=true、根因对照）与变异无关，保持绿。
+
+### 本次未做
+
+- WebKit：本次任务只允许 Chromium（`test.skip` 已写明原因）。
+- 真实 `pagehide`/`visibilitychange` 触发的**队列**离页冲刷（本节从 `submit(batch,{channel:'page_leave'})`
+  入口驱动，与 T29 的 AC-13 口径一致）；队列路径共用同一个 `createLeaveSender`，预算行为相同。
