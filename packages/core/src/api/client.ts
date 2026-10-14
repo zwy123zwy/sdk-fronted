@@ -474,30 +474,25 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     };
   }
 
-  /** 按 Schema 上限截断并记录路径（`event-standard.md` 第 4 节；正式实现由 C04 接管）。 */
-  function clampAndTrack(value: string, maxLength: number, path: string, truncatedPaths: string[]): string {
-    if (value.length <= maxLength) return value;
-    counters.count(API_REASON_CODES.truncatedDimension);
-    if (!truncatedPaths.includes(path)) truncatedPaths.push(path);
-    return truncate(value, maxLength);
-  }
-
   /**
-   * `attachment` 的上限收口（8 KB，`event-standard.md` 第 4 节）。
+   * 按 Schema 上限截断并记录路径（`event-standard.md` 第 4 节；正式实现由 C04 接管）。
    *
-   * **顺序：先脱敏、再截断**，与 C04 的 `clampAttachment` 完全一致：截断在前会把敏感值从
-   * 中间切开，切断后的片段不再匹配任何规则，会以残片形式原样上线（实测跨界手机号残留
-   * `1380`）。掩码用的是**同一个** `masker` 实例（含 `extra_mask_rules`），不是第二套规则。
+   * **顺序：先脱敏、再截断**（与 C04 的 `clampAttachment` / `clampUrl` 一致）：截断在前会把
+   * 敏感值从中间切开，切断后的片段不再匹配任何规则，会以残片形式原样上线（实测跨界手机号
+   * 残留 `138001`）。掩码用的是**同一个** `masker` 实例（含 `extra_mask_rules`），不是第二套规则。
    *
    * 只在**需要截断**时才在这里脱敏：未超长的值原样进入管线，仍由隐私处理器脱敏一次
    * （避免对追加规则重复施加）；超长值必须在这里收口，否则原始大字段会先进入同意缓冲 ——
    * 那里按字节淘汰（`CONSENT_BUFFER_MAX_BYTES`），超大事件会被**整条丢弃**而不是截断保留。
+   *
+   * dimensions（`message`/`error_type`/`source`/`fingerprint`）与 `attachment` 共用本函数：
+   * 「截断早于脱敏」是同一个根因，不留两套路径。
    */
-  function clampAttachmentAndTrack(value: string, path: string, truncatedPaths: string[]): string {
-    if (value.length <= WEB_JS_ERROR_LIMITS.attachment) return value;
+  function clampAndTrack(value: string, maxLength: number, path: string, truncatedPaths: string[]): string {
+    if (value.length <= maxLength) return value;
     counters.count(API_REASON_CODES.truncatedDimension);
     if (!truncatedPaths.includes(path)) truncatedPaths.push(path);
-    return truncate(masker.apply(value), WEB_JS_ERROR_LIMITS.attachment);
+    return truncate(masker.apply(value), maxLength);
   }
 
   function performTrack(command: QueuedCommand): void {
@@ -540,7 +535,7 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     event['dimensions'] = dimensions;
     if (input.metrics !== undefined) event['metrics'] = input.metrics;
     if (input.attachment !== undefined) {
-      event['attachment'] = clampAttachmentAndTrack(input.attachment, 'attachment', truncatedPaths);
+      event['attachment'] = clampAndTrack(input.attachment, WEB_JS_ERROR_LIMITS.attachment, 'attachment', truncatedPaths);
     }
     if (truncatedPaths.length > 0) event['truncated'] = truncatedPaths;
     submitToPipeline(event);
@@ -623,7 +618,7 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     event['dimensions'] = dimensions;
     event['metrics'] = metrics;
     if (attachment !== undefined) {
-      event['attachment'] = clampAttachmentAndTrack(attachment, 'attachment', truncatedPaths);
+      event['attachment'] = clampAndTrack(attachment, WEB_JS_ERROR_LIMITS.attachment, 'attachment', truncatedPaths);
     }
     if (truncatedPaths.length > 0) event['truncated'] = truncatedPaths;
     submitToPipeline(event);

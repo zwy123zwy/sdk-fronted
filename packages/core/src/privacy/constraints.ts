@@ -8,7 +8,8 @@
  *      （**非法键名归 C04；非法参数归 C01，两者不合并**）
  *   2. 键数量：`dimensions` / `context` / `metrics` 各按键名字典序保留前 50，其余丢弃
  *   3. 值：先脱敏（`Masker`），再按 UTF-16 码元截断到 256（不切断代理对）
- *   4. 附件：先脱敏（**与第 3 步同一个 `Masker`**），再截断到 8 KB（UTF-8 字节）
+ *   4. 附件：先脱敏（**与第 3 步同一个 `Masker`**），再截断到 8 KB（UTF-8 字节）；
+ *      `url` 同规则：先脱敏（整条文本）、再截断到 2048（处理器侧纵深防御，不押调用方自律）
  *   5. 非有限指标：丢弃该字段，计 `non_finite_metric`
  *   6. 单条事件：UTF-8 序列化字节 ≤ 16 KB；超出时依次截断附件 → 最长的维度值 → 整键丢弃；
  *      仍超限则整条丢弃，计 `event_too_large`
@@ -213,14 +214,35 @@ function clampAttachment(
   if (masked !== attachment) event['attachment'] = masked;
 }
 
-/** 按 UTF-8 字节上限压缩 `url`（Schema `maxLength: 2048`，此处按字节兜底）。 */
-function clampUrl(event: KernelEvent, recorder: ReturnType<typeof createRecorder>): void {
+/**
+ * 处理 `url`：先用**与 `dimensions` / `context` / `attachment` 同一个 `Masker`** 脱敏，
+ * 再截断到 `MAX_URL_LENGTH`（Schema `maxLength: 2048`）。
+ *
+ * **纵深防御**：`url` 的创建侧（`sanitizeUrl`）已经脱敏过一遍，但「正确性押在每个调用点都
+ * 写对」正是本组缺陷的共同根因 —— 只要有插件或未来调用点直接写 `event['url']`，原文（查询
+ * 参数里的令牌、userinfo 里的凭据、路径里的手机号）就会上线。处理器是唯一脱敏权威，因此
+ * 这里对**整条 url 文本**再脱一次，而不是只处理创建侧负责过的路径/查询。
+ *
+ * 顺序与 `attachment` 一致：**先脱敏、再截断** —— 截断在前会把敏感值切成不匹配规则的残片。
+ * 二次施加的副作用：内置 7 条规则幂等（不动点），远程追加规则最多多盖一层 `***`
+ * （只会过度脱敏，不会漏），规则命中的 host（如 IPv4 字面量）也会按内置 `ipv4` 规则脱敏。
+ */
+function clampUrl(
+  event: KernelEvent,
+  input: ConstrainInput,
+  recorder: ReturnType<typeof createRecorder>,
+): void {
   const url = event['url'];
   if (typeof url !== 'string') return;
-  if (url.length <= MAX_URL_LENGTH) return;
-  recorder.count(PRIVACY_REASON_CODES.truncatedDimension);
-  recorder.addPath('url');
-  event['url'] = truncateUtf16Safe(url, MAX_URL_LENGTH);
+  const masked = input.masker.apply(url);
+  if (masked.length > MAX_URL_LENGTH) {
+    recorder.count(PRIVACY_REASON_CODES.truncatedDimension);
+    recorder.addPath('url');
+    event['url'] = truncateUtf16Safe(masked, MAX_URL_LENGTH);
+    return;
+  }
+  // 未命中任何规则时不写入，保持「已合规事件零写入」。
+  if (masked !== url) event['url'] = masked;
 }
 
 /** 事件体里所有「字符串值」的字段位置（含未知字段：异常输入也要能被压到限内）。 */
@@ -338,7 +360,7 @@ export function constrainEvent(input: ConstrainInput): ConstrainResult {
   if (metrics !== undefined) event['metrics'] = metrics;
 
   clampAttachment(event, input, recorder);
-  clampUrl(event, recorder);
+  clampUrl(event, input, recorder);
   normalizeTruncatedPaths(event, input);
 
   if (eventBodyBytes(event) > EVENT_BODY_LIMIT) {
