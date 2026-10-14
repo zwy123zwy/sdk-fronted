@@ -152,6 +152,8 @@ verify('sha256', Buffer.from(payload, 'utf8'), { key: publicKey, dsaEncoding: 'i
 
 内置 URL 查询参数处理：不在 `url_query_allowlist` 中的参数一律删除；白名单为空时删除全部查询参数。
 
+链路追踪头的名字与注入范围（2026-10-13 经负责人确认，见 `docs/contracts/changes/CR-006-trace-header-and-failure-reason.md`）：头名采用 **W3C Trace Context 标准——`traceparent`（必需）与 `tracestate`（可选）**，不引入私有头名（私有头名需双方另行约定，正好抵消与第三方 APM 对接的价值）。注入范围：**只对同源请求，或命中追踪白名单的请求**注入，白名单之外一律不注入（对应 C05-AC-12）。追踪头**不在**上文的内置敏感请求头清单里（它需要被发送出去），但其**值**仍受脱敏规则约束。远程配置**只能收紧**注入范围，**不能放宽到"注入所有请求"**——与本节"远程只能追加、不能删除或关闭内置项"的安全默认一致。（本段只定头名与范围；`traceparent` 的**值从哪来**属实现设计，由 T18 在其实施计划里定并写进接入指南。）
+
 内置脱敏规则（作用于维度值、`message`、`attachment`、URL 路径）：
 
 | 名称 | 匹配内容 | 替换为 |

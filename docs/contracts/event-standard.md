@@ -91,6 +91,8 @@ SDK 按 UTF-16 码元计算长度（与 JavaScript `String.length` 一致），�
 
 澄清（2026-10-12 经架构负责人确认；只补充说明，不改动本节其他表述与字段）：`web_long_task` 的 `start_time_ms` 与 `PerformanceEntry.startTime` 同基准，即相对 time origin 的毫秒数。
 
+澄清（2026-10-13 经负责人确认，见 `docs/contracts/changes/CR-006-trace-header-and-failure-reason.md`）：`web_http` 的 `failure_reason` **只表达传输层失败**，取值为 `network_error`（网络错误/请求未能完成）、`timeout`、`aborted`（被调用方中止）、`cors`（跨域被拒）；**成功请求省略该维度**（不是空字符串）。**HTTP 4xx/5xx 不由 `failure_reason` 表达，由 `metrics.status` 表达**——因此 404 是「`status=404` 且无 `failure_reason`」，超时是「`failure_reason='timeout'`」。该字段在 Schema 中**保持无枚举的自由字符串**（给已存在的自由字段加枚举属收紧、会破坏兼容），取值集由本节约束。
+
 ## 7. 示例
 
 见 `examples/batch.valid.json`、`examples/batch-promoted.valid.json`、`examples/batch.invalid.json`。
