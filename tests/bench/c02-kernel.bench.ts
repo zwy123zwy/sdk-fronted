@@ -130,8 +130,13 @@ describe('T20 基准：C02 内核', () => {
       const size = kernel.prestartQueue.size();
       const drained = kernel.prestartQueue.drain();
       kernel.destroy();
-      // 测量完整性：队列确实被填满
-      expect(size).toBe(capacity);
+      // 测量完整性：队列被填到上限——**条数或字节，取先到的那个**。
+      // 2026-10-13 更新（T20 口径，经负责人裁定）：预启动队列新增 256 KB 字节上限后，
+      // 「500 条」与「≤256 KB」在生产上界形态（650 B/条）下**数学上不可同时满足**
+      // （500×650B = 317 KB）。裁定选**字节预算优先**，因此极端形态下条数必然 <500——
+      // 这里改为 ≤capacity，并由下方的字节口径断言判 ≤256 KB。
+      expect(size).toBeLessThanOrEqual(capacity);
+      expect(size).toBeGreaterThan(0);
       return drained;
     };
 
