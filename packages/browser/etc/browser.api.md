@@ -9,19 +9,25 @@ import { Client } from '@web-report-sdk/core';
 import { ClientInitOptions } from '@web-report-sdk/core';
 import { ClientOptions } from '@web-report-sdk/core';
 import { ClientState } from '@web-report-sdk/core';
+import { ClockCalibration } from '@web-report-sdk/core';
 import { COMMAND_QUEUE_CAPACITY } from '@web-report-sdk/core';
 import { CommandQueue } from '@web-report-sdk/core';
 import { CommandQueuePushResult } from '@web-report-sdk/core';
+import { ConfigRuntime } from '@web-report-sdk/core';
+import { ConsentMode } from '@web-report-sdk/core';
 import { ConsentState } from '@web-report-sdk/core';
 import { createClient } from '@web-report-sdk/core';
 import { createCommandQueue } from '@web-report-sdk/core';
 import { createSdk } from '@web-report-sdk/core';
 import { createUuid } from '@web-report-sdk/core';
 import { defineEventDictionary } from '@web-report-sdk/core';
+import { Delivery } from '@web-report-sdk/transport';
 import { DiagnosticsRecord } from '@web-report-sdk/core';
 import { DiagnosticsSink } from '@web-report-sdk/core';
 import { DimensionFields } from '@web-report-sdk/core';
 import { DimensionFieldsOf } from '@web-report-sdk/core';
+import { ErasePort } from '@web-report-sdk/core';
+import { ErrorCapture } from '@web-report-sdk/plugins';
 import { EventDefinitionShape } from '@web-report-sdk/core';
 import { EventDictionary } from '@web-report-sdk/core';
 import { EventInput } from '@web-report-sdk/core';
@@ -32,16 +38,22 @@ import { FieldSpec } from '@web-report-sdk/core';
 import { FieldValue } from '@web-report-sdk/core';
 import { hasValidEventName } from '@web-report-sdk/core';
 import { hasValidFieldKey } from '@web-report-sdk/core';
+import { HealthReporter } from '@web-report-sdk/transport';
+import { HttpCapture } from '@web-report-sdk/plugins';
+import { HttpPluginOptions } from '@web-report-sdk/plugins';
 import { isConsentState } from '@web-report-sdk/core';
 import { isNonEmptyString } from '@web-report-sdk/core';
 import { isPlainRecord } from '@web-report-sdk/core';
+import { Kernel } from '@web-report-sdk/core';
 import { LocationSource } from '@web-report-sdk/core';
 import { LogLevel } from '@web-report-sdk/core';
 import { MAX_DIMENSION_VALUE_LENGTH } from '@web-report-sdk/core';
 import { MetricFields } from '@web-report-sdk/core';
 import { MetricFieldsOf } from '@web-report-sdk/core';
+import { NativeHttpRefs } from '@web-report-sdk/transport';
 import { OptionalFieldKeys } from '@web-report-sdk/core';
 import { OptionalShape } from '@web-report-sdk/core';
+import { PerfCapture } from '@web-report-sdk/plugins';
 import { PermissiveDictionary } from '@web-report-sdk/core';
 import { PUBLIC_METHODS } from '@web-report-sdk/core';
 import { PublicMethod } from '@web-report-sdk/core';
@@ -50,17 +62,75 @@ import { readLocation } from '@web-report-sdk/core';
 import { RequiredFieldKeys } from '@web-report-sdk/core';
 import { RequiredShape } from '@web-report-sdk/core';
 import { RESERVED_EVENT_PREFIXES } from '@web-report-sdk/core';
+import { RouteCapture } from '@web-report-sdk/plugins';
+import { RoutePluginOptions } from '@web-report-sdk/plugins';
 import { Sdk } from '@web-report-sdk/core';
 import { SDK_VERSION } from '@web-report-sdk/core';
 import { ShapeOf } from '@web-report-sdk/core';
 import { STATE_CAPABILITY } from '@web-report-sdk/core';
 import { STUB_BRIDGE_CAPABILITY } from '@web-report-sdk/core';
 import { StubCommand } from '@web-report-sdk/core';
+import { TransportPort } from '@web-report-sdk/transport';
+import { TransportQueue } from '@web-report-sdk/transport';
 import { truncate } from '@web-report-sdk/core';
 import { UserInput } from '@web-report-sdk/core';
 import { WEB_JS_ERROR_LIMITS } from '@web-report-sdk/core';
 
 export { API_REASON_CODES }
+
+// @public
+export interface Assembly {
+    readonly client: Client;
+    // (undocumented)
+    readonly clock: ClockCalibration;
+    readonly collectors: CollectorHandles;
+    // (undocumented)
+    readonly config: ConfigRuntime;
+    // (undocumented)
+    readonly delivery: Delivery;
+    destroy(): void;
+    // (undocumented)
+    readonly erasePort: ErasePort;
+    flush(): void;
+    init(overrides?: ClientInitOptions): void;
+    // (undocumented)
+    readonly kernel: Kernel;
+    readonly nativeHttpRefs: NativeHttpRefs;
+    readonly queue: TransportQueue;
+    // (undocumented)
+    readonly reporter: HealthReporter;
+}
+
+// @public
+export interface AssemblyOptions {
+    readonly apmCoexistence?: boolean | undefined;
+    readonly appId: string;
+    readonly client?: ClientInitOptions | undefined;
+    readonly configEndpoint?: string | undefined;
+    readonly configPublicKeys?: Readonly<Record<string, JsonWebKey>> | undefined;
+    // (undocumented)
+    readonly consent?: ConsentState | undefined;
+    // (undocumented)
+    readonly consentMode?: ConsentMode | undefined;
+    readonly credentials?: CredentialsLike | undefined;
+    readonly endpoint?: string | undefined;
+    // (undocumented)
+    readonly env?: string | undefined;
+    readonly httpPlugin?: HttpPluginOptions | undefined;
+    readonly location?: LocationSource | undefined;
+    readonly nativeHttp?: NativeHttpRefs | undefined;
+    readonly now?: (() => number) | undefined;
+    readonly plugins?: Readonly<Record<string, boolean>> | undefined;
+    readonly random?: (() => number) | undefined;
+    // (undocumented)
+    readonly release?: string | undefined;
+    readonly route?: RoutePluginOptions | undefined;
+    readonly sessionSampleRate?: number | undefined;
+    readonly startHealthReporting?: boolean | undefined;
+    readonly target?: EventTarget | null | undefined;
+    readonly token?: string | undefined;
+    readonly transport?: TransportPort | undefined;
+}
 
 export { Client }
 
@@ -70,6 +140,18 @@ export { ClientOptions }
 
 export { ClientState }
 
+// @public
+export interface CollectorHandles {
+    // (undocumented)
+    readonly error: ErrorCapture | undefined;
+    // (undocumented)
+    readonly http: HttpCapture | undefined;
+    // (undocumented)
+    readonly perf: PerfCapture | undefined;
+    // (undocumented)
+    readonly route: RouteCapture | undefined;
+}
+
 export { COMMAND_QUEUE_CAPACITY }
 
 export { CommandQueue }
@@ -78,6 +160,9 @@ export { CommandQueuePushResult }
 
 export { ConsentState }
 
+// @public
+export function createAssembly(options: AssemblyOptions): Assembly;
+
 export { createClient }
 
 export { createCommandQueue }
@@ -85,6 +170,17 @@ export { createCommandQueue }
 export { createSdk }
 
 export { createUuid }
+
+// @public
+export interface CredentialsLike {
+    // (undocumented)
+    current(): {
+        readonly endpoint: string;
+        readonly appId: string;
+        readonly writeToken: string;
+        readonly revision: number;
+    } | null;
+}
 
 export { defineEventDictionary }
 

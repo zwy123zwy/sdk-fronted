@@ -1,7 +1,50 @@
-# @web-report-sdk/browser —— 接入方入口包（T12 交接产物）
+# @web-report-sdk/browser —— 接入方入口包（T12 交接产物；T18 装配根）
 
-接入方实际安装的包：重新导出 `@web-report-sdk/core` 的公共 API，并提供 `<script>` 场景的
-**加载桩**。本包顶层无副作用：不注册原生监听、不访问 `window`、不自动 `init`。
+接入方实际安装的包：重新导出 `@web-report-sdk/core` 的公共 API，提供**装配根** `createAssembly()`
+（把 C01–C08 接起来，让事件真的发得出去），并提供 `<script>` 场景的**加载桩**。
+本包顶层无副作用：不注册原生监听、不访问 `window`、不自动 `init`。
+
+## 0. 装配根 `createAssembly()`（T18）
+
+```ts
+import { createAssembly } from '@web-report-sdk/browser';
+
+const assembly = createAssembly({
+  appId: 'your-app-id',
+  endpoint: 'https://ingest.example.com/v1/batch',
+  token: '<write_token>',
+  env: 'production',
+  release: '1.2.3',
+  consent: 'granted',          // essential_only + unknown 时非必要事件不发送
+  consentMode: 'essential_only',
+  apmCoexistence: false,       // true：四个采集插件默认关闭，可由远程配置逐个开启
+  configEndpoint: 'https://config.example.com/config.json',
+  configPublicKeys: { 'key-1': publicJwk },   // SDK 不内置公钥
+  plugins: { http: true },     // 内建缺省是 error/perf/route 开、http 关
+});
+assembly.init();               // 调 client.init()；也可直接调 assembly.client.init({...})
+assembly.client.track('task_complete', { dimensions: { task_id: 't-1' } });
+assembly.flush();              // 业务主动冲刷（C06-F2）
+```
+
+装配根按固定顺序完成 8 项接线（`docs/reports/handover.md` 第 1 节）：
+
+1. **安装任何插件之前**调用 `captureNativeHttpRefs()`（幂等、捕获后冻结），因此 C07 的发送器
+   拿到的是 hook 前的原生 `fetch`/`XHR`，不会被 C05 的 HTTP 插件采集；
+2. C08 的计数/计时接在**实际对象**上：`createQueueMetricsSource` / `createSubmitMetricsSource` /
+   `createCallCounter` / `createLatencyDecorators`，加上 `createHealthReporter` 的
+   `emit`/`timer`/`dimensions`（`sdk_health` 每 60 秒一批）；
+3. C04 的三个端口：`noteServerTime` ← C07 的 `X-Server-Time` 回调；`header()` ← 内核能力
+   `sdk.batch_header`（补上 `app_id` 与校准后的 `clock_offset`）→ C06 的 `BatchHeaderSource`；
+   `ErasePort.offlineData` ← C07 的 `clearOffline`（在 `setConsent('denied')` 时触发）；
+4. 存储端口：core 的上下文/会话存储**默认只驻留内存**（负责人 2026-10-13 裁定），本包不注入持久化实现；
+5. `packages/plugins` 的 `@web-report-sdk/core` 依赖已就位；
+6. 根 `package.json` 的 `measure:apm-adapter` 已就位；
+7. 体积预算表重推：见根 `docs/guides/README.md` 的「装配根交付后的体积预算重推」（**待负责人定案**）；
+8. `docs/guides/` 的 8 处「装配根未交付」表述已同步修订。
+
+返回的 `Assembly` 还提供 `kernel`（可 `registerPlugin` 挂 T19 的双写适配器）、`queue`、`delivery`、
+`reporter`、`config`、`clock`、`erasePort`、`collectors`（四个采集插件的读句柄）与 `destroy()`。
 
 ## 1. 安装（npm / 构建工具）
 

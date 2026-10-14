@@ -3,7 +3,7 @@
 - 对应交付：T34（A14）；读者：接入方的 Web 前端工程师
 - 事实来源：`packages/browser/etc/browser.api.md`、`packages/core/etc/core.api.md`、`packages/browser/README.md`、`packages/core/README.md`（C01 部分）、`docs/contracts/`、`docs/decisions/Q5-consent.md`、`D002`
 
-> **先读 [docs/guides/README.md](README.md) 的「能力状态总表」。** 一句话总结：引入方式、C01 公共 API、三个开发工具现在就能用；**把 SDK 装配成"事件真的发到接收方"这一步（T18 装配根）尚未交付**，所以本指南的「端到端自检」一节目前只能给出版本检查与本地事件观察，不能给出"接收方收到数据"的结论。
+> **先读 [docs/guides/README.md](README.md) 的「能力状态总表」。** 一句话总结：引入方式、C01 公共 API、三个开发工具、以及**把 SDK 装配成"事件真的发到接收方"这一步（T18 装配根，`createAssembly()`）现在就能用**；本指南第 8.3 节的「端到端自检」已具备可执行性（真实浏览器 E2E 仍归 T29）。
 
 ## 1. 这份指南能让你做到什么
 
@@ -15,9 +15,9 @@
 
 **现在还不能做到（不要按"已可用"设计）：**
 
-- 事件不会真的发出去：`@web-report-sdk/browser` 目前只重新导出 core 的 C01 面，传输（C06/C07）、配置（C03）、采集插件（C05）、自监控（C08）**尚未接进这个入口包**。`init` 之后 `track` 产出的事件会走内核管线，但没有任何输出端。
-- `init` 中的 `endpoint` / `token` / `env` / `release` 与远程配置参数目前**不被 C01 消费**（见第 5 节），它们要由 T18 装配根接到 C03/C06/C07。
-- 自动采集（错误/性能/路由/HTTP）与双写适配器都还没有装配入口。
+- **真实浏览器 E2E 未验证（T29 未就绪）**：信标通道、真实 `visibilitychange`、真机 IndexedDB 落盘、Web Locks 选主等只在单测/注入替身下验证过。
+- **调试 URL 参数门禁（`?wr_debug=1`）尚未接线**（见第 7.2 节）；请用 `createAssembly`/`createClient` 的 `debug` 选项。
+- **远程配置的真实签名链路**（K02 发布物 + 真实公钥）未在浏览器验证；`createAssembly({ configEndpoint, configPublicKeys })` 的接线已完成，但真实签名的浏览器侧验证归 T29。
 - 包尚未发布：全部 `private: true`、`version: 0.0.0`，所以第 3 节的安装命令目前只能在**本地联调**形态下使用（`link:`）。
 
 ## 2. 环境与前置
@@ -136,8 +136,8 @@ IIFE 产物与加载桩的事实（`packages/browser/README.md` 第 2 节、`pac
 | `onEvent` | `EventSink` | 否 | 事件出口：每条产出的事件都会调用它。装配根用它接传输 | 是 |
 | `location` | `LocationSource` | 否 | 位置来源（`{ href, pageId }`）；不传则首次使用时读运行环境的 `location` | 是 |
 | `dictionary` | `EventDictionary` | 否 | 事件字典（K01 生成物），用于 `track` 的字段级类型与 `priority`/`schema_version` 取值 | 是 |
-| `endpoint` | `string` | 否 | 上报端点（契约里叫"端点来源：初始化参数 `endpoint`"） | **否**（属装配/传输） |
-| `token` | `string` | 否 | 写令牌（只写不读） | **否**（属装配/传输） |
+| `endpoint` | `string` | 否 | 上报端点（契约里叫"端点来源：初始化参数 `endpoint`"） | C01 不消费；**装配根消费**（`createAssembly` 组装凭据端口） |
+| `token` | `string` | 否 | 写令牌（只写不读） | C01 不消费；**装配根消费**（`createAssembly` 组装凭据端口） |
 | `env` | `string` | 否 | 环境，如 `production`、`staging`（批次头必填） | **否**（属装配/批次头） |
 | `release` | `string` | 否 | 接入方应用版本（批次头必填） | **否**（属装配/批次头） |
 
@@ -179,9 +179,9 @@ const sub = createClient({ appId: 'sub-app', registry, target: window });
 
 契约规定公钥与配置端点由接入方传入：`remote-config.md` 第 4 节（`config_public_keys`，格式 `{ [key_id]: JWK }`，SDK 不内置公钥）、第 1 节（`config_endpoint`，不传则不拉取、直接用内建默认）。C03 已实现为 `createConfigRuntime({ configEndpoint, publicKeys, consentMode, ... })`（`packages/core/README.md` 第 21 节），但：
 
-- 这些字段**不在** `ClientInitOptions` 里；
-- `ClientInitOptions → ConfigRuntimeOptions` 的映射是 **T18 装配根**的义务（`packages/core/README.md` 第 21 节明确"C03 不修改 `ClientInitOptions`"）；
-- 所以现在**无法**通过 `createClient().init(...)` 启用远程配置。
+- 这些字段**不在** `ClientInitOptions` 里（C01 不能改，属破坏面）；
+- `ClientInitOptions → ConfigRuntimeOptions` 的映射由 **T18 装配根**完成：`createAssembly({ configEndpoint, configPublicKeys, consentMode })` 会在内核上创建配置运行时并 `start()`（`packages/core/README.md` 第 21 节）；
+- `createClient().init(...)` 仍然不能启用远程配置——它是纯 C01 面，没有配置运行时。
 
 远程配置正文的格式、签名算法与托管方式见 [工具指南 · K02](tools.md#k02-配置签名与托管)。
 
@@ -251,12 +251,12 @@ createClient({ debug: false });                          // 显式静默
 
 C08 实现了 URL 参数门禁：参数名 **`wr_debug`**（`0` / `false` / `off` 视为关闭），**只有非生产环境或白名单用户**才真正开启；`env` 缺失时保守处理（仅白名单）（`packages/transport/README.md` 第 7 节；`DEBUG_QUERY_PARAM = "wr_debug"`，`packages/transport/etc/transport.api.md`）。
 
-- 该门禁由 C08 的 `resolveDebugMode()` 实现，**未接线到 `createClient`**（装配根义务归 T18）。所以在 T18 交付前，加 `?wr_debug=1` 不会有任何效果；请直接用第 7.1 节的 `debug` 选项。
+- 该门禁由 C08 的 `resolveDebugMode()` 实现，**本轮装配根未接线**（T18 的 8 项接线义务不含 URL 调试门禁）。因此加 `?wr_debug=1` 不会有任何效果；请直接用第 7.1 节的 `debug` 选项。
 - 参数名由 T17 自定（契约未指定），`resolveDebugMode({ paramName })` 可配置；将来若要改名不需要改逻辑。
 
 ## 8. 自检
 
-自检分三层。前两层现在就能跑；第三层要等装配根交付。
+自检分三层，**三层现在都能跑**（第三层的真实浏览器版本归 T29）。
 
 ### 8.1 第一层：引入自检（现在可跑）
 
@@ -307,9 +307,9 @@ console.log(seen);                           // 两条事件；每条含 event_i
 - 非法参数（非对象维度/指标、非法枚举、空串用户/页面、非法上下文键名）计数 `invalid_args`；指标为 `NaN`/`Infinity` 时只丢该字段并计数 `non_finite_metric`。
 - 销毁后调用任何公共方法计数 `destroyed` 并忽略（`destroy()` 本身那次不计数）。
 
-### 8.3 第三层：端到端上报自检（**现在还不能跑**）
+### 8.3 第三层：端到端上报自检（用 `createAssembly()`）
 
-装配根（T18）交付后，这一层才会具备可执行性。届时的步骤（本仓库已验证的是 M01 一侧的协议行为，见 [工具指南 · M01](tools.md#m01-本地联调)）：
+用装配根把接收方接上（本仓库已验证的是 M01 一侧的协议行为，见 [工具指南 · M01](tools.md#m01-本地联调)）：
 
 1. 用 [M01](tools.md#m01-本地联调) 在本地起接收服务：`node tools/mock-receiver/dist/cli.js`（默认 `127.0.0.1:8787`）。
 2. 把 SDK 的端点指向 M01（`endpoint` / 远程配置 `endpoints.ingest`），`app_id` 与令牌用占位值。
@@ -317,7 +317,7 @@ console.log(seen);                           // 两条事件；每条含 event_i
 4. 查 M01 的计数：`curl -s http://127.0.0.1:8787/__mock/counters`，确认 `stored_events` 增加且 `rejected_*` 为 0；查入库：`curl -s http://127.0.0.1:8787/__mock/events`。
 5. 对账恒等式：`received_events - stored_events === duplicate_events`（M01-AC-06）。
 
-**当前状态：第 3–5 步不可执行**（没有传输装配）。仓库里已验证的是第 1、4 步的 M01 一侧，以及用契约样例直接 POST 的行为，见 [工具指南 · M01](tools.md#m01-本地联调)。
+**当前状态：第 1–5 步可执行**。装配根用法：`createAssembly({ appId, endpoint, token, env, release, consent: 'granted' })` 后调用 `assembly.init()`（或直接用返回的 `client`），`track` 产出的事件会经 C04 管线 → C06 队列 → C07 发送器发到 `endpoint`。仓库里的端到端用例见 `packages/browser/src/assembly.test.ts`（注入传输替身，不需要真实网络）。
 
 ## 9. 常见问题
 
@@ -325,7 +325,7 @@ console.log(seen);                           // 两条事件；每条含 event_i
 |---|---|
 | 调了 `createClient({ appId })` 但什么都没发生 | `createClient` 不消费 `appId`，必须再调 `client.init({ appId })`（第 5.2 节） |
 | 报"事件名非法" | 事件名需至少两段小写下划线，且不得以 `sdk_` / `web_` 开头；计数 `invalid_event_name`，整条丢弃 |
-| 事件没有上报 | 先确认装配根是否已交付（当前没有输出端）；再用 `debug: true` 看原因码 |
+| 事件没有上报 | 先用 `createAssembly({...})` 装配（`createClient` 没有输出端）；确认传了 `endpoint` + `token` 与 `consent: 'granted'`（`essential_only` + `unknown` 下非必要事件不发送）；再用 `debug: true` 看原因码 |
 | 想读当前状态 | **没有 `getState()`**（AC-01 要求所有公共方法返回 `undefined`）。状态走内核能力：`client.kernel.getCapability(STATE_CAPABILITY)()`，类型 `ClientState`。这是集成接口，不是公共 API |
 | 想手动把加载桩缓存的命令交回来 | **没有 `acceptCommand()`**，走 `STUB_BRIDGE_CAPABILITY`（第 4 节） |
 | 事件重复了 | SDK 为保证不丢失会重复送达；去重由接收方按 `app_id` + `event_id` 在至少 7 天内完成（RR-05） |

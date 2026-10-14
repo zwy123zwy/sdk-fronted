@@ -236,7 +236,7 @@ offDiag();
 ```
 
 - 返回注销函数（`() => void`）。
-- `onEvent` 是事件出口：管线产出的事件都会调用它；`sink` 抛错只计数 `processor_error`，不影响业务。**装配根用它把事件接到传输**（T18，未交付）。
+- `onEvent` 是事件出口：管线产出的事件都会调用它；`sink` 抛错只计数 `processor_error`，不影响业务。**装配根（`createAssembly()`，T18 已交付）用它把事件接到传输**（critical 事件立即冲刷）。
 - `onDiagnostics` 是调试输出：`DiagnosticsRecord = { kind: string; reason_code: string; dropped: 'event' | 'field'; event_name?: string; field?: string }`。输出只含原因码、事件去向、事件名与字段路径，**绝不含令牌**。
 
 ---
@@ -531,7 +531,7 @@ const PACKAGE_NAME: string;                             // '@web-report-sdk/plug
 - 在 `before_send` 段注册处理器，转发的是最终形态的事件，且被采样/过滤掉的事件不会转发。
 - 计数口径：`processor_error`（内核计数器）、`forwarded` / `failed` / `skipped`（`stats()` 或能力 `apm_dual_write.stats`）。完整配置示例见[迁移指南 · 双写适配器配置](migration.md#第-2-步开启双写)。
 
-> **使用前提（当前不满足）**：适配器要挂到内核插件宿主上，而插件宿主与 `captureNativeHttpRefs()` 的调用点属于**装配根（T18，未交付）**。当前无法从 `createClient()` 得到一个可安装插件的装配实例。详见[迁移指南 · 前提与边界](migration.md#0-前提与边界)。
+> **使用前提**：适配器要挂到内核插件宿主上，而插件宿主与 `captureNativeHttpRefs()` 的调用点属于**装配根**。T18 已交付 `createAssembly()`：它先捕获原生引用、再安装内建插件，装配实例上的 `kernel` 可以直接 `registerPlugin`。`createClient()` 仍是纯 C01 面（没有安装插件与捕获引用的接线）。详见[迁移指南 · 前提与边界](migration.md#0-前提与边界)。
 
 ---
 
@@ -544,7 +544,7 @@ const PACKAGE_NAME: string;                             // '@web-report-sdk/plug
 | `Client.kernel`（`Kernel`、`createKernel`、`Pipeline`、`PluginHost`、`CapabilityRegistry`、`Counters`、`GlobalRegistry`、`definePlugin` 等） | `packages/core/etc/core.api.md` | C02 内核是 T12–T18 的集成面；`kernel` 是 C06/C08 的接线句柄 |
 | `createConfigRuntime`、`CONFIG_CAPABILITY`、`EffectiveConfig`、`ConfigRuntimeOptions`、`verifyEnvelope` 等（C03） | `packages/core/etc/core.api.md` | 装配根（T18）的接线面；`ConfigRuntimeOptions` 是 C03 自有类型 |
 | `createTransportQueue`、`createDelivery`、`BatchSubmitPort`、`createHealthReporter`、`createDebugTracer`、`captureNativeHttpRefs` 等（C06–C08） | `packages/transport/etc/transport.api.md` | 传输与自监控的内部装配面；`README.md` 第 2 节是给 T16 的冻结交接接口 |
-| `createApmDualWritePlugin` 之外的插件宿主装配 | —— | T18 的义务 |
+| `createApmDualWritePlugin` 之外的插件宿主装配 | —— | 由 T18 装配根（`createAssembly()`）承担，不再是接入面 |
 
 唯一**例外地提供给接入方使用**的两个内核能力是 `STATE_CAPABILITY` 与 `STUB_BRIDGE_CAPABILITY`（第 5.1 节）：它们通过 `client.kernel.getCapability(...)` 读取，用于状态自检与加载桩交接，属"集成点"而非公共方法。
 

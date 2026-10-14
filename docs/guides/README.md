@@ -36,10 +36,10 @@
 
 ## 能力状态总表（重要）
 
-**先读这张表再读任何示例。** 本仓库当前处于 P5 之前：各模块已分别交付并合入 main，但**把 C01–C08 装配成可端到端上报的浏览器包这一步（T18 装配根）尚未交付**。因此本目录中的示例分成两类：
+**先读这张表再读任何示例。** 本仓库当前处于 P5 之前：各模块已分别交付并合入 main，**T18 装配根已交付**——`@web-report-sdk/browser` 的 `createAssembly()` 把 C01–C08 接起来（捕获原生引用 → 内建四个采集插件 → 队列/发送/离线/选主 → 自监控计数与计时），事件可以真的发到接收方（端到端用例见 `packages/browser/src/assembly.test.ts`）。因此本目录中的示例分成两类：
 
-- **可立即运行**：引入方式、C01 公共 API 的调用形态、三个开发工具、接收方协议自查；
-- **形态已定但尚不可端到端运行**：`init` 里的远程配置、插件采集、队列与传输、自监控计数。
+- **可立即运行**：引入方式、C01 公共 API 的调用形态、`createAssembly()` 的端到端接线、三个开发工具、接收方协议自查；
+- **形态已定但尚未在真实浏览器验证**：远程配置拉取、插件采集量、队列与传输在真实浏览器下的行为、自监控计数的真实节奏（权威验证归 T29/T20）。
 
 | 能力 | 状态 | 依据 |
 |---|---|---|
@@ -48,16 +48,31 @@
 | C03 配置合并、采样、kill switch（T13） | 已合入 main `62f70f8`，**评审中** | 同上 T13 行；`docs/reports/wave3-lanes.md` |
 | C06 队列与调度（T15） | 已验收（main `fbfccf5`） | `docs/tasks/board.md` T15 行 |
 | C07 传输与可靠投递（T16） | 已合入 main `005a038`，**评审中** | 同上 T16 行 |
-| C08 自监控与调试模式（T17） | 已合入 main `51a1c56`，**评审中** | 同上 T17 行；且**装配根接线未完成**（见下） |
-| C05 采集插件（T18：error/perf/route/http） | **未就绪**（`docs/tasks/board.md` T18 为"未就绪"） | 同上 T18 行 |
+| C08 自监控与调试模式（T17） | 已合入 main `51a1c56`，**评审中** | 同上 T17 行；**接线已在 T18 装配根完成**（`createAssembly()` 的计数/计时装饰器与 `sdk_health` 出口，见下） |
+| C05 采集插件（T18：error/perf/route/http） | 四个插件已合入 main `e6a3bd9`（C05-AC-01..14/19/20 全过）；**T18 评审中** | 同上 T18 行 |
 | C05-F5 第三方 APM 双写适配器（T19） | 已合入 main `62dec1d`，**评审中**；两项义务留待 T18 | 同上 T19 行 |
-| **装配根：`@web-report-sdk/browser` 把 C01–C08 接起来** | **未交付**。`packages/browser/src/index.ts` 目前只重新导出 `@web-report-sdk/core` 的 C01 面，`etc/browser.api.md` 中只有 core 的符号 | `packages/browser/etc/browser.api.md`、`packages/browser/package.json` |
+| **装配根：`@web-report-sdk/browser` 把 C01–C08 接起来** | **已交付（T18 接线，评审中）**：`createAssembly()` 在安装任何插件之前调用 `captureNativeHttpRefs()`，接 C08 的计数/计时装饰器与 `healthReporter`，把 C04 的 `header()`/时钟/清理端口接到 C06/C07，并安装四个采集插件。`etc/browser.api.md` 已新增 `createAssembly` | `packages/browser/src/assembly.ts`、`packages/browser/etc/browser.api.md` |
 | K01 事件注册表与类型生成（T22） | 已验收（main `407f871`） | `docs/tasks/board.md` T22 行 |
 | K02 配置签名 CLI（T25） | 已合入 main `f18355c`，**评审中**；`K02-AC-03` 的浏览器侧验签**属部分实现** | 同上 T25 行；`tools/config-signer/README.md`「未完全覆盖的验收条目」 |
 | M01 本地 mock 接收服务（T09） | 已验收（main `e8e1486`）；**只用于测试，不得用于生产** | 同上 T09 行；`tools/mock-receiver/README.md` |
 | 包的可安装性 | 全部包 `version: 0.0.0`、`private: true`，**尚未发布到任何源**；接入方目前只能用本地 `link:` 联调 | 各 `packages/*/package.json`；指南第 3、4.1 节 |
 
-装配根交付后，`packages/browser` 的导出面与体积预算都需要重新推导（指南第 6 节的硬约束、看板 2026-10-13 记录）。
+### 装配根交付后的体积预算重推（T18 交付物，**待负责人定案**）
+
+装配根落地后 `pnpm exec size-limit` 的实测（`with all dependencies, minified and brotlied`）：
+
+| 条目 | 测量对象 | 实测 | 现预算 | 结论 |
+|---|---|---|---|---|
+| browser | `packages/browser/dist/index.js`（**已含装配根**，即接入方实际发货的 bundle） | **33.47 kB** | 13 kB | **超预算 20.47 kB** |
+| core | `packages/core/dist/index.js` | 18.38 kB | 21 kB | 通过 |
+| plugins | `packages/plugins/dist/index.js` | 5.97 kB | 20 kB | 通过（旧记录的 642 B 是过期数字） |
+| transport | `packages/transport/dist/index.js` | 14.81 kB | 18 kB | 通过 |
+
+依据：13 kB 是**装配根之前**按"core 全导出面的 re-export 壳"定的；装配根一旦可达 C01–C08，
+browser 条目就必须量实际发货的 bundle，而该 bundle 的真实成本是 C01–C08 全接线图
+（core 18.38 + plugins 5.97 + transport 14.81 = 39.16 kB，同图合并去重后 33.47 kB）。
+**本轮不自行抬高预算**（`.size-limit.json` 是门禁配置，改动需负责人批准）；数字与拆分见上表，
+由负责人定案后一次性更新整张表。见 `docs/reports/handover.md` 第 1 节义务 ⑦。
 
 ## 已知未验证项（截至 2026-10-13，不要当成"已通过"）
 

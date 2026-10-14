@@ -66,3 +66,13 @@ export type {
   StubCommand,
   UserInput,
 } from '@web-report-sdk/core';
+
+// T18 装配根：把 C01–C08 接起来，让事件真的发得出去。
+// 归属见 `docs/tasks/T18.md` 的「文件所有权」（2026-10-13 负责人批准的所有权扩展）。
+export { createAssembly } from './assembly';
+export type {
+  Assembly,
+  AssemblyOptions,
+  CollectorHandles,
+  CredentialsLike,
+} from './assembly';
