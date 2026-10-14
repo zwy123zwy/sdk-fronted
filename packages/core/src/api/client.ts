@@ -482,6 +482,24 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     return truncate(value, maxLength);
   }
 
+  /**
+   * `attachment` 的上限收口（8 KB，`event-standard.md` 第 4 节）。
+   *
+   * **顺序：先脱敏、再截断**，与 C04 的 `clampAttachment` 完全一致：截断在前会把敏感值从
+   * 中间切开，切断后的片段不再匹配任何规则，会以残片形式原样上线（实测跨界手机号残留
+   * `1380`）。掩码用的是**同一个** `masker` 实例（含 `extra_mask_rules`），不是第二套规则。
+   *
+   * 只在**需要截断**时才在这里脱敏：未超长的值原样进入管线，仍由隐私处理器脱敏一次
+   * （避免对追加规则重复施加）；超长值必须在这里收口，否则原始大字段会先进入同意缓冲 ——
+   * 那里按字节淘汰（`CONSENT_BUFFER_MAX_BYTES`），超大事件会被**整条丢弃**而不是截断保留。
+   */
+  function clampAttachmentAndTrack(value: string, path: string, truncatedPaths: string[]): string {
+    if (value.length <= WEB_JS_ERROR_LIMITS.attachment) return value;
+    counters.count(API_REASON_CODES.truncatedDimension);
+    if (!truncatedPaths.includes(path)) truncatedPaths.push(path);
+    return truncate(masker.apply(value), WEB_JS_ERROR_LIMITS.attachment);
+  }
+
   function performTrack(command: QueuedCommand): void {
     const requestedName = command.name;
     if (typeof requestedName !== 'string' || !hasValidEventName(requestedName)) {
@@ -522,7 +540,7 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     event['dimensions'] = dimensions;
     if (input.metrics !== undefined) event['metrics'] = input.metrics;
     if (input.attachment !== undefined) {
-      event['attachment'] = clampAndTrack(input.attachment, WEB_JS_ERROR_LIMITS.attachment, 'attachment', truncatedPaths);
+      event['attachment'] = clampAttachmentAndTrack(input.attachment, 'attachment', truncatedPaths);
     }
     if (truncatedPaths.length > 0) event['truncated'] = truncatedPaths;
     submitToPipeline(event);
@@ -605,7 +623,7 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     event['dimensions'] = dimensions;
     event['metrics'] = metrics;
     if (attachment !== undefined) {
-      event['attachment'] = clampAndTrack(attachment, WEB_JS_ERROR_LIMITS.attachment, 'attachment', truncatedPaths);
+      event['attachment'] = clampAttachmentAndTrack(attachment, 'attachment', truncatedPaths);
     }
     if (truncatedPaths.length > 0) event['truncated'] = truncatedPaths;
     submitToPipeline(event);
