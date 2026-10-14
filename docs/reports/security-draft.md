@@ -65,7 +65,20 @@
 | 变异验证 | 在 `packages/core/src/privacy/constraints.ts` 第 147 行临时插入 `const MUTATION_PROBE = truncateUtf16Safe(entry, …); const masked = input.masker.apply(MUTATION_PROBE);` → 守卫**红**，精确报出 `constraints.ts:148` 与值传递链；**恢复后全绿**（`git diff -- packages` 为空） |
 | 实测结论 | 当前 core + plugins 源码中**不存在**该模式（0 命中）——三次事故的修复都仍处于正确顺序 |
 
-**守卫覆盖不到的同族路径（本任务上报、未改实现）**：`packages/core/src/privacy/constraints.ts` 的 `clampAllStringValues()`（第 274–284 行）只做 `truncateUtf16Safe(value, 256)`，**从不过 masker**；而 `collectStringSlots()` 收集的是**全部顶层字符串字段**。声明字段里 `page_id`/`view_id`/`level` 等既不被 `clampUrl`/`clampAttachment` 覆盖，也不在 `dimensions`/`context` 里 → 属于「只截断、从不脱敏」，与本次根因**同族但形状不同**（没有 `masker.apply`，守卫一按定义抓不到）。可达性有限：公开 API 只产出 Schema 允许的键，`readLocation().pageId` 恒为 `undefined`（核心不从 URL 推导 `page_id`），未声明字段须由插件/内核直接写入。因此记为**纵深防御缺口**，请签发人裁定是否补一次脱敏。
+**守卫覆盖不到的同族路径（2026-10-14：已裁定「补一次脱敏」并修复）**：`packages/core/src/privacy/constraints.ts` 的 `clampAllStringValues()`（原第 274–284 行）只做 `truncateUtf16Safe(value, 256)`，**从不过 masker**；而 `collectStringSlots()` 收集的是**全部顶层字符串字段**。声明字段里 `page_id`/`view_id`/`level` 等既不被 `clampUrl`/`clampAttachment` 覆盖，也不在 `dimensions`/`context` 里 → 属于「只截断、从不脱敏」，与本次根因**同族但形状不同**（没有 `masker.apply`，守卫一按定义抓不到）。可达性有限：公开 API 只产出 Schema 允许的键，`readLocation().pageId` 恒为 `undefined`（核心不从 URL 推导 `page_id`），未声明字段须由插件/内核直接写入。**裁定：处理器是唯一脱敏权威，不得把「当前调用方都写对」当作安全前提 → 补一次脱敏，已修，证据见 1.3.3。**
+
+#### 1.3.3 顶层字符串字段过同一个 masker（2026-10-14 修复，承接 1.3.2 上报的同族缺口）
+
+| 项 | 内容 |
+|---|---|
+| 缺口 | `clampAllStringValues()` 把**全部顶层字符串字段**截到 256，却从不调用 masker；且该函数**只在事件体 > 16 KB 时**才跑 → 长度不足 256 的敏感值此前原样上线 |
+| 修法 | 新增 `maskTopLevelStringValues(event, masker)`：对**全部顶层字符串值**（声明字段 `page_id`/`view_id`/`level` 等 + 未声明额外字段）用**与 `dimensions`/`context`/`attachment`/`url` 同一个** masker 脱敏；在 `constrainEvent` 里**无条件**先于所有截断路径执行（**先脱敏、再截断**）。`url`/`attachment` 已由各自函数用同一 masker 处理，本通道**跳过**（避免接入方追加规则被叠加施加两次）。未命中规则的值不写入（保持「已合规事件零写入」；脱敏不是截断，不计数、不写 `truncated`）。 |
+| 测试先行（fail-first） | 新增 `packages/core/src/privacy/constraints-toplevel-mask.test.ts`（12 条）。修复前：`Tests 10 failed | 2 passed`，原文如 `AssertionError: expected '/task/13800138000' not to contain '13800138000'`、`expected 'aaaaaaaa…138001' not to match /\d{4}/`（截断在前才会留下的手机号残片）。两条常绿的是**不得回归**的语义钉：零写入、`dimensions`/`context` 不被二次施加。 |
+| 变异验证 | 把 `constrainEvent` 里新增的那一行调用 `maskTopLevelStringValues(event, input.masker);` 注释掉 → 同文件 **10 条断言级变红**（与 fail-first 同一组）；恢复后 **12 条全绿** |
+| 守卫一 | `pnpm exec vitest run --coverage.enabled=false --project security tests/security/guard-truncate-before-mask.test.ts` → **3 passed（0 命中）**；修复只新增「脱敏在截断之前」的调用点，未引入守卫一所判模式 |
+| 顺序证据 | 用例「顺序为先脱敏、再截断：跨 256 边界的敏感值不留下可识别残片」用 250 字符 + 伪造手机号 + 50 字符的 `page_id`（311 字符，手机号正好跨 256 边界）并顶到 16 KB 以上触发真实截断：断言截断后长度 256、不含手机号、不匹配 `/\d{4}/` |
+| 既有语义 | 8 KB/256 字节上限、16 KB 阶梯、`dimensions`/`context`/`attachment`/`url` 的既有脱敏与截断、内置规则不可整体关闭、追加规则语义均未改（`url`/`attachment` 的「只施加一次」另有专门断言）；`pnpm exec vitest run --coverage.enabled=false --project unit packages/core`：**57 文件 / 537 条全绿**；`pnpm exec tsc -p packages/core`、`pnpm exec eslint packages/core/src/privacy` 均 **0 错误** |
+| 影响面 | 仅当规则**实际命中**某个顶层字段值时才改变输出：内置 7 条不会命中 `event_id`（UUID）/`event_name`/`event_type`/`priority`/`level` 的合法值，故既有路径行为不变。需要留意的耦合（均为「接入方追加规则恰好命中标识符」这一极端情形）：`event_id` 是去重的唯一依据（`api/client.ts` 注释），`event_name` 参与「必要事件」判定（`consent-policy.ts` 的 `sdk_health`/`web_js_error`），`event_type`/`priority`/`level` 是枚举字段——命中后产出可能离开枚举。登记为**已知权衡**：优先保证「处理器是唯一脱敏权威」。 |
 
 ### 1.6 守卫二：`tests/**` 不得 import `packages/*/src/**`（2026-10-13 新增，机器守卫）
 
@@ -118,7 +131,7 @@
 - 本报告的一切结论来自**本地仓库与本地构建**；未访问任何预发布或生产环境（符合任务卡的非功能目标）。
 - 真实浏览器行为（信标、`localStorage`/IndexedDB 的真实持久化、`crypto` 差异）**未在本任务验证**，归 T29。
 - **两条守卫的已知边界（如实声明）**：守卫一**不做跨函数分析**（`masker.apply(build(value.slice(0,8)))` 抓不到）、**不传播对象字面量/数组**（`masker.apply(parts.pathname)` 这种"先解析结构、再整体脱敏"的正确写法因此不会误报）；守卫二只对**静态可解析**的说明符硬失败，变量说明符走允许清单。两条守卫都只覆盖 `core`/`plugins` 源码与 `tests/**`，不覆盖 `browser`/`transport` 源码。
-- 本任务**未修改任何实现代码**：两次变异验证的临时改动均已恢复（`git diff -- packages` 为空，`tests/security/t31-security.test.ts` 无改动）。
+- 本任务**未修改任何实现代码**：两次变异验证的临时改动均已恢复（`git diff -- packages` 为空，`tests/security/t31-security.test.ts` 无改动）。（**例外说明**：1.3.3 是 2026-10-14 承接本报告上报缺口所做的实现修复，属另一次改动，不在本句范围内。）
 - 报告**未经签发**，也**不代表安全评审已通过**。
 
 ## 4. 建议
@@ -127,5 +140,5 @@
 2. ~~T18 完成 `ErasePort` 等接线后，本任务补做 1.3 的"撤回同意后清除"验证~~ → **已完成**（2026-10-13，见 1.3.1）；
 3. T29 完成后补 1.2 的信标通道验证；
 4. 把两条机器守卫纳入日常改动面：新增脱敏调用点（1.3.2）或新增 `tests/**` 的 import（1.6）时，先看守卫报错；1.6 的允许清单**只减不增**，新增必须写明理由；
-5. 裁定 1.3.2 上报的同族路径（`clampAllStringValues` 只截断、从不脱敏）是否需要补一次脱敏；
+5. ~~裁定 1.3.2 上报的同族路径（`clampAllStringValues` 只截断、从不脱敏）是否需要补一次脱敏~~ → **已裁定并修复**（2026-10-14）：补一次脱敏，证据见 1.3.3；
 6. 剩余项（第 3 条、以及第 2 节的审计式复查与低危处置计划）完成前，本任务保持"未完成"，不签发。

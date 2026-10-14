@@ -7,7 +7,9 @@
  *   1. 键名格式：非法键**丢弃该字段**，计 `invalid_field_key`
  *      （**非法键名归 C04；非法参数归 C01，两者不合并**）
  *   2. 键数量：`dimensions` / `context` / `metrics` 各按键名字典序保留前 50，其余丢弃
- *   3. 值：先脱敏（`Masker`），再按 UTF-16 码元截断到 256（不切断代理对）
+ *   3. 值：先脱敏（`Masker`），再按 UTF-16 码元截断到 256（不切断代理对）；
+ *      顶层字符串字段（`page_id`/`view_id`/`level`/未声明字段等）与维度值同规则：
+ *      **同一个** `Masker`，且脱敏先于任何截断
  *   4. 附件：先脱敏（**与第 3 步同一个 `Masker`**），再截断到 8 KB（UTF-8 字节）；
  *      `url` 同规则：先脱敏（整条文本）、再截断到 2048（处理器侧纵深防御，不押调用方自律）
  *   5. 非有限指标：丢弃该字段，计 `non_finite_metric`
@@ -20,7 +22,7 @@ import type { KernelEvent } from '../kernel';
 import { MAX_URL_LENGTH } from './constants';
 import { truncateUtf16Safe, utf8Bytes } from './limits';
 import { PRIVACY_REASON_CODES } from './reason-codes';
-import type { ConstrainInput, ConstrainResult } from './types';
+import type { ConstrainInput, ConstrainResult, Masker } from './types';
 
 /** 事件体字节上限的判定口径：UTF-8 序列化字节（不含批次头与 `common`）。 */
 const EVENT_BODY_LIMIT = 16384;
@@ -262,14 +264,47 @@ function collectStringSlots(event: KernelEvent): { container: Record<string, unk
 }
 
 /**
+ * 顶层字符串字段里**已有专职脱敏函数**的两个键：`url`（`clampUrl`）与 `attachment`
+ * （`clampAttachment`）都用**同一个** masker 脱敏。本通道跳过它们，否则接入方的追加规则会被
+ * 叠加施加两次（替换串可能再被自身规则命中 → 语义变化）。
+ */
+const DEDICATED_MASK_KEYS: ReadonlySet<string> = new Set(['url', 'attachment']);
+
+/**
+ * 把所有**顶层字符串值**交给**与 `dimensions`/`context`/`attachment`/`url` 同一个** masker
+ * 脱敏（单一脱敏权威；含未声明的额外字段）。
+ *
+ * 存在的理由（本会话第四次同族缺口，形状不同所以守卫一抓不到）：这些字段此前唯一的处理是
+ * `clampAllStringValues` 的 256 截断，而该函数**只在事件体超过 16 KB 时**才跑，且**从不调用
+ * masker** —— 于是 `page_id`/`view_id`/`level` 等声明字段与未声明顶层字符串字段属于「只截断、
+ * 从不脱敏」。正确性不能押在「调用方都写对」上：处理器是唯一脱敏权威。
+ *
+ * 与 `clampAllStringValues` 的分工与顺序：本函数**只脱敏、不改长度**；长度上限仍由后者施加。
+ * 因为本函数在阶梯之前无条件跑，所以「先脱敏、再截断」对**所有**顶层字符串字段都成立 ——
+ * 截断在前会把敏感值从中间切开，残片不再匹配任何规则，会原样上线。
+ *
+ * 未命中规则的值不写入（保持「已合规事件零写入」）；脱敏不是截断，不计数、不写 `truncated`。
+ */
+function maskTopLevelStringValues(event: KernelEvent, masker: Masker): void {
+  for (const [key, value] of Object.entries(event)) {
+    if (typeof value !== 'string') continue;
+    if (DEDICATED_MASK_KEYS.has(key)) continue;
+    const masked = masker.apply(value);
+    if (masked !== value) event[key] = masked;
+  }
+}
+
+/**
  * 把事件体里**超出维度值上限**的字符串一次压到上限（含异常输入带进来的未声明字段）。
  *
  * 这一步保证「所有值 ≤ `maxDimensionValueLength`」，此后事件体的字节数只受
  * 「键数量 × 键长」支配：50 键 × (64 + 256) ≈ 16 KB 是上界，因此**合法输入必然能落回限内**，
  * 后续的整键丢弃只对异常输入（超出 Schema 的额外字段/超长键）才需要。
  *
- * 本步骤会顺带压掉 `attachment`（顶层字符串）：它在 `clampAttachment` 里**已经过 masker**，
- * 这里只做长度压缩，因此不构成绕过脱敏的路径。
+ * 这里的字符串**都已先过 masker**：`dimensions`/`context` 在 `constrainStringMap`、
+ * `attachment` 在 `clampAttachment`、`url` 在 `clampUrl`、其余顶层字段（含未声明字段）在
+ * `maskTopLevelStringValues`（在 `constrainEvent` 里先于本函数无条件执行）。因此本函数只做
+ * 长度压缩，不构成绕过脱敏的路径，也不会引入「先截断后脱敏」的顺序错误。
  */
 function clampAllStringValues(event: KernelEvent, recorder: ReturnType<typeof createRecorder>): boolean {
   const limit = 256;
@@ -359,6 +394,10 @@ export function constrainEvent(input: ConstrainInput): ConstrainResult {
   const metrics = constrainMetrics(event['metrics'], input, recorder);
   if (metrics !== undefined) event['metrics'] = metrics;
 
+  // 顶层字符串字段先过**同一个** masker（只脱敏、不改长度），再进入下面的截断路径：
+  // `clampAttachment` / `clampUrl` 各自用同一个 masker 处理自己的字段，其余顶层字段
+  // （`page_id`/`view_id`/`level` 等声明字段与未声明字段）由本行覆盖。
+  maskTopLevelStringValues(event, input.masker);
   clampAttachment(event, input, recorder);
   clampUrl(event, input, recorder);
   normalizeTruncatedPaths(event, input);
