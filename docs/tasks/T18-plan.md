@@ -1,12 +1,12 @@
 # T18（C05 错误、性能、路由、HTTP 插件）实施计划
 
-- 状态：**骨架 + 已定结论**（首轮落盘，2026-10-13）。标「待定」的小节尚未定稿，写法是「待定：我打算这样定」。
+- 状态：**第二轮已定稿**（2026-10-13）。§1、§2、§4、§7 的待定项已按读到的 Schema/契约原文填实；§8 的 16 条 AC 映射完成，字段级待定基本消除。**仍需负责人裁定的事项集中在 §13 的六个冲突与 `docs/use-cases.md` 的 7 条问题**（其中请求体开关、面包屑归属、装配根归属、AC-08/09 自动路由、AC-12 追踪头名、AC-13 构建检查方式为硬阻塞）。
 - 执行：A03；对接：前端负责人（隐私与同意相关另需安全负责人）
 - 依赖：T11（内核）、T14（C04 上下文/脱敏/同意）——**均已合入 main**
 - 所有权：`packages/plugins/src/{error,perf,route,http}`、框架集成包（如需要）、`docs/use-cases.md`、对应测试目录
 - 验收用例：**C05-AC-01…AC-14、AC-19、AC-20（共 16 条）属本任务**；**AC-15…AC-18 属 T19**——依据 `tests/acceptance/C05.md` **第 3 行**原文：「对应任务：T18（AC-01 至 AC-14、AC-19、AC-20）、T19（AC-15 至 AC-18）」。
   - ⚠️ **任务卡需回退**：卡片此前被改成「C05-AC-01 至 C05-AC-20（共 20 条）」并注明「原文漏列 AC-15..18」，**那是错的**——原卡所列 01-14、19、20 与验收文件完全一致；AC-15..18 是 T19 的双写适配器用例（C05-F5）。
-- 本计划**只读**了工作区内的最小必要材料（受本轮执行约束）；凡涉及未读文件的具体条款，一律标「待定：需按 `<文件>` 逐条填入」。
+- 本计划在第二轮补读了五个内置事件 Schema、`event-standard.md`（第 6 节）、`reason-codes.md`、`ingest-protocol.md`（2.2）与各包 `exports`；**凡仍标「待定」的，都是需要负责人裁定或需读 Q7/remote-config 才能定的**（见 §13 与 `docs/use-cases.md`）。
 
 ## 1. C05-F1 JS 错误归一化
 
@@ -16,9 +16,13 @@
 - **去重与计数**：以 `fingerprint`（消息 + 源 + 行列 + 错误类型的稳定哈希）为键，同一指纹在一次会话内只上报**首条**并累计 `metrics.count`；需要"重复也要看到"时由配置决定（默认只上报首条 + 计数）。
 - 与 C04 的衔接：错误消息/堆栈进入 C04 的脱敏与字段约束**之前**不落地、不缓存；脱敏在 C04 完成，本任务不重复实现。
 
-**待定：我打算这样定**
-- `fingerprint` 的具体构成与归一化规则（去掉数字/URL 查询参数等易变部分）：需按 `docs/contracts/event-standard.md` 第 6 节与 `schemas/builtin-events/web_js_error.schema.json` 的字段约束逐条对齐后定稿。
-- 资源加载错误（`event.target` 为元素）是否算 `web_js_error`：**倾向算**，但需确认契约是否允许（可能需要单独的 `source` 取值）。
+**已定（第二轮补读 Schema 后定稿）**
+- **字段路径（照抄 `web_js_error.schema.json`）**：`dimensions` 必填 `error_type`、`message`、`source`、`fingerprint`；`metrics` 必填 `count`（`integer, minimum: 1`），可选 `line`、`column`；错误栈走 **`attachment`**（顶层字符串，非 dimensions）。
+- **`source` 的取值来自验收用例原文**（Schema 未加枚举，是自由字符串——即契约不约束取值，但 AC 明确要求这两个值，实现必须照用）：
+  - C05-AC-01 → `source` = **`window_error`**；
+  - C05-AC-02 → `source` = **`unhandled_rejection`**。
+- **`fingerprint` 的构成**：契约只要求它是 `dimensions` 里的**字符串**、且 AC-03 要求"按 `fingerprint` 去重"。因此构成本身是实现自由，但**必须满足两条可验证性质**：① 同一错误稳定同值（AC-03 去重的前提）；② 不随易变部分漂移。本任务取 `error_type + source + 归一化后的 message + line/column` 的稳定哈希，归一化包含"剥离数字与 URL 查询参数"。**在 README 写明该构成**（否则接入方无法预测去重行为）。
+- **资源加载错误**：`error_type` 是自由字符串，**Schema 不排除**资源错误；本任务**算作 `web_js_error`**，用 `error_type` 区分（如 `resource_error`）。⚠️ **AC-01 只覆盖未捕获异常**，故本项属"计划内的合理扩展"，**请在用例确认时一并拍板**（不确认则默认只做 AC 覆盖的两类）。
 
 ## 2. C05-F2 性能条目与长任务
 
@@ -27,9 +31,13 @@
 - **自身不得产生 50 ms 以上长任务**：所有采集回调做最小工作，归一化与序列化延后到批次组装阶段（C06）。
 - 与 C08 的分工：C08 负责"SDK 自己的耗时"（自监控），本任务只负责"宿主页面的性能条目"；两者不得互相计数。
 
-**待定：我打算这样定**
-- 具体采集哪些 `entryType`（`navigation`/`paint`/`largest-contentful-paint`/`longtask`/`resource`…）：需按 `web_vitals.schema.json`/`web_long_task.schema.json` 的字段定义定稿（这两个 Schema 在 R-005/R-006 里被评审过，字段名有修正记录，必须读 Schema 而不是凭印象）。
-- 长任务的观测方式（`PerformanceObserver` 的 `longtask` 支持度在有真实浏览器差异 → 归 T29 复测）。
+**已定（第二轮补读 Schema 后定稿）**
+- **五类核心指标共用一条事件 `web_vitals`**，不是各自独立字段：`dimensions.metric_name` 的枚举是 **`FCP` / `LCP` / `CLS` / `INP` / `TTFB`**（与 AC-05 的五类完全对应），`dimensions.rating` 是必填枚举 **`good` / `needs-improvement` / `poor`**，值本身走 `metrics.value`（必填）与 `metrics.delta`（必填）。
+  → 因此 `entryType → metric_name` 的映射为：`paint`(first-contentful-paint) → `FCP`；`largest-contentful-paint` → `LCP`；`layout-shift` → `CLS`；`event`(interaction) → `INP`；`navigation`(responseStart) → `TTFB`。
+- **长任务单列一条 `web_long_task`**：`metrics.duration_ms`（必填，integer）、`metrics.start_time_ms`（可选）；注意该 Schema 的 `dimensions` 是**空对象 schema**（`{}`，无 properties）→ **不要把任何东西塞进 `dimensions`**。
+- **明确不采集**：`resource`、`navigation` 的明细条目等**没有 Schema 承载**的类型一律不采集（原本的"待定"是因为没读 Schema；现在结论是"契约没有承载它们的字段，所以不做"，而不是"以后再说"）。
+- **`rating` 的算法**：契约只要求它是那三个枚举值之一，**不给阈值**。本任务按 Web Vitals 官方阈值判定并在 README 写明；真实浏览器差异归 T29。
+- 长任务的观测方式（`longtask` 支持度有真实浏览器差异）→ **归 T29 复测**。
 
 ## 3. C05-F3 路由与页面浏览
 
@@ -49,8 +57,16 @@
 - **追踪头只注入同源或白名单域**：不在白名单内一律不注入（不做"尽力而为"的降级注入）。
 - 采集内容限定为元信息：方法、URL（经 C04 的 URL 白名单与脱敏处理）、状态码、耗时、以及是否失败。
 
-**待定：我打算这样定**
-- 与 T19 双写适配器的包装归属：**采集插件负责包装并暴露注入点，适配器只消费事件、不重复包装**（避免双重包装导致宿主原生方法泄漏或双重上报）。实施前请负责人确认（见 `docs/use-cases.md` 问题 5）。
+**已定 / 待裁**
+- 与 T19 双写适配器的包装归属：**采集插件负责包装并暴露注入点，适配器只消费事件、不重复包装**（避免双重包装导致宿主原生方法泄漏或双重上报）。**待负责人确认**（见 `docs/usecases.md` 问题 5 → 实为 `docs/use-cases.md`）。
+- **`web_http` 的字段路径（照抄 `web_http.schema.json`）**：`dimensions` 必填 `method`、`url_template`，可选 `status_class`（枚举 **`1xx`/`2xx`/`3xx`/`4xx`/`5xx`**）、`failure_reason`（**自由字符串，Schema 无枚举**）；`metrics` 必填 `duration_ms`，可选 `status`（`integer, minimum: 100`）、`request_bytes`、`response_bytes`。
+  → 注意：**URL 进的是 `dimensions.url_template`（模板，不是实参 URL）**，与 C04 的 `url` 顶层字段是两回事；令牌只可能出现在查询参数里，已由 C04 的白名单删除（AC-11 的注入点之一）。
+- ⚠️ **【新发现的契约缺口】AC-12 要求注入"链路追踪头"，但契约里没有定义这个头的名字。**
+  对 `docs/contracts/**`（不含 `changes/`）全库检索 `trace` / `traceparent` / `tracestate` / `追踪头` / `链路追踪` → **0 命中**；`ingest-protocol.md` 只定义了 `X-App-Id`、`X-Write-Token`、`X-Request-Id`（请求）与 `X-Server-Time`（响应）。
+  → **AC-12 无法在不猜头名的前提下实现**。出路有三（**我不自行决定，请负责人择一**）：① 新增契约条款定义头名（走 CR，建议用 W3C 的 `traceparent`）；② 由远程配置提供"要注入的头名 + 白名单域名"（配置驱动，不动契约措辞，但需确认 `remote-config.schema.json` 是否有承载字段）；③ 明确 AC-12 的验证方式是"注入任一头名为实现自由"，并把头名写进 README（最省事，但接入方无从预测，会削弱该 AC 的意义）。
+  **另需核**：`docs/decisions/Q7-apm-coexistence.md` 是否提到该头（本次只检索了 `docs/contracts/**`，未检索决策记录）。
+- ⚠️ **【新发现】AC-10 的"失败原因正确"缺取值定义**：`dimensions.failure_reason` 在 Schema 里是**无枚举的自由字符串**，而 `tests/acceptance/C05.md` 只有一行表格、**没有列出任何取值**（该文件除标题外只有表格）。
+  → 建议实现取一组可枚举值并在 README 写明（例如 `timeout` / `network_error` / `abort` / `http_error`），**但这等于由实现定义契约语义**，请负责人在用例确认时拍板；否则 AC-10 的"正确"无法被客观验证。
 
 ## 5. C05-F6 四入口、按需引入与体积预算
 
@@ -59,8 +75,11 @@
 - 由配置启停：`plugins.*.enabled`（远程 `plugins` 段）；**运行期只能关，不能开**（与 C03 的运行时覆盖规则一致）。
 - 体积：`plugins` 全量 **gzip 后不超过 20 KB**（门禁已有一条 20 KB 的 size-limit 条目，当前实测 642 B）；覆盖率 **行 ≥80%**。
 
-**待定：我打算这样定**
-- 每个插件的具体导出名与子路径（`@web-report-sdk/plugins/error` 还是 `@web-report-sdk/plugins-error`）：需按仓库既有 `exports` 约定与 T19 的既有写法定稿，避免与 `packages/plugins` 现有导出面冲突。
+**已定（第二轮读了各包 `exports` 后）**
+- **仓库现有约定是「单入口」**：`core`/`transport`/`plugins` 三个包的 `exports` 都只有 `"."`（`{source, types, import}` 三键），只有 `browser` 额外多一个 `"./iife"`。
+- **但 AC-13 要求「只引入错误插件构建 → 产物中不包含其他插件代码」，这必须按插件分别构建**，单入口做不到。两者冲突。
+- **结论**：`packages/plugins` 需要新增**子路径导出**（形如 `"./error"`、`"./perf"`、`"./route"`、`"./http"`，沿用 `{source, types, import}` 三键）+ 相应的 per-entry 构建配置。这是该包**首次**引入子路径导出，且改动 `package.json` 的 `exports` 与构建配置。
+- ⚠️ **需批准**：属公共导出面变更（api-extractor 的 `api:check` 会受影响，需跑 `pnpm api:update`）+ 构建配置变更。**已列入 §11 越界申请**（见 #5）。
 
 ## 6. Q7 与第三方 APM 共存
 
@@ -77,26 +96,40 @@
 - 用**真实** `docs/contracts/schemas/builtin-events/*.json` + Ajv（2020-12）校验本任务产出的四类事件，含**正向与负向对照**、以及**非空转对照**（断言"校验器确实在校验"——本会话已有两次"自证空转"的教训）。
 - 不复制 Schema 到测试目录（避免副本漂移）。
 
-**待定：我打算这样定**
-- 负向样本的具体构造（缺 `source`、`metrics` 非整数、超 `maxProperties` 等）：待读 Schema 后逐条列。
+**已定（第二轮补读 Schema 后逐条列出）**
+负向样本按 Schema 的 `required` 与枚举构造，每条对应一个"实现若写错就会被拒"的违约点：
+1. `web_js_error`：缺 `dimensions.source`（required）→ 应被 Ajv 拒；
+2. `web_js_error`：缺 `dimensions.fingerprint`（required）→ 拒；
+3. `web_js_error`：`metrics.count` = 0（`minimum: 1`）→ 拒；
+4. `web_js_error`：`metrics.count` 写成 `1.5`（非 integer）→ 拒；
+5. `web_vitals`：`dimensions.metric_name` 写成 `'FID'`（不在 `FCP/LCP/CLS/INP/TTFB` 枚举内）→ 拒；
+6. `web_vitals`：缺 `dimensions.rating` 或写成 `'ok'`（不在 `good/needs-improvement/poor` 内）→ 拒；
+7. `web_vitals`：缺 `metrics.delta`（required）→ 拒；
+8. `web_long_task`：缺 `metrics.duration_ms`（required）→ 拒；
+9. `web_long_task`：往 `dimensions` 里塞字段（该 Schema 的 `dimensions` 是空对象 schema）→ 拒；
+10. `web_http`：`dimensions.status_class` 写成 `'200'`（应为 `'2xx'`）→ 拒；
+11. `web_http`：`metrics.status` = 99（`minimum: 100`）→ 拒；
+12. `web_http`：缺 `dimensions.url_template`（required）→ 拒。
+- **非空转对照**：另加一条"故意构造的合法样本必须被接受"，以防"校验器根本没在跑"（本会话已出现两次"自证空转"：正则抽到 0 个名字却报通过、`console.` 转义错误的 grep）。
+- **不复制 Schema 到测试目录**：直接 import `docs/contracts/schemas/builtin-events/*.json`（T10/T13/T14 的既有做法），避免副本漂移。
 
-## 8. 测试先行（20 条 AC 映射）
+## 8. 测试先行（16 条 AC 映射；AC-15..18 属 T19）
 
 **已定**
 - 映射表逐条列：AC 编号 → 测试文件 → 用例名 → **预写的断言形态**。
 - **fail-first 必须是断言级失败**（不是 `Failed to resolve import`）；失败摘要原文留证。
 - 必须先落接口桩再写用例，避免"文件不存在"型的假失败。
 
-**已读原文**：`tests/acceptance/C05.md`（20 条 AC 全文）。下表按 **C05.md 原文**填写；事件名、`source` 取值、字段名一律照抄原文，**凡原文未给出确切字段路径的，在「待定」列写明缺什么**（本轮未读 Schema，不猜字段路径）。
+**已读原文**：`tests/acceptance/C05.md`（全文 20 条；其中 **16 条属本任务**，AC-15..18 属 T19）。下表按 **C05.md 原文**填写；事件名、`source` 取值、字段名一律照抄原文，**凡原文未给出确切字段路径的，在「待定」列写明缺什么**（本轮未读 Schema，不猜字段路径）。
 
 | AC | 原文要求（照抄要点） | 测试文件（拟） | 用例名（拟） | 预写断言形态（语义） | 待定 |
 |---|---|---|---|---|---|
 | C05-AC-01 | 未捕获异常 → `web_js_error`，`source` 为 `window_error`，附脱敏后错误栈 | `packages/plugins/src/error/capture.test.ts` | `AC-01 未捕获异常上报 web_js_error 且 source=window_error` | 事件名为 `web_js_error`；`source === 'window_error'`；注入伪造敏感值的 message/stack 在产出中**不再出现** | 事件字段路径（`fields`/`dimensions`？）以 `web_js_error.schema.json` 为准 |
 | C05-AC-02 | 未处理拒绝（Error 对象 / 字符串两种拒绝值）都上报，`source` 为 `unhandled_rejection` | 同上 | `AC-02 unhandled_rejection 两种拒绝值都上报` | 两条用例各断言 `source === 'unhandled_rejection'`；字符串拒绝值也被归一化 | 字符串拒绝值的归一化字段 |
-| C05-AC-03 | 同一错误 1 秒 100 次 → 按 `fingerprint` 去重、上报次数受控、`count` 记总次数、计 `filtered_by_plugin` | 同上 | `AC-03 同指纹去重且 count 记总次数` | 上报条数 ≪ 100（预期 1）；`count`（或 `metrics.count`）`=== 100`；原因码计数含 `filtered_by_plugin` | `count` 的确切字段位置；`filtered_by_plugin` 是否已在 `reason-codes.md` 登记（**需核**） |
+| C05-AC-03 | 同一错误 1 秒 100 次 → 按 `fingerprint` 去重、上报次数受控、`count` 记总次数、计 `filtered_by_plugin` | 同上 | `AC-03 同指纹去重且 count 记总次数` | 上报条数 ≪ 100（预期 1）；`count`（或 `metrics.count`）`=== 100`；原因码计数含 `filtered_by_plugin` | **已核（第二轮）**：`count` 在 `metrics.count`（`integer, minimum: 1`）；`filtered_by_plugin` **已登记**（`reason-codes.md` 第 27 行，归属 C02/C05，对应 C05-AC-03） |
 | C05-AC-04 | 错误前 25 次点击与路由跳转 → 附**最近 20 条面包屑**；**面包屑中没有输入框内容** | 同上 | `AC-04 面包屑取最近 20 条且不含输入框内容` | 面包屑条数 `=== 20`（25 次操作后）；输入框的伪造值 `input.value` 在产出中**不再出现** | 面包屑字段名与承载方式；**公共 API 是否有配置入口**（见第 13 节冲突 ③） |
-| C05-AC-05 | 正常加载 → 上报 FCP、LCP、TTFB；交互后 INP；隐藏时 CLS | `packages/plugins/src/perf/vitals.test.ts` | `AC-05 五类核心指标各自上报` | 五类指标名各出现一次；值来自注入的 `PerformanceObserver` 条目（不得自行计时） | 事件名（`web_vitals`？）+ 指标字段名以 Schema 为准 |
-| C05-AC-06 | 制造 120 ms 长任务 → `web_long_task`，`duration_ms` 约 120 | `packages/plugins/src/perf/long-task.test.ts` | `AC-06 长任务上报 duration_ms` | 事件名 `web_long_task`；`duration_ms` 落在容差内（如 100–140） | 容差取值；`entryType` 列表 |
+| C05-AC-05 | 正常加载 → 上报 FCP、LCP、TTFB；交互后 INP；隐藏时 CLS | `packages/plugins/src/perf/vitals.test.ts` | `AC-05 五类核心指标各自上报` | 五类指标名各出现一次；值来自注入的 `PerformanceObserver` 条目（不得自行计时） | **已核（第二轮）**：事件名 `web_vitals`；`dimensions.metric_name` 枚举 `FCP/LCP/CLS/INP/TTFB`、`dimensions.rating` 必填枚举 `good/needs-improvement/poor`；值在 `metrics.value`/`metrics.delta`（均必填） |
+| C05-AC-06 | 制造 120 ms 长任务 → `web_long_task`，`duration_ms` 约 120 | `packages/plugins/src/perf/long-task.test.ts` | `AC-06 长任务上报 duration_ms` | 事件名 `web_long_task`；`duration_ms` 落在容差内（如 100–140） | **已部分定（第二轮）**：字段为 `metrics.duration_ms`（必填）；容差建议 **90–150 ms**（AC 原文只说「约为 120」）；`entryType` 清单见第 2 节定稿 |
 | C05-AC-07 | 浏览器不支持某性能条目类型 → 不抛错、跳过该指标 | `packages/plugins/src/perf/degrade.test.ts` | `AC-07 不支持的条目类型被跳过且不抛错` | 注入会抛错的 `observe` 后：不抛错、该指标不上报、其余指标照常 | 覆盖哪些"不支持"形态（`observe` 抛错 / 回调不收 / 无 API） |
 | C05-AC-08 | **History 模式**下 `pushState`、`replaceState`、后退 → **每次路由变化上报 `web_pageview`**，`page_id` 为**路由模板** | `packages/plugins/src/route/history.test.ts` | `AC-08 History 三种变化各上报一次且 page_id 为模板` | 三种操作各产出 1 条 `web_pageview`；`page_id === '/task/:id'`（模板而非实参） | **与第 3 节既有结论冲突，见第 13 节冲突 ①**；`page_id` 模板来源（`routePatterns`？） |
 | C05-AC-09 | Hash 模式；另测手动模式 → Hash 变化上报；手动模式**只在业务调用时**上报 | `packages/plugins/src/route/hash.test.ts`、`.../manual.test.ts` | `AC-09 Hash 变化上报 + 手动模式不自动上报` | hash 变化产出 1 条；手动模式下不监听路由事件，仅 `setPage` 调用产出 | Hash 模式的 `page_id` 取值口径 |
@@ -108,7 +141,8 @@
 | C05-AC-19 | 第三方 APM 先/后初始化，两边都 hook `fetch` 与 `onerror` → 两边都采到数据；**本 SDK 销毁后第三方 hook 仍生效** | `packages/plugins/src/coexist/order.test.ts` | `AC-19 两种初始化顺序都共存 + 销毁后第三方仍生效` | 两种顺序各一组：两边各收到事件；`destroy()` 后第三方 hook 仍被调用且收到数据 | 需要最小化的第三方 APM 桩（本任务自造、仅测试用） |
 | C05-AC-20 | 共存模式默认配置 → **错误、性能、HTTP 插件默认关闭**；可由远程配置逐个开启 | `packages/plugins/src/coexist/defaults.test.ts` | `AC-20 共存模式下三类插件默认关闭且可远程开启` | 共存模式默认：三类插件均不产出事件；远程配置置启用后各自产出 | **与"运行期只能关不能开"存在张力，见第 13 节冲突 ④** |
 
-**映射完成度**：16/16 逐条映射完成；其中 4 条仍有待定（AC-03 的 `count` 字段位置与 `filtered_by_plugin` 登记状态、AC-05 的事件名与指标字段名、AC-06/07 的容差与 entryType、AC-13 的验证方式）。
+**映射完成度**：16/16 逐条映射完成。**第二轮补读 Schema 后，字段级待定基本消除**——AC-03（`metrics.count` + `filtered_by_plugin` 已登记）、AC-05（`web_vitals` + `metric_name`/`rating` 枚举）、AC-06/07（`duration_ms` + 容差）、AC-10（`method`/`url_template`/`status_class` 枚举/`metrics.status`）、AC-11（令牌两个注入点）均已按原文定稿，负向样本见第 7 节。
+**仍需负责人裁定的三项**：AC-08/09（自动路由与「不打补丁」冲突，见冲突 ①）、AC-12（**契约未定义追踪头名**，见第 4 节与冲突 ⑤）、AC-13（构建产物检查方式，见冲突 ②）。
 **AC-15…AC-18 不在本表**——属 T19（见文件头）。
 
 ## 9. 判别力验证（变异验证）
@@ -138,6 +172,8 @@
 | 3 | **（需确认）** `packages/browser/**` 的装配接线 | 装配根**归属空缺**（无任何任务卡认领）；若 T18 不含装配，则多数用例无法端到端验证 | 待负责人指定归属后再评估 |
 | 4 | **（待确认）** `tests/acceptance/C05.md` 的 AC-15..18 归属 | 任务卡与验收文件不一致 | 不涉及文件改动，只需确认范围 |
 
+| 5 | `packages/plugins/package.json` 的 `exports` 新增子路径（`./error` `./perf` `./route` `./http`）+ per-entry 构建配置 | **AC-13 要求按插件分别构建**，而仓库现有约定是单入口（见 §5） | 四个 `exports` 条目 + 构建入口配置；改后需 `pnpm api:update` |
+
 **未申请的越界**（本轮明确不做）：kernel、transport/投递代码、`docs/contracts/**`、门禁配置、`packages/core/**`。
 
 ## 12. 风险与对策
@@ -155,7 +191,7 @@
 
 ## 13. 读原文后发现的冲突与契约疑问（**优先级高于填完整计划**）
 
-以下四条都是**读 `tests/acceptance/C05.md` 原文后发现、与计划既有结论或既有契约/配置不一致**的地方。它们不是"待定项"，而是**必须先解决否则会做错**的问题。
+以下**六条**都是**读 `tests/acceptance/C05.md` 原文与相关 Schema/契约后发现、与计划既有结论或既有契约/配置不一致**的地方。它们不是"待定项"，而是**必须先解决否则会做错**的问题。
 
 ### ① 【最严重】AC-08/AC-09 要求自动路由检测，与第 3 节「不主动打补丁 history」直接冲突
 
@@ -189,8 +225,17 @@ AC-04 原文：「错误前用户做了 25 次点击和路由跳转 → 附**最
 - **张力点**：若"默认关闭"发生在**初始化**（builtin 缺省），远程配置在**拉取后**把它们打开——那不是"运行期覆盖打开"，而是"远程配置的缺省值与内置缺省不同"，**并不违反 C03**。但前提是**"共存模式"必须在初始化时就能确定**（例如由初始化参数 `apm_coexistence: true` 决定），否则 SDK 无法知道该用哪套缺省。
 - **需负责人定**：共存模式如何声明（初始化参数？远程配置的某个标志？）、以及**非共存模式**下 error/perf 的缺省是开还是关（T13 的内建默认表记的是 error/perf/route 开、http 关，与 AC-20 的共存模式缺省不同）。
 
+### ⑤ 【新】AC-12 的「链路追踪头」在契约里没有名字
+
+见第 4 节的详细说明：`docs/contracts/**`（不含 `changes/`）全库检索 `trace`/`traceparent`/`tracestate`/`追踪头`/`链路追踪` **0 命中**，`ingest-protocol.md` 只定义了 `X-App-Id`/`X-Write-Token`/`X-Request-Id`/`X-Server-Time`。**AC-12 无法在不猜头名的前提下实现**，三条出路见第 4 节。另需核 `docs/decisions/Q7-apm-coexistence.md` 是否提到该头。
+
+### ⑥ 【新】AC-10 的「失败原因正确」没有取值定义
+
+`web_http.dimensions.failure_reason` 在 Schema 里是**无枚举的自由字符串**，而 `tests/acceptance/C05.md` 除标题外只有一张表、未列任何取值。**「正确」目前无法被客观验证**，需负责人拍板一组可枚举值（或确认由实现定义并写进 README）。
+
 ### 附：本轮未读、需下一轮补的
 
-- `docs/contracts/schemas/builtin-events/{web_js_error,web_vitals,web_long_task,web_pageview,web_http}.schema.json` —— 用于填 §1 的 `fingerprint` 构成、§2 的 `entryType` 清单、§7 的负向样本、以及 §8 表中所有"字段路径/事件名"待定项；
-- `docs/contracts/event-standard.md` 第 6 节 与 `reason-codes.md`（核 `filtered_by_plugin` 是否已登记）；
-- `docs/contracts/ingest-protocol.md` 2.2（追踪头名）。
+~~- 五个内置事件 Schema~~ → **第二轮已读**（required/properties/枚举已落到 §1/§2/§4/§7/§8）；
+~~- `event-standard.md` 第 6 节 与 `reason-codes.md`~~ → **第二轮已读**（`event-standard.md:83` 与 Schema 一致；`filtered_by_plugin` 已登记）；
+- `docs/contracts/ingest-protocol.md` 2.2 → **已读，结论是缺口**（未定义追踪头，见冲突 ⑤）；
+- `docs/decisions/Q7-apm-coexistence.md`（核追踪头名与包装层级）；`remote-config.schema.json` 的 `plugins` 段（核 AC-20 共存模式的声明方式）。
