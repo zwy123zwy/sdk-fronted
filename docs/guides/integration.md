@@ -9,7 +9,7 @@
 
 **现在可以做到：**
 
-- 用 npm 依赖或 `<script>` 两种方式把包引进来，在 Vite 的生产构建、`<script>` 无构建环境、Vitest、Jest 中直接导入（指南第 4.2 节要求主流构建工具都不需要额外配置；本仓库 `examples/` 覆盖 Vite、IIFE、Vitest、Jest，**webpack 与开发服务器未在本仓库验证**）。
+- 用 npm 依赖或 `<script>` 两种方式把包引进来，在 Vite 的生产构建、`<script>` 无构建环境、Vitest、Jest 中直接导入（指南第 4.2 节要求主流构建工具都不需要额外配置；本仓库 `examples/` 覆盖 Vite、IIFE、Vitest、Jest，**以及 webpack 5 生产构建与 webpack 开发服务器**）。
 - 按 [API 参考](api-reference.md) 调用 C01 的公共方法：`init` / `track` / `log` / `captureError` / `setUser` / `clearUser` / `setContext` / `removeContext` / `setPage` / `setConsent` / `flush` / `destroy`，以及 `onEvent` / `onDiagnostics`。
 - 用 K01 在自己的仓库里维护事件注册表并生成类型；用 K02 给远程配置正文签名并托管；用 M01 在本地起一个接收服务做协议联调（见 [工具指南](tools.md)）。
 
@@ -75,13 +75,17 @@ client.destroy();
 
 ### 3.3 已验证的导入环境
 
-仓库 `examples/` 下有三个可运行的最小工程，就是"接入方在各类构建/测试环境中能否直接导入"的基准（指南第 4.2 节）：
+仓库 `examples/` 下这些可运行的最小工程，就是"接入方在各类构建/测试环境中能否直接导入"的基准（指南第 4.2 节）：
 
 | 工程 | 验证什么 | 命令 |
 |---|---|---|
 | `examples/vite` | Vite 生产构建能解析并打包含（`vite build`） | `pnpm examples:build` |
+| `examples/webpack` | webpack 5 生产构建（无 SDK 专属配置）与 webpack 开发服务器 | `pnpm examples:build` / `pnpm examples:test` |
 | `examples/node-import` | Vitest 与 Jest（原生 ESM）中直接导入**构建产物**，不需要额外配置/transform | `pnpm examples:test` |
 | `examples/script-tag` | IIFE 产物在无构建环境中通过 `<script>` 暴露全局 `WebReportSDK` | `pnpm examples:test` |
+
+> webpack 两格（生产构建、开发服务器）的状态与证据见 `docs/reports/compat-matrix.md` 第 2.1 节第 10/11 格
+> （均 `pass`；证据 `tests/compat/results/webpack-{production,dev-server}.json`，`status: "pass"`）。
 
 前置条件：新工作树/新克隆里这些命令需要先有 `packages/*/dist`（`examples/vite` 的解析与 `examples/node-import` 的导入都指向 `dist`）。指南第 6 节已明确 `pnpm gates` 的顺序是 `lint → build → typecheck → …`，原因就是这一点。本指南的验证记录见第 8.1 节。
 
@@ -311,13 +315,93 @@ console.log(seen);                           // 两条事件；每条含 event_i
 
 用装配根把接收方接上（本仓库已验证的是 M01 一侧的协议行为，见 [工具指南 · M01](tools.md#m01-本地联调)）：
 
-1. 用 [M01](tools.md#m01-本地联调) 在本地起接收服务：`node tools/mock-receiver/dist/cli.js`（默认 `127.0.0.1:8787`）。
-2. 把 SDK 的端点指向 M01（`endpoint` / 远程配置 `endpoints.ingest`），`app_id` 与令牌用占位值。
-3. 调用 `client.track('self_check_event')` 后 `client.flush()`。
-4. 查 M01 的计数：`curl -s http://127.0.0.1:8787/__mock/counters`，确认 `stored_events` 增加且 `rejected_*` 为 0；查入库：`curl -s http://127.0.0.1:8787/__mock/events`。
-5. 对账恒等式：`received_events - stored_events === duplicate_events`（M01-AC-06）。
+1. 用 [M01](tools.md#m01-本地联调) 在本地起接收服务（默认 `127.0.0.1:8787`）：
 
-**当前状态：第 1–5 步可执行**。装配根用法：`createAssembly({ appId, endpoint, token, env, release, consent: 'granted' })` 后调用 `assembly.init()`（或直接用返回的 `client`），`track` 产出的事件会经 C04 管线 → C06 队列 → C07 发送器发到 `endpoint`。仓库里的端到端用例见 `packages/browser/src/assembly.test.ts`（注入传输替身，不需要真实网络）。
+   ```bash
+   node tools/mock-receiver/dist/cli.js
+   ```
+
+   **M01 的上报端点路径是 `/v1/batch`**（契约 `docs/contracts/ingest-protocol.md` 第 1 节，M01 启动时自己也会打印这一行）。
+   路径必须拼在 `endpoint` 里：`endpoint: 'http://127.0.0.1:8787/v1/batch'`。**写成 `/ingest` 会拿到 404**
+   （实测：`POST /ingest → 404 {"error":"not_found","message":"unknown path: /ingest"}`；而
+   `POST /v1/batch` → 带**正确占位令牌**时 **202**，令牌写错则 `401 invalid_token`）。
+   远程配置里的 `endpoints.ingest` 是**配置键名**，不是 URL 路径；它若给出目录形式的地址，SDK 不会替你补 `/v1/batch`。
+
+2. 把下面的片段存成 `self-check.mjs`，然后运行：
+
+   ```bash
+   node self-check.mjs
+   ```
+
+   片段里的 `token` 用 [M01](tools.md#m01-本地联调) 的固定占位令牌（见 `tools/mock-receiver/README.md`），
+   `app_id` 用形状合法的占位值。**两个值都必须是合法形状**：占位令牌写错会得到 `401 invalid_token`，
+   `app_id` 与批次头不一致会得到 `400 app_id_mismatch`。
+
+   > 若你想**在 SDK 仓库里**直接试跑这个片段（不建接入方工程），本仓库的包不在 `node_modules` 里，
+   > 把 `import` 那一行改成相对路径即可：`import { createAssembly } from './packages/browser/dist/index.js';`
+
+3. 片段会调用 `assembly.client.track('self_check_event')` 与 `assembly.flush()`。
+
+   > **`Assembly` 上只有 `init()` / `flush()` / `destroy()`，没有 `track`。** 业务方法（`track` / `log` /
+   > `setUser` / `setPage` / …）都在 **`assembly.client`** 上。写成 `assembly.track(...)` 会抛
+   > `TypeError: assembly.track is not a function`（实测复现，见 `docs/reports/t33-access-blockers.md` 的 D-04）。
+
+4. `flush()` 之后**必须等投递完成再查计数**（见下方"`flush` 是异步的"）。
+5. 查 M01 的计数：`curl -s http://127.0.0.1:8787/__mock/counters`，确认 `stored_events` 增加且
+   `rejected_*` 为 0；查入库：`curl -s http://127.0.0.1:8787/__mock/events`。
+6. 对账恒等式（M01-AC-06）：`received_events - stored_events === duplicate_events`。
+
+```js
+// self-check.mjs —— 整段可运行。前置：M01 起在 127.0.0.1:8787。
+import { createAssembly } from '@web-report-sdk/browser';
+
+const M01 = 'http://127.0.0.1:8787';
+
+const assembly = createAssembly({
+  appId: 'pilot-selfcheck-app',        // 形状合法的占位值
+  endpoint: `${M01}/v1/batch`,         // ← 契约路径：docs/contracts/ingest-protocol.md 第 1 节
+  token: 'placeholder-write-token-0000', // M01 的固定占位令牌，见 tools/mock-receiver/README.md
+  env: 'staging',
+  release: '0.0.0',
+  consent: 'granted',                  // essential_only + unknown 下非必要事件不发送
+  consentMode: 'full',
+  target: null,                        // 在本脚本里没有原生事件目标
+  location: { href: 'https://selfcheck.example/', pageId: '/selfcheck' }, // 保证 page_id 是字符串
+  startHealthReporting: false,
+});
+
+assembly.init();
+assembly.client.track('self_check_event', { dimensions: { step: 'endpoint' } }); // 注意是 .client
+assembly.flush();
+
+// --- `flush()` 是异步的：它只"发起"投递，同步返回 undefined（不是 Promise，没有可 await 的 promise）---
+// 实测：调 flush() 后立刻读计数 => received_batches = 0；
+//       等一次网络往返后再读    => received_batches = 1。
+// 所以要轮询 M01 的计数直到非 0（并设超时），而不是"调完立刻查"。
+const deadline = Date.now() + 3000;
+let counters = await (await fetch(`${M01}/__mock/counters`)).json();
+while (counters.received_batches === 0 && Date.now() < deadline) {
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  counters = await (await fetch(`${M01}/__mock/counters`)).json();
+}
+
+console.log(counters.stored_events > 0 ? '上报成功' : '上报失败（超时）', counters);
+console.log('恒等式:', counters.received_events - counters.stored_events === counters.duplicate_events);
+assembly.destroy();
+```
+
+**当前状态：以上步骤可执行**（本仓库实测 2026-10-16：`received_batches=1, received_events=1,
+stored_events=1, rejected_invalid_structure=0`，恒等式成立，脚本 exit 0）。`createAssembly({…})` 后调用
+`assembly.init()`，事件经 C04 管线 → C06 队列 → C07 发送器发到 `endpoint`。仓库里注入传输替身的端到端
+用例见 `packages/browser/src/assembly.test.ts`（不需要真实网络）。
+
+**与旧版指南的两处更正（依据实测）**：
+
+- 旧版第 2 步暗示端点可写成 `/ingest` —— 错。`POST /ingest` 实测 404；真实路径 `/v1/batch`（契约
+  `docs/contracts/ingest-protocol.md` 第 1 节，且 M01 CLI 启动时自己打印「上报端点：POST /v1/batch」）。
+- 旧版把 `track` 写成装配根的方法 —— 错。`Assembly` 的公开面是
+  `client, kernel, config, clock, erasePort, queue, delivery, reporter, nativeHttpRefs, collectors,
+  init(), flush(), destroy()`（`packages/browser/dist/index.d.ts`）。
 
 ## 9. 常见问题
 

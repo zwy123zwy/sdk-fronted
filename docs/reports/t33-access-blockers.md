@@ -18,11 +18,11 @@
 |---|---|---|---|
 | **D-01** | **阻断级** | 不设置 `pageId` 时 SDK 产出 `common.page_id: null`，**违反冻结契约**，接收方按结构非法拒收 → 事件全部丢失 | SDK（C04/C01） |
 | **D-02** | **阻断级** | 在装配根上调用公共 API `client.onEvent()` 会让**全部投递静默失效** | SDK（C01 装配根契约） |
-| **D-03** | **阻断级（文档）** | 指南把 M01 的上报端点写成 `/ingest`，真实路径是 `/v1/batch` → 照做必 404 | T34（文档） |
-| **D-04** | 高（文档） | 指南第 8.3 节的自检片段**不是可运行代码**（`Assembly` 没有 `track`） | T34（文档） |
-| **D-05** | 中（文档） | 指南称"webpack 与开发服务器未在本仓库验证"，**已过期**（T30 已实测通过） | T34（文档） |
+| **D-03** | **阻断级（文档）** | 指南把 M01 的上报端点写成 `/ingest`，真实路径是 `/v1/batch` → 照做必 404 | T34（文档）· **已修 2026-10-16** |
+| **D-04** | 高（文档） | 指南第 8.3 节的自检片段**不是可运行代码**（`Assembly` 没有 `track`） | T34（文档）· **已修 2026-10-16** |
+| **D-05** | 中（文档） | 指南称"webpack 与开发服务器未在本仓库验证"，**已过期**（T30 已实测通过） | T34（文档）· **已修 2026-10-16** |
 | **D-06** | 中（方法论） | 既有"端到端验证"用的是**不校验结构的自定义接收端**，让 D-01 逃过多轮验收 | T30/T29 的口径 |
-| **D-07** | 低（文档） | 指南的 flush 后立刻查计数会读到 0（异步投递未说明） | T34（文档） |
+| **D-07** | 低（文档） | 指南的 flush 后立刻查计数会读到 0（异步投递未说明） | T34（文档）· **已修 2026-10-16** |
 
 ---
 
@@ -84,6 +84,33 @@ M01 validateBatch => {"ok":false,"error":"invalid_structure","message":"invalid 
 - **同时补一条契约自证用例**：用 Ajv 对**真实产出批次**校验（见 D-06），否则同类缺陷还会漏。
 - 单元级哨兵建议：`common.page_id` 必须是 `string` 或 `undefined`，**不得为 null**。
 
+### 已修（2026-10-14，执行方；修复 + 复现证据）
+
+**根因比本条目原描述更精确**：`null` **不是**"未调 `setPage`"的默认值 —— 完全不注入位置来源时
+`page_id` 键本来就不出现（本就合法）。`null` 只在**注入的 `LocationSource` 在运行期给出非字符串
+`pageId`**（JS 接入方 / SSR 适配层 / 反序列化快照）时产生：`submit()` 的
+`context.page_id ?? location.pageId` 拦不住 `null`，`makeEvent` 的 `!== undefined` 判定又放行，
+C06 `promoteCommonFields` 再把它提升到 `common`。**契约违反是真实的，触发条件是外部输入的运行期形态**
+（与 `view_id`/`device_id`/stub `event_id` 三处同族，都是"边界不校验外部值"）。
+
+**修法**：在 `LocationSource` / `init({ location })` / 加载桩命令这些**外部输入边界**做与契约同源的
+归一化，唯一实现是 `context/page.ts#normalizePageId`（`typeof value !== 'string'` → 按"未设置"，
+并顺带让 `init({ pageId: null })` 不再抛 `TypeError`）。选"**键不出现**"而不是"给兜底字符串"：
+`page_id` 是路由模板/手动页面标识，C04 明确**不从 URL 推导**（裁定 8），编造值会污染语义。
+
+**证据**：
+- `packages/browser/src/assembly-contract.test.ts`：对**真实产出的完整批次**用 Ajv 2020-12 校验
+  `batch.schema.json`，并断言事件体与 `common` 两处的 `page_id` **要么是 string、要么键不存在**。
+  修复前原文：`[{"instancePath":"/common/page_id","schemaPath":"#/properties/page_id/type","keyword":"type","params":{"type":"string"},"message":"must be string"}]`
+- `packages/core/src/api/location-boundary.test.ts`：边界单测（null / 数字 / `href` 非字符串 /
+  `init({ pageId: null })` 不抛错）。
+- M01 端到端（修复后，`location.pageId: null`）：`stored_events=1`、`rejected_invalid_structure=0`。
+- 变异验证：把归一化临时改回 → 2 条批次用例 + 4 条边界用例转红（同一 Ajv 原文）。
+
+**同族问题（一并修）**：同一注入点上的 `href` 非字符串会让 `track()` 抛
+`TypeError: Cannot read properties of null (reading 'indexOf')`（`sanitizeUrl` 直吞外部输入），
+`init({ location: null })` 会在 `initOptions.location.href` 上抛同类异常 —— 二者已在同一边界归一化掉。
+
 ---
 
 ## D-02（阻断级）：公共 API `client.onEvent()` 会让装配根的投递**静默失效**
@@ -141,6 +168,25 @@ client.onEvent((event: KernelEvent): void => {
   或让装配根**不再依赖公共 `onEvent`**，改用内部能力注册出口。
 - 无论哪种，**都必须有一条守卫**：装配后调用 `onEvent`，投递仍应成立。
 
+### 已修（2026-10-14，执行方；选 (a)）
+
+**选 (a)**：装配根**不再借用替换语义的公共 API**。不选 (b)：`onEvent` 的公共契约是"**替换**事件出口"
+（等价于 `init({ onEvent })`），`packages/core/src/api/edge-cases.test.ts` 有"init 的 `onEvent` 覆盖
+`createClient` 注入点"的锁定用例 —— 改成追加就是破坏既有公共语义。
+
+**修法**：core 新增内核能力 `EVENT_OBSERVER_CAPABILITY`（`'sdk.event_observer'`，**追加**语义：
+值是 `(observer) => Dispose`），`emit()` 在调用公共 `eventSink` 之后再依次调用全部观察者；
+`assembly.ts` 改用它接线投递。接入方在装配根上调 `onEvent` 只替换"自己的观察出口"，投递不再被顶掉；
+`onEvent` 的公共契约与其返回的注销函数**语义未改**（`assembly.ts` 模块头有明文声明）。
+装配根拿不到该能力时**抛错**，而不是退回静默不投递。
+
+**证据**：`packages/browser/src/assembly-contract.test.ts` 的 D-02 组 —— `init` 前/后各一条：
+投递成立（批次到达接收替身、`eventsSent ≥ 1`）**且**接入方观察者仍收到同一条事件；外加不调 `onEvent`
+的基线。变异验证：把接线改回 `client.onEvent(...)` → 两条 onEvent 用例转红（`waitFor 超时`），
+D-01 组保持绿（两组互不耦合）。
+
+**公共导出面**：新增 `EVENT_OBSERVER_CAPABILITY`（additive；`etc/core.api.md` 需 `pnpm api:update`，由负责人执行）。
+
 ---
 
 ## D-03（阻断级·文档）：指南给 M01 的端点 `/ingest` 是错的，真实路径是 `/v1/batch`
@@ -187,6 +233,36 @@ counters: received_batches=0, stored_events=0
 把 `integration.md` 第 8.3 节第 2 步的端点写成 **`/v1/batch`**，并在该节给出
 `node tools/mock-receiver/dist/cli.js` 的**完整输出**（它自带正确端点，接入方一眼可见）。
 
+### 已修（2026-10-16，T34 执行；**先实测后改**）
+
+**实测脚本**：`temp/t34-d03-endpoint-probe.mjs`（裸 HTTP 探测）、`temp/t34-e2e-probe.mjs`（SDK 真实投递）。
+M01 起在 `127.0.0.1:8899`。原始响应：
+
+```
+[1-GET]  GET  /ingest   -> 404  body: {"error":"not_found","message":"unknown path: /ingest"}
+[2-POST] POST /ingest   -> 404  body: {"error":"not_found","message":"unknown path: /ingest"}
+[3-GET]  GET  /v1/batch -> 405  body: {"error":"method_not_allowed","message":"only POST is supported on /v1/batch"}
+[4-POST] POST /v1/batch -> 401  body: {"error":"invalid_token","message":"invalid write token"}   # 占位令牌写错，见下
+```
+
+用**合法占位令牌** `placeholder-write-token-0000`（`tools/mock-receiver/README.md` 第 2 节）跑 SDK 真实投递：
+
+```
+endpoint=/ingest   → M01: received_batches=0, stored_events=0；SDK delivery.metrics(): eventsSent=0, batchesFailed=1
+endpoint=/v1/batch → M01: received_batches=1, received_events=1, stored_events=1, rejected_invalid_structure=0；
+                         SDK delivery.metrics(): eventsSent=1, batchesSent=1, batchesFailed=0
+```
+
+**改法**（`docs/guides/integration.md` 第 8.3 节）：端点写成 `endpoint: 'http://127.0.0.1:8787/v1/batch'`，
+并注明 `/ingest` 会 404、`endpoints.ingest` 只是**配置键名**而非 URL 路径、M01 CLI 启动时会打印正确端点。
+
+**回归**：`temp/t34-guide-snippet-regression.mjs` 逐字执行修订后的片段 → `exit 0`，
+`received_batches=1 / received_events=1 / stored_events=1 / rejected_invalid_structure=0`，恒等式成立。
+
+> **诚实记录（探针自身错误）**：本轮第一次实测我用了自造的 `placeholder-token`，得到 `/v1/batch → 401`
+> 与 `stored_events=0`，**一度又要把它读成"端点也不通"**。真实原因是占位令牌写错（M01 是固定值比对）。
+> 换回合法占位值后同一路径立刻 `202 / stored_events=1`。与本文末"探针三错"同一条教训。
+
 ---
 
 ## D-04（高·文档）：指南第 8.3 节的自检片段不是可运行代码
@@ -218,6 +294,28 @@ TypeError: assembly.track is not a function
 
 第 8.3 节给一段**能整段复制运行**的代码，明确写出 `assembly.client.track(...)`。
 
+### 已修（2026-10-16，T34 执行）
+
+**逐字复现**（`temp/t34-e2e-probe.mjs`，真实装配根）：
+
+```
+=== D-04: 旧 8.3 片段逐字执行 ===
+  ✅ 复现失败：TypeError: assembly.track is not a function
+  Assembly 自身方法: client, clock, collectors, config, delivery, destroy, erasePort, flush,
+                     init, kernel, nativeHttpRefs, queue, reporter
+  Assembly 是函数: track=undefined, log=undefined, setUser=undefined, init=function, flush=function
+  Assembly.client 上 track=function, flush=function
+```
+
+与 `packages/browser/dist/index.d.ts` 的 `interface Assembly`（第 82–103 行）一致：装配根只有
+`init()` / `flush()` / `destroy()` 三个方法，其余全是句柄。
+
+**改法**：`integration.md` 第 8.3 节改为**一段整段可复制的 `self-check.mjs`**，其中显式写
+`assembly.client.track(...)`，并用醒目提示写明"`Assembly` 上没有 `track`，业务方法在 `assembly.client` 上"。
+
+**回归**：`temp/t34-guide-snippet-regression.mjs` **逐字**执行修订后的片段 → `exit 0`
+（不是"读代码判断"，是真跑）。
+
 ---
 
 ## D-05（中·文档）：指南的"webpack 与开发服务器未验证"已过期
@@ -234,6 +332,21 @@ webpack 生产构建与 webpack dev server **两格均 `pass`**，证据
 
 > 这属于 `handover.md` 第 2 节 T34 小节列出的"随其他任务落地而变成错的事实"的第 3 类。
 > **归 T34。**
+
+### 已修（2026-10-16，T34 执行；用 `compat-matrix.md` 的结论改写）
+
+**核对**（不是转述）：`docs/reports/compat-matrix.md` 第 2.1 节第 10/11 格，环境
+`webpack 5.104.1 + Chromium`（dev server 为 `webpack-dev-server 5.2.2`），**两格结论均为 `pass`**；
+证据文件 `tests/compat/results/webpack-production.json` 与 `webpack-dev-server.json` 的
+`status` 字段实测均为 `"pass"`（`generatedAt: 2026-10-14`），且 `examples/webpack/` 已入库
+（`package.json` 的 `build: node scripts/build-production.mjs`、`test: node scripts/dev-server.mjs`）。
+
+**改法**（`docs/guides/integration.md` 第 1 节）：把"**webpack 与开发服务器未在本仓库验证**"
+改为"**以及 webpack 5 生产构建与 webpack 开发服务器**"；并在第 3.3 节"已验证的导入环境"表里
+补上 `examples/webpack` 一行，指向 `docs/reports/compat-matrix.md` 第 2.1 节第 10/11 格与两份结果 JSON。
+
+**未动**：第 3.3 节的命令仍只用 `pnpm examples:build` / `pnpm examples:test`（`examples/webpack`
+的 npm script 正是这两个父命令会调到的），本任务实跑两者均 **exit 0**。
 
 ---
 
@@ -265,6 +378,30 @@ T30 的真实 Chromium 核心路径脚本，其接收端是脚本内自建的 no
 
 在该节加一句：`flush()` 只是**发起**投递，查计数前需等待投递完成
 （或轮询计数直到非 0，并设超时）。
+
+### 已修（2026-10-16，T34 执行；附实测数字）
+
+**实测**（`temp/t34-e2e-probe.mjs`，真实装配根 + 真实 HTTP 打 M01）：
+
+```
+track() 之后、flush() 之前:   M01 received_batches=0
+flush() 返回类型:             undefined, 非 Promise（同步返回 undefined）
+调 flush() 后立刻读（无等待）: M01 received_batches=0
+等一次网络往返后再读:          M01 received_batches=1
+⇒ 立刻=0 / 等待后=1，相差 1
+```
+
+**比原条目更精确的一点（原条目的措辞会把下一个人带偏）**：`flush()` **不返回 Promise**，
+它同步返回 `undefined`，因此**没有"`await` flush 的 promise"这回事**（写了 `await assembly.flush()`
+等于什么都没等）。正确做法是**轮询接收方计数直到非 0（并设超时）**，或等待投递指标
+`assembly.delivery.metrics()`（`eventsSent` / `batchesSent` / `batchesFailed`）。
+
+**改法**（`docs/guides/integration.md` 第 8.3 节）：把"`track` 后 `flush`"与"查计数"两步之间
+插入明确说明，并在可运行片段里给出**带超时的轮询**（`deadline = Date.now() + 3000`），
+使片段在"投递尚未完成"时不会误判失败。
+
+**回归**：修订后的片段实跑 → `exit 0`，`stored_events=1`、`rejected_invalid_structure=0`，
+片段在 50 ms 轮询内等到 `received_batches=1`。
 
 ---
 
