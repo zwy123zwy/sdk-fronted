@@ -182,9 +182,10 @@ test('真实浏览器项 C1：3 标签页接管必须能走真实 Web Locks（AC
   expect(withLocks.capability.hasLocks, 'AC-17 前置：真实 Chromium/WebKit 必须有 Web Locks').toBe(true);
   const errors = withLocks.outcomes.filter((item) => item.error !== undefined);
   // 真实浏览器里 `LockManager.request` 必须被正确调用（this 绑定）。
-  // 这条断言在 2026-10-14 的实测中**失败**：`createDefaultLocksPort()` 把
-  // `navigator.locks.request` 取出后裸调用 → `TypeError: Illegal invocation`。
-  // 单元测试用的是假端口，所以只有真实浏览器能发现。见 docs/reports/e2e-real-browser.md。
+  // 2026-10-14 复测：D-2 已修（`request.call(manager, …)`，见 packages/transport/src/leader/leader.ts），
+  // 本用例转绿。修复前 `createDefaultLocksPort()` 把 `navigator.locks.request` 取出后裸调用
+  // → `TypeError: Illegal invocation`；单元测试用的是假端口，只有真实浏览器能发现。
+  // 见 docs/reports/e2e-real-browser.md。本处只改注释，断言未动。
   expect(
     errors,
     '真实 Web Locks 端口不得抛错（见 packages/transport/src/leader/leader.ts:65 createDefaultLocksPort）',

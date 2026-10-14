@@ -47,6 +47,7 @@ import { isNonEmptyString } from '@web-report-sdk/core';
 import { isPlainRecord } from '@web-report-sdk/core';
 import { Kernel } from '@web-report-sdk/core';
 import { LocationSource } from '@web-report-sdk/core';
+import { LocksPort } from '@web-report-sdk/transport';
 import { LogLevel } from '@web-report-sdk/core';
 import { MAX_DIMENSION_VALUE_LENGTH } from '@web-report-sdk/core';
 import { MetricFields } from '@web-report-sdk/core';
@@ -119,6 +120,7 @@ export interface AssemblyOptions {
     readonly env?: string | undefined;
     readonly httpPlugin?: HttpPluginOptions | undefined;
     readonly location?: LocationSource | undefined;
+    readonly locks?: LocksPort | null | undefined;
     readonly nativeHttp?: NativeHttpRefs | undefined;
     readonly now?: (() => number) | undefined;
     readonly plugins?: Readonly<Record<string, boolean>> | undefined;
