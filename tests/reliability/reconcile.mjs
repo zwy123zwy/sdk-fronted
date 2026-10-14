@@ -219,7 +219,7 @@ export function renderReconciliation() {
   // ① 优雅路径：本仓库当前无数据 —— 如实说明
 
   // 关键口径提醒：JSON 里的窗口时长字段不是 D004 定义的暴露窗口时长（本次实测发现）。
-  p('> **读表前必读：`exposure_window_ms` 的语义不等于 D004 的"暴露窗口"**（本任务实测发现，见缺口 6）。');
+  p('> **读表前必读：`exposure_window_ms` 的语义不等于 D004 的"暴露窗口"**（本任务实测发现，见缺口 2）。');
   p('> 实现里 `commitLostWindowMs` 来自 `reconcileCommitLoss()` 的 `windowMs = now() - first_pending_at`，');
   p('> 源码注释写明"窗口时长是**上界**：会话死亡时刻不可观测，只能给到对账时刻"');
   p('> （`packages/transport/src/offline/offline-store.ts:318`）。因此它**包含强杀 + 重启 + 探测页打开**的耗时，');

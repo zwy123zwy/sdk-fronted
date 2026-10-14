@@ -124,6 +124,8 @@
 1. **计数类指标值为 0 时不上报。** 因此"某个 `drop_*` / `count_*` 键不出现"等价于"该窗口内为 0"，**不要当成缺数据或上报失败**。
 2. **`offline_written` / `offline_replayed` 的单位是"批次数"，不是事件数**（事件数另有本地观测量，不进契约指标）。按批次数建看板。
 3. **`exposure_window_ms` 必须与 `exposure_window_events` 同时出现**（Schema 的 `dependentRequired`，机器可校验）；`exposure_window_events` 为 0 时两者都不上报。
+
+   > **2026-10-13 补充（CR-007）：`exposure_window_ms` 是「窗口时长的上界，不是真实窗口」**——它的结束点是**重启后的对账时刻**，含强杀+重启+开探测页的开销（实测 923–1712 ms，而真实窗口只有 0–12 ms，差 2–3 个数量级）。**不得用它做 SLA 或容量判定**。真实窗口的**右端点（死亡时刻）在客户端本就不可观测**，SDK 只能把它夹在 `[observedWindowMs, windowMs]`（下界/上界，**结构性偏差两个方向都存在**）——见 `docs/contracts/changes/CR-007-exposure-window-upper-bound.md`。
 4. **`batches_sent` 与 `batches_failed` 不互补。** 前者只计常规通道成功提交的批次；后者含熔断（`circuit_open`，未尝试发送）与终态 4xx 拒绝；两者都**不含**离开通道与补发批次（补发计 `offline_replayed`）。**不要用 `sent + failed` 反推提交总数。**
 5. **`queue_length_max` 是窗口内的队列长度峰值**，在非自监控事件的入队时刻采样。
 6. 三个 `*_p99_ms`（`track_p99_ms` / `pipeline_p99_ms` / `serialize_p99_ms`）**只在 1% 会话上报**。
