@@ -30,9 +30,6 @@ const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const resultsDir = `${repoRoot}tests/compat/results`;
 const exampleDir = `${repoRoot}examples/webpack`;
 
-const command =
-  'node examples/webpack/scripts/build-production.mjs && node examples/webpack/scripts/dev-server.mjs';
-
 interface WebpackResult {
   readonly status: string;
   readonly engine: string;

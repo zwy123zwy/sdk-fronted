@@ -1,6 +1,6 @@
 {
   "task": "T30",
-  "generatedAt": "2026-10-14T08:21:42.528Z",
+  "generatedAt": "2026-10-14T08:25:19.841Z",
   "engine": "webpack 5.104.1 / node v24.16.0",
   "command": "node examples/webpack/scripts/build-production.mjs",
   "entry": "/Users/spirit-ai/Desktop/sdk/examples/webpack/src/main.js",
@@ -24,7 +24,7 @@
   "sandbox": {
     "bundlePath": "/Users/spirit-ai/Desktop/sdk/examples/webpack/dist/main.js",
     "bundleBytes": 116603,
-    "evaluatedMs": 3,
+    "evaluatedMs": 2,
     "sdkVersion": "0.0.0",
     "expectedSdkVersion": "0.0.0",
     "domText": "web-report-sdk 0.0.0",
