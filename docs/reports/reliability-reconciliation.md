@@ -4,7 +4,9 @@
 - 依赖：**T29 已完成并合入**（真实浏览器 E2E + D004 硬杀落盘复测，2026-10-14）
 - 口径权威：`docs/decisions/D004-hard-kill-exposure-window.md` 结论第 1 条；任务卡 `docs/tasks/T32.md`（2026-10-13 按 D004 改过）
 - **结论只覆盖 SDK 一侧**：本文全部数字是 SDK 自己的「已产生 / 已落盘 / 读回」账目，
-  不含接收方（M01）去重前/后的入库计数——本次没有 M01 侧数据，见第 5 节。
+  不含接收方（M01）去重前/后的入库计数——本次运行没有 M01 侧数据（缺口 5）。
+  **补记（2026-10-16，见第 8 节）**：M01 侧的「去重 + 入库 + 计数」能力已补齐并有可执行证据，
+  但**真实浏览器运行**下的 M01 计数仍待 T29 复跑产出；本报告正文数字**未**因此改动。
 - 生成方式：第 3 节由 `node tests/reliability/reconcile.mjs --write` 从 JSON 现算，**不是抄数**。
 - 本任务**未做任何 git 写操作**；新增文件见第 7 节。工作树里另有 2 个**与本任务无关**的已修改文件
   （`tests/compat/results/webpack-{dev-server,production}.json`，`generatedAt`/`origin` 变化，T30 的产物），
@@ -59,15 +61,17 @@
 | ② 硬杀已确认落盘的 critical 不丢 | **成立**（Chromium/WebKit 各 1000/1000，计 0） | 3.0 / 3.1 |
 | ③ 暴露窗口内未提交按条数与窗口时长计量 | **Chromium 成立；WebKit 3 格无结论** | 3.0 / 3.1 / 3.2 / 缺口 4 |
 | ③ 新增 D-1 子窗口（事件已产生、锚点未落）必须计数 | **Chromium 成立（1000/100）；WebKit 无结论** | 3.1 / 3.2 / 缺口 4 |
-| 以 M01 去重后入库计数为准 | **无法满足**（无 M01 侧数据） | 缺口 5 |
-| 重复送达率如实报告（不设上限） | **无法报告**（无去重前/后计数） | 缺口 5 |
+| 以 M01 去重后入库计数为准 | **口径已可执行；本次运行仍无数据**（能力见第 8 节，真实浏览器数字待 T29 复跑） | 缺口 5 / 第 8 节 |
+| 重复送达率如实报告（不设上限） | **接收端已能算出；真实浏览器数字待 T29 复跑** | 缺口 5 / 第 8 节 |
 | 场景构成比例 + M01 故障注入比例 | **无法报告**（无场景构成数据） | 缺口 5 |
 | 丢失事件按原因码归类 | **③ 可归 `prewrite_commit_lost`；① 无发出点（但码的问题已被 CR-001 裁定）** | 缺口 5 |
 | 10 万个会话模拟 | **未达成**（实测规模为 9 格 × 100–500 批，单次运行） | 缺口 5 |
 
 > 关于重复送达率：`reason-codes.md` 第 50 行的 `replayed`（离线补发的批次，C07-AC-14）与
 > `retry_network`（第 47 行）就是 CR-001 指定的承载物。**本报告没有这两个量的实测值**——
-> 本地接收端不做去重，JSON 里也没有补发/重试计数。
+> 报告写就时本地接收端不做去重，JSON 里也没有补发/重试计数。
+> 补记：接收端现已按 RR-05 去重并输出 `duplicate_events` / `duplicate_rate` / `by_event_name` /
+> `by_batch`（第 8 节），本地装置上已实测出数字；**正文仍不把它写成 T32 运行的实测值**。
 
 > 结论：**在本次可用的证据范围内，T32 的验收用例只能部分满足**。
 > 缺的是数据（①的比率、M01 侧计数、WebKit 修复后复跑），不是口径——本报告没有调整任何口径。
@@ -343,9 +347,14 @@ Chromium 单次 1205 ms。**单次运行、单格样本 100 事件**——这只
 ### 缺口 5：T32 卡的另外两项要求没有数据源
 
 - **M01 去重后入库计数**（T32 验收用例："以上均以 M01 去重后入库计数为准"）：
-  `tests/e2e/lib/receiver.mjs` 是一个只做请求收发的本地接收端，**没有去重、没有入库、没有计数**；
-  两个 JSON 里也没有任何 `received` / `deduped` 字段。
-  所以本报告**无法**给出重复送达率（去重前 − 去重后），也无法以 M01 口径复核②③。
+  本报告写就时，`tests/e2e/lib/receiver.mjs` 是一个只做请求收发的本地接收端，
+  **没有去重、没有入库、没有计数**；两个 JSON 里也没有任何 `received` / `deduped` 字段。
+  所以**本次运行**无法给出重复送达率（去重前 − 去重后），也无法以 M01 口径复核②③。
+  **能力已补齐（2026-10-16 补记，见第 8 节）**：该接收端现在按 `app_id` + `event_id` 去重
+  （RR-05 的 7 天窗口，可配置）、入库并输出 `received_*` / `stored_*` / `duplicate_events` /
+  `duplicate_rate`，以及按事件名（`by_event_name`）与按批次（`by_batch`）的分组计数。
+  真实浏览器运行下的数字仍需 **T29 复跑 `pnpm test:e2e --project=chromium`** 才能产生
+  （本任务禁止跑浏览器）。
 - **「10 万个会话」与「场景构成比例」**（正常 / 页面关闭 / 强杀 / 断网 1–30 分钟 / 2–5 标签页，
   以及 M01 故障注入比例）：现有数据是 **9 格 × 100–500 批 = 单次运行**，量级差 2–3 个数量级。
   本报告不把它表述成"10 万会话模拟"。
@@ -400,3 +409,79 @@ T32 没有改门禁配置（属禁止事项），只在此登记：**发布判�
 
 **未新增**：测量脚本（沿用 T29 的 `tests/e2e/lib/d004-run.mjs`）、验收用例、门禁配置、契约、实现代码。
 `pnpm exec eslint tests/reliability/reconcile.mjs` → **0 错**（本次实跑）。
+
+## 8. 补记（2026-10-16）：缺口 5 的「M01 侧计数」能力已补齐 + 证据
+
+本节由 T32 缺口 5 的后续修复补写（**只补能力与证据，不修改本报告正文的任何口径与数字**）。
+约束遵守：未做任何 git 写操作；未改 `docs/contracts/**`、`tests/acceptance/**`、门禁配置、
+`packages/*/src/**`、既有 `tests/{bench,compat}/**` 断言；未跑浏览器。
+
+### 8.1 补齐位置与接口
+
+| 位置 | 变更 |
+|---|---|
+| `tests/e2e/lib/receiver.mjs` | 原本只收请求；现按 M01 口径**去重 + 入库 + 计数**（既有 `received` / `hits()` / 响应码口径不变） |
+| `tools/mock-receiver/src/e2e-receiver-reconciliation.acceptance.test.ts` | 新增，断言上述能力（10 个用例；`pnpm exec vitest run --project unit tools/mock-receiver` 收集） |
+
+去重与计数口径（与 `docs/contracts/receiver-requirements.md` 对齐）：
+
+- 去重键 `app_id` + `event_id`；窗口默认 **7 天**（RR-05，`DEFAULT_DEDUPE_WINDOW_MS = 604800000`），
+  可用 `startReceiver({ dedupeWindowMs })` 覆盖、用 `startReceiver({ now })` 注入时钟；窗口过期后
+  同一 `event_id` 视为重新送达（旧行保留，`expired_dedupe_keys` 计数）；
+- 计数（编程 API `receiver.counters.snapshot()`，或 HTTP `GET /__mock/counters`（别名 `/__mock/stats`））：
+  `received_batches` / `received_events` / `stored_batches` / `stored_events` / `duplicate_events` /
+  `duplicate_rate`（= `duplicate_events / received_events`）/ `dedupe_window_ms` / `expired_dedupe_keys` /
+  `unparsable_batches` / `rejected_<error>`（9 类与 `ingest-protocol.md` 3.1 对齐）；
+- **分组计数**：`by_event_name`（每个事件名的 `received_events` / `stored_events` / `duplicate_events`）
+  与 `by_batch`（逐批 `index` / `app_id` / `path` / 三要素 / `event_names`），用于与 SDK 侧逐事件名、逐批对账；
+- 读接口对齐 M01-F4：`POST|DELETE /__mock/counters/reset`、`GET|DELETE /__mock/events`（`X-App-Id` 过滤）；
+- 401（`/revoked`）与不响应（`/hang`）的请求**不进入**对账计数，但仍逐请求出现在既有 `received` / `hits()` 里。
+
+### 8.2 fail-first（写测试时、实现前）
+
+```
+ Test Files  1 failed (1)
+      Tests  10 failed (10)
+ FAIL  ... > 同一批次重发 3 次：stored 只算一次，received - stored === duplicate，并给出重复送达率
+TypeError: Cannot read properties of undefined (reading 'snapshot')
+```
+
+### 8.3 变异验证（三要素）
+
+| 要素 | 内容 |
+|---|---|
+| 变异 | `tests/e2e/lib/receiver.mjs` 去重分支 `if (now() - firstSeenAt < dedupeWindowMs)` → `if (false && now() - firstSeenAt < dedupeWindowMs)`（即关掉去重） |
+| 结果 | 同一测试文件 **6 failed / 4 passed**（对账①②③④ 与 `/__mock/counters` 一致性共 6 例红；清零点、既有口径、非 JSON 正文 4 例仍绿） |
+| 恢复 | 还原该条件后 **10 passed (10)**，`grep 'false &&'` 无命中 |
+
+### 8.4 回归（本次实跑）
+
+- `pnpm exec vitest run --coverage.enabled=false --project unit tools/mock-receiver` → **73 passed (6 files)**
+  （T09 基线 63 例 + 本补记 10 例；`tests/acceptance/M01.md` 的 M01-AC-01..15 全绿，**未改其断言**）；
+- `pnpm --filter @web-report-sdk/mock-receiver run build` → 成功；`pnpm exec tsc -p tools/mock-receiver` → 通过；
+  `pnpm exec eslint tests/e2e tools/mock-receiver` → 0 错。
+
+### 8.5 现在能算出的「重复送达率」（本地装置实测，**不是**真实浏览器数字）
+
+用该接收端本地复现 D004 的"离开时刻补发一次"：3 条 critical 事件走常规通道后再走信标通道各一次，
+另加 2 条 normal 事件只发一次：
+
+| 量 | 实测 |
+|---|---|
+| `received_events` / `stored_events` / `duplicate_events` | 8 / 5 / 3 |
+| `duplicate_rate`（全量口径） | **0.375** |
+| critical 子集重复率（3 条 × 2 次送达） | **3/6 = 0.5 ≈ 1 × critical** |
+| `by_event_name` | `order_created` 4/2/2、`payment_confirmed` 2/1/1、`page_view` 2/2/0（received/stored/duplicate） |
+
+即 **D004「重复 ≈ 1 倍 critical 流量」在本地装置上可被直接观测到**。但这是**进程内脚本**的实测，
+不含真实浏览器的离开通道/后台补发行为；**带真实浏览器的 `duplicate_rate` 归 T29 复跑**
+（`pnpm test:e2e --project=chromium`，读取 `GET /__mock/counters`）。本报告仍**不**把 8.5 的数字
+当作 T32 运行值，也不据此改动第 2/3 节的任何判定。
+
+### 8.6 本节涉及的文件（门禁前需 `git add`）
+
+| 文件 | 变更 | 验证 |
+|---|---|---|
+| `tests/e2e/lib/receiver.mjs` | 修改（去重 + 入库 + 计数 + 读接口） | 8.2 / 8.3 / 8.4 |
+| `tools/mock-receiver/src/e2e-receiver-reconciliation.acceptance.test.ts` | 新增（10 用例） | 8.4 |
+| `docs/reports/reliability-reconciliation.md` | 修改（本文第 6/7 行、2.1 表两行、缺口 5、第 8 节） | 本文件 |
