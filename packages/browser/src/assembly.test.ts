@@ -12,6 +12,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { DEFAULT_LOCK_NAME } from '@web-report-sdk/transport';
 import type { TransportPort, TransportRequest, TransportResponse } from '@web-report-sdk/transport';
 
 import { createAssembly } from './assembly';
@@ -252,6 +253,77 @@ describe('③ C04 的三个端口', () => {
     expect(regenerated).toBeLessThan(1);
     expect(regenerated).not.toBe(0);
     expect(assembly.config.sessionRandom()).toBe(regenerated);
+  });
+});
+
+describe('④ 选主端口接线（Web Locks 优先；D-3）', () => {
+  afterEach(() => {
+    delete (globalThis.navigator as unknown as Record<string, unknown>)['locks'];
+  });
+
+  /** 符合 Web Locks 形状的替身：记录接收者，并立即授予锁。 */
+  function installFakeLockManager(): { readonly receivers: unknown[] } {
+    let granted: unknown = null;
+    const receivers: unknown[] = [];
+    const manager = {
+      request(
+        this: unknown,
+        _name: string,
+        _options: unknown,
+        callback: (lock: unknown) => Promise<boolean>,
+      ): Promise<boolean> {
+        receivers.push(this);
+        granted = { name: _name };
+        try {
+          return callback(granted);
+        } finally {
+          granted = null;
+        }
+      },
+    };
+    Object.defineProperty(globalThis.navigator, 'locks', {
+      value: manager,
+      configurable: true,
+      writable: true,
+    });
+    return { receivers };
+  }
+
+  it('未注入 locks 时按缺省接线选主：真实端口被调用且模式为 locks（D-3）', async () => {
+    const fake = installFakeLockManager();
+    const { assembly } = build();
+    assembly.init();
+    // 装配根在 createDelivery 时就该接上默认端口；`delivery.start()` 的 startup 补发会用一轮选主。
+    await waitFor(() => assembly.delivery.metrics().leader.mode === 'locks');
+    // 显式断言观测值（接线缺失时这里是 'none'，而不是停在超时上）。
+    expect(assembly.delivery.metrics().leader.mode).toBe('locks');
+    expect(fake.receivers).toHaveLength(1);
+    // 缺省端口就是真实实现 → 接收者必须正确（裸调用会得到 undefined/globalThis）。
+    expect(fake.receivers[0]).toBe(globalThis.navigator.locks);
+  });
+
+  it('显式注入的 locks 端口被透传给 C07 选主（D-3）', async () => {
+    const names: string[] = [];
+    const locks = {
+      tryAcquire(name: string, task: () => Promise<void>): Promise<boolean> {
+        names.push(name);
+        return task().then(() => true);
+      },
+    };
+    const { assembly } = build({ locks });
+    assembly.init();
+    await waitFor(() => assembly.delivery.metrics().leader.mode === 'locks');
+
+    expect(assembly.delivery.metrics().leader.mode).toBe('locks');
+    expect(names).toEqual([DEFAULT_LOCK_NAME]);
+  });
+
+  it('环境没有 Web Locks 时端口为 null，选主退回既有路径（不改语义）', async () => {
+    // happy-dom 的 navigator.locks 是 null（无替身）：装配根不得硬塞一个端口。
+    const { assembly } = build();
+    assembly.init();
+    await waitFor(() => assembly.delivery.metrics().lastReplayReason === 'startup');
+    expect(assembly.delivery.metrics().leader.mode).toBe('none');
   });
 });
 

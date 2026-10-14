@@ -79,6 +79,7 @@ import {
   createCallCounter,
   createDelivery,
   createDeliveryMetricsSource,
+  createDefaultLocksPort,
   createDomPageEventsSource,
   createDomPageLeaveSource,
   createHealthDimensionsReader,
@@ -95,6 +96,7 @@ import {
 import type {
   Delivery,
   HealthReporter,
+  LocksPort,
   NativeHttpRefs as TransportHttpRefs,
   QueueEvent,
   TransportPort,
@@ -153,6 +155,12 @@ export interface AssemblyOptions {
   readonly credentials?: CredentialsLike | undefined;
   /** 传输适配器（测试注入替身；缺省用 hook 前捕获的原生 fetch/XHR）。 */
   readonly transport?: TransportPort | undefined;
+  /**
+   * 多标签页选主的 Web Locks 端口（AC-17）。缺省 `createDefaultLocksPort()`：
+   * 浏览器有 Web Locks 时用它选主，没有时返回 null，选主退回 C07 的既有降级路径。
+   * 注入 `null` 可强制关闭该路径（想验证 BroadcastChannel 降级的接入方）。
+   */
+  readonly locks?: LocksPort | null | undefined;
   /** 原生 HTTP 引用覆盖（测试注入；缺省 `captureNativeHttpRefs(globalThis)`）。 */
   readonly nativeHttp?: TransportHttpRefs | undefined;
   /** HTTP 采集插件的配置（追踪范围与 `traceparent` 注入端口，CR-006）。 */
@@ -371,12 +379,17 @@ export function createAssembly(options: AssemblyOptions): Assembly {
       },
     };
   const pageEvents = domDocument();
+  // D-3：选主端口必须在**这里**接上——`createDelivery` 的 `locks` 缺省是 `undefined`
+  // → `createLeaderElection({locks: null})` → Web Locks 路径永远不可达。缺省用真实端口
+  // （环境不支持时 `createDefaultLocksPort()` 返回 null，语义不变）。
+  const locks = options.locks === undefined ? createDefaultLocksPort() : options.locks;
   const delivery = createDelivery({
     appId: options.appId,
     sessionId: initialHeader.session_id === '' ? createUuid() : initialHeader.session_id,
     credentials,
     header: headerSource,
     http: nativeHttpRefs,
+    locks,
     counters: kernel.counters,
     onServerTime: (serverTimeMs: number): void => {
       const receivedAt = now();

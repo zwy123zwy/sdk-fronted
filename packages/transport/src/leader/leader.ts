@@ -66,21 +66,26 @@ export function createDefaultLocksPort(): LocksPort | null {
   const manager = (
     globalThis as {
       navigator?: {
+        /** 真实环境里 `navigator.locks` 可能不存在；happy-dom 显式返回 `null`。 */
         locks?: {
           request?: (
             name: string,
             options: { mode: string; ifAvailable: boolean },
             callback: (lock: unknown) => Promise<boolean>,
           ) => Promise<boolean>;
-        };
+        } | null;
       };
     }
   ).navigator?.locks;
-  const request = manager?.request;
+  if (manager === undefined || manager === null) return null;
+  const request: typeof manager.request = manager.request;
   if (request === undefined) return null;
   return {
     tryAcquire(name: string, task: () => Promise<void>): Promise<boolean> {
-      return request(name, { mode: 'exclusive', ifAvailable: true }, async (lock) => {
+      // `LockManager.request` 是 Web IDL 方法：**必须带正确的接收者调用**。把它取出后裸调用
+      // 会在真实浏览器抛 `TypeError: Illegal invocation`（Chromium/WebKit 都必现，见
+      // `docs/reports/e2e-real-browser.md` D-2）。这里用 `call` 显式补上接收者。
+      return request.call(manager, name, { mode: 'exclusive', ifAvailable: true }, async (lock) => {
         if (lock === null || lock === undefined) return false;
         await task();
         return true;

@@ -4,14 +4,57 @@
  * POC-1 实测口径：**丢失率与选主方式无关，选主只控制重复流量**；
  * BroadcastChannel 必须有 settle 窗口（0 ms 会退化到 ≈不选主）。
  */
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import {
+  DEFAULT_LOCK_NAME,
   MIN_SETTLE_MS,
   createDefaultBroadcastPort,
   createDefaultLocksPort,
   createLeaderElection,
 } from './leader';
 import type { BroadcastChannelLike, BroadcastPort, LocksPort } from './leader';
+
+/** 替身一次 `LockManager.request` 调用的观测记录。 */
+interface RequestRecord {
+  /** 调用时的接收者（`this`）；Web IDL 方法要求它必须是 `LockManager` 本体。 */
+  readonly receiver: unknown;
+  readonly name: string;
+  readonly options: unknown;
+}
+
+/** 符合 Web Locks 形状的替身：立即授予锁，并记录接收者。 */
+function installFakeLockManager(): { readonly records: RequestRecord[] } {
+  let granted: unknown = null;
+  const records: RequestRecord[] = [];
+  const manager = {
+    request(
+      this: unknown,
+      name: string,
+      options: unknown,
+      callback: (lock: unknown) => Promise<boolean>,
+    ): Promise<boolean> {
+      records.push({ receiver: this, name, options });
+      granted = { name };
+      try {
+        return callback(granted);
+      } finally {
+        granted = null;
+      }
+    },
+  };
+  // happy-dom 的 `navigator.locks` 是原型上的 getter（返回 null）：在实例上盖一层，
+  // 测完删除，不污染其他用例。浏览器/测试环境里 `navigator` 本体总是存在。
+  const navigatorRef = globalThis.navigator as unknown as Record<string, unknown>;
+  Object.defineProperty(navigatorRef, 'locks', {
+    value: manager,
+    configurable: true,
+    writable: true,
+  });
+  afterEach(() => {
+    delete navigatorRef['locks'];
+  });
+  return { records };
+}
 
 /** 进程内假总线（happy-dom 的 BroadcastChannel 不跨实例投递，必须自建）。 */
 function createBus(): BroadcastPort {
@@ -162,6 +205,30 @@ describe('C07-AC-17/18 选主', () => {
     const channel = port?.open('wr-test-channel');
     expect(channel).not.toBeNull();
     channel?.close();
+  });
+
+  test('默认 Web Locks 端口：以 LockManager 为接收者调用 request（真浏览器拒绝裸调用）', async () => {
+    const fake = installFakeLockManager();
+    const port = createDefaultLocksPort();
+    expect(port).not.toBeNull();
+
+    let taskRan = 0;
+    const acquired = await port?.tryAcquire(DEFAULT_LOCK_NAME, () => {
+      taskRan += 1;
+      return Promise.resolve();
+    });
+
+    expect(acquired).toBe(true);
+    expect(taskRan).toBe(1);
+    expect(fake.records).toHaveLength(1);
+    const record = fake.records[0];
+    if (record === undefined) throw new Error('没有记录到 request 调用');
+    // 关键断言：接收者必须是那个 LockManager 本体（裸调用时 `this` 是 undefined/globalThis）。
+    expect(record.receiver).toBe(globalThis.navigator.locks);
+    expect(record.receiver).not.toBeUndefined();
+    expect(record.receiver).not.toBe(globalThis);
+    expect(record.name).toBe(DEFAULT_LOCK_NAME);
+    expect(record.options).toEqual({ mode: 'exclusive', ifAvailable: true });
   });
 
   test('BC 端口 open 返回 null 时退化为各自补发', async () => {
