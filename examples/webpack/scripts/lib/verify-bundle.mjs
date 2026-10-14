@@ -7,7 +7,9 @@
  * 1. 把 bundle 源码喂进 `node:vm` 的沙箱（`window`/`self`/`document`/最小 DOM 面）；
  * 2. 断言全局 `SDK_VERSION` 是字符串（值必须与仓库产物一致，不是"包含字符串"就算过）；
  * 3. 断言 `createAssembly` 是函数，并**真跑一次最小路径**：`createAssembly` → `init()` →
- *    `client.track()` → `flush()`，注入传输替身，断言接收方**真收到批次**且事件名正确。
+ *    `client.track()` → `flush()`，注入传输替身，断言接收方**真收到批次**且事件名正确；
+ *    并进一步要求该批次**通过 `docs/contracts/schemas/batch.schema.json` 的 Ajv 校验**
+ *    （D-06：只解析不校验结构会让违约批次被当成"送达成功"）。
  *
  * 第 3 条是关键：只验证"能读到 SDK_VERSION"无法区分"真的打进了依赖"与"只是常量被内联"。
  * 注入 `transport` 走的是运行期工厂参数，所以能证明 SDK 的装配与上报链路在 bundle 里是活的。
@@ -16,20 +18,36 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+import { inspectBatchText } from '../../../../tests/compat/lib/batch-contract.mjs';
+
 /** 实际跑最小路径时用的假端点（`transport` 替身会截住，绝不出网）。 */
 export const FAKE_ENDPOINT = 'https://collect.invalid/ingest';
 
-/** 接收方替身：记录 SDK 发来的每一次请求。 */
-function createUploadStub() {
+/**
+ * 接收方替身：记录 SDK 发来的每一次请求，并记录**拒收**（`rejections`）。
+ *
+ * 口径（D-06）：它自称"接收方真收到批次"，因此必须按 `batch.schema.json` 校验结构——
+ * 只解析不校验会让 D-01（`common.page_id: null`）这类违约批次被当成"送达成功"。
+ */
+export function createUploadStub() {
   const requests = [];
+  const rejections = [];
   return {
     requests,
+    rejections,
     port: {
       send(request) {
         requests.push(request);
-        return Promise.resolve({ status: 200, headers: {} });
+        const body = typeof request?.body === 'string' ? request.body : '';
+        const outcome = inspectBatchText(body);
+        if (!outcome.ok) {
+          rejections.push({ body, code: outcome.code, errors: outcome.errors });
+        }
+        return Promise.resolve({ status: outcome.ok ? 200 : 400, headers: {} });
       },
     },
+    accepted: () => requests.length - rejections.length,
+    allAccepted: () => requests.length > 0 && rejections.length === 0,
   };
 }
 
@@ -127,6 +145,10 @@ export async function runBundleInSandbox(code, bundlePath) {
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
     checks.uploadStubReceivedRequest = upload.requests.length > 0;
+    // D-06：接收方必须按 `batch.schema.json` 校验结构——"收到字节"不等于"收到合法批次"。
+    // 反空转：必须在真收到请求的前提下、且没有任何一次被拒收。
+    checks.batchPassesContractSchema =
+      upload.requests.length > 0 && upload.rejections.length === 0;
     const raw = upload.requests[0]?.body;
     if (typeof raw === 'string') {
       batch = JSON.parse(raw);

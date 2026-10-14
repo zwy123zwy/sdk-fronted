@@ -25,6 +25,7 @@ import type {
 } from './lib/entries';
 import { derivedCell, writeCells } from './lib/matrix';
 import type { MatrixCell, ProbeTable } from './lib/matrix';
+import { inspectBatchText } from './lib/batch-contract.mjs';
 
 const compatCommand =
   'pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false';
@@ -42,17 +43,39 @@ const { createLeaderElection } = transportEntry;
 interface FakeTransport {
   readonly port: TransportPortLike;
   readonly requests: TransportRequestLike[];
+  /** 被接收端按 `batch.schema.json` 拒收的批次（D-06）。 */
+  readonly rejections: string[];
 }
 
+/** 本次用例内被接收端拒收的批次（`afterEach` 断言为空并清空）。 */
+const contractViolations: string[] = [];
+
+/**
+ * 接收端替身：**按冻结契约校验结构**（D-06）。
+ *
+ * 这些用例声称降级路径下"批次仍送达"，所以接收端必须真的判"合法批次"：正文过
+ * `docs/contracts/schemas/batch.schema.json`（经唯一校验门 `batch-contract.mjs`），
+ * 违约返回 400 并登记到 `contractViolations`。
+ */
 function createFakeTransport(): FakeTransport {
   const requests: TransportRequestLike[] = [];
-  const response: TransportResponseLike = { status: 202, headers: {} };
+  const rejections: string[] = [];
+  const acceptedResponse: TransportResponseLike = { status: 202, headers: {} };
+  const rejectedResponse: TransportResponseLike = { status: 400, headers: {} };
   return {
     requests,
+    rejections,
     port: {
       send(request: TransportRequestLike): Promise<TransportResponseLike> {
         requests.push(request);
-        return Promise.resolve(response);
+        const outcome = inspectBatchText(request.body);
+        if (!outcome.ok) {
+          const message = `${outcome.code}: ${outcome.errors.join('；')}`;
+          rejections.push(message);
+          contractViolations.push(message);
+          return Promise.resolve(rejectedResponse);
+        }
+        return Promise.resolve(acceptedResponse);
       },
     },
   };
@@ -97,6 +120,9 @@ function restoreGlobals(): void {
 afterEach(() => {
   for (const assembly of assemblies.splice(0)) assembly.destroy();
   restoreGlobals();
+  // D-06：声称"批次仍送达"的接收端若按契约拒收过任何批次，用例必须红。
+  expect(contractViolations, '接收端按 batch.schema.json 拒收的批次').toEqual([]);
+  contractViolations.length = 0;
 });
 
 function build(plugins?: Readonly<Record<string, boolean>>): {

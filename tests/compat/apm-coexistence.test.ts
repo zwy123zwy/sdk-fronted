@@ -30,6 +30,7 @@ import type {
 } from './lib/entries';
 import { derivedCell, writeCells } from './lib/matrix';
 import type { MatrixCell, ProbeTable } from './lib/matrix';
+import { inspectBatchText } from './lib/batch-contract.mjs';
 
 const compatCommand =
   'pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false';
@@ -116,17 +117,39 @@ const browserEntry = await loadBrowserEntry();
 interface UploadStub {
   readonly port: TransportPortLike;
   readonly requests: TransportRequestLike[];
+  /** 被接收端按 `batch.schema.json` 拒收的批次（D-06）。 */
+  readonly rejections: string[];
 }
 
+/** 本次用例内被接收端拒收的批次（`afterEach` 断言为空并清空）。 */
+const contractViolations: string[] = [];
+
+/**
+ * 接收端替身：**按冻结契约校验结构**（D-06）。
+ *
+ * 这些用例声称"SDK 数据送达"，因此接收端不能只把字节记下来就算送达：正文必须过
+ * `docs/contracts/schemas/batch.schema.json`（经唯一校验门 `batch-contract.mjs`），
+ * 违约批次返回 400 并登记到 `contractViolations`。
+ */
 function createUploadStub(): UploadStub {
   const requests: TransportRequestLike[] = [];
-  const response: TransportResponseLike = { status: 202, headers: {} };
+  const rejections: string[] = [];
+  const acceptedResponse: TransportResponseLike = { status: 202, headers: {} };
+  const rejectedResponse: TransportResponseLike = { status: 400, headers: {} };
   return {
     requests,
+    rejections,
     port: {
       send(request: TransportRequestLike): Promise<TransportResponseLike> {
         requests.push(request);
-        return Promise.resolve(response);
+        const outcome = inspectBatchText(request.body);
+        if (!outcome.ok) {
+          const message = `${outcome.code}: ${outcome.errors.join('；')}`;
+          rejections.push(message);
+          contractViolations.push(message);
+          return Promise.resolve(rejectedResponse);
+        }
+        return Promise.resolve(acceptedResponse);
       },
     },
   };
@@ -184,6 +207,9 @@ function buildAssembly(upload: UploadStub): AssemblyLike {
 afterEach(() => {
   for (const assembly of assemblies.splice(0)) assembly.destroy();
   globalThis.fetch = originalFetch;
+  // D-06：声称"数据送达"的接收端若按契约拒收过任何批次，用例必须红（不是静默略过）。
+  expect(contractViolations, '接收端按 batch.schema.json 拒收的批次').toEqual([]);
+  contractViolations.length = 0;
 });
 
 describe('共存：先后初始化顺序各一次（Q7 第 4 条）', () => {

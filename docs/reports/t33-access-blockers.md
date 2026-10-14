@@ -21,7 +21,7 @@
 | **D-03** | **阻断级（文档）** | 指南把 M01 的上报端点写成 `/ingest`，真实路径是 `/v1/batch` → 照做必 404 | T34（文档）· **已修 2026-10-16** |
 | **D-04** | 高（文档） | 指南第 8.3 节的自检片段**不是可运行代码**（`Assembly` 没有 `track`） | T34（文档）· **已修 2026-10-16** |
 | **D-05** | 中（文档） | 指南称"webpack 与开发服务器未在本仓库验证"，**已过期**（T30 已实测通过） | T34（文档）· **已修 2026-10-16** |
-| **D-06** | 中（方法论） | 既有"端到端验证"用的是**不校验结构的自定义接收端**，让 D-01 逃过多轮验收 | T30/T29 的口径 |
+| **D-06** | 中（方法论） | 既有"端到端验证"用的是**不校验结构的自定义接收端**，让 D-01 逃过多轮验收 | T30/T29 的口径 · **已固化为守卫 + 证据 2026-10-16** |
 | **D-07** | 低（文档） | 指南的 flush 后立刻查计数会读到 0（异步投递未说明） | T34（文档）· **已修 2026-10-16** |
 
 ---
@@ -365,6 +365,47 @@ T30 的真实 Chromium 核心路径脚本，其接收端是脚本内自建的 no
 **任何声称"端到端送达"的验证，接收端必须至少做一次契约 Schema 校验**（用 Ajv 校验
 `docs/contracts/schemas/batch.schema.json`，与 `tests/contract/` 已有的校验口径一致）。
 "收到字节"不等于"收到合法批次"。
+
+### 已固化（2026-10-16，执行方；唯一校验门 + 判别性证据 + 机器守卫）
+
+**口径**：**"端到端通过" ≠ "端到端按契约通过"。** 三处落地：
+
+1. **唯一校验门** `tests/compat/lib/batch-contract.mjs`：Ajv 2020-12（+ `ajv-formats`）直接编译
+   `docs/contracts/schemas/batch.schema.json`（`strictRequired: false`，与 `tests/contract/lib/schemas.ts`
+   同一口径；**不在代码里复制字段清单**）。`inspectBatchText` 区分 `invalid_json`（传输层噪声）与
+   `invalid_structure`（契约违反）。
+2. **盘点与处置**（逐个决定"加校验"或"如实降级为传输探针"）：
+
+   | 接收端 | 处置 |
+   |---|---|
+   | `tests/compat/lib/ingest-receiver.mjs`（**T30 核心路径 `/ingest` 的实现**，从 `browser-core-path.mjs` 内联端点抽出） | **加校验**：违约 400 + 记录 Ajv 错误；`browser-core-path.mjs` 新增 `batchSchemaValid` 检查 |
+   | `examples/webpack/scripts/lib/verify-bundle.mjs`（webpack 沙箱上传桩） | **加校验**：新增 `batchPassesContractSchema` 检查（任一批被拒 → `status=fail`） |
+   | `tests/compat/apm-coexistence.test.ts`（上传替身） | **加校验**：违约 400 + `afterEach` 断言无拒收 |
+   | `tests/compat/degradation.test.ts`（上传替身） | **加校验**：同上 |
+   | `tests/e2e/lib/receiver.mjs` | **传输探针**：只收探针**手写信封**（`device_id`/`session_id`/`batch_id` 刻意不是契约 uuid）与 `sendBeacon` 随机字节哨兵，服务字节上限/真超时/401；拿不到 SDK 装配根产出的完整批次 |
+   | `tests/e2e/leave-slice.spec.mjs`（C07-AC-03 信标端点，并发任务新增） | **传输探针**：手写信封（`event_id=ac03-0000`、`batch_id=ac03-batch`），判定片大小/Content-Type/令牌位置/顺序 |
+
+   **不为过守卫加空校验**：后两类如实降级，理由写在守卫清单里。
+3. **判别性证据** `tests/compat/receiver-contract-gate.test.ts`（先红后绿）：真实 SDK 产出批次
+   （基线通过）→ 注入 D-01 形态（`common.page_id = null`）→ **HTTP 接收端 400**、**examples 上传桩 400**；
+   注入"删掉 required 字段（`batch_id`）"→ 400；恢复合法批次 → 202/200。
+   变异验证：把 Ajv 去掉 → 判别性用例 **4 条转红**（`expected 202 to be 400`），恢复后绿。
+4. **机器守卫（防复发）** `tests/security/guard-e2e-receivers-validate-contract.test.ts` +
+   `tests/security/lib/e2e-receiver-inventory.ts`：扫描 `tests/compat/**`、`tests/e2e/**`、`examples/**`
+   里所有"会接收批次"的实现面（`createServer(` + 读**请求**正文；或自实现 `send(request)` 碰
+   `request.body`），要求逐个出现在**带理由的两侧清单**里：扫到未登记 → 红；登记了扫不到 → 也红。
+   **反空转**：断言扫到的接收端 ≥ 5、http 接收端 ≥ 2、传输替身 ≥ 3，三棵目录各自至少有一个，
+   且点名文件（T30 `/ingest` 实现、T29 接收端、examples 上传桩）必须在列——正则写错时立刻红，
+   不会"扫了 0 个所以通过"。变异验证：删一条清单项 → 红（未登记）；加一个幽灵登记项 → 红（清单失真）；
+   把数量阈值改高 → 红（`expected 7 to be ≥ 50`）。
+5. **回归**：`--project unit` 136 文件/1256 用例全绿；compat 5 文件/28 用例全绿；security 5 文件/32 用例全绿；
+   `pnpm examples:build`、`pnpm examples:test` 均 pass 且沙箱 `batchPassesContractSchema=true`；
+   `eslint tests/compat tests/security` 干净；根 `tsc -p tsconfig.json` 干净。
+
+**同族残留（未在本任务范围，值得后续处理）**：`examples/vite/package.json` 的 `test` 是
+`node -e "process.exit(0)"`（**永远绿的空测试**）、`examples/node-import` 只断言 `SDK_VERSION`
+是字符串、`examples/script-tag/check.mjs` 同理——"examples 验证"里仍有几处只证"导入得到常量"，
+不证"装配与投递链路活着"；`verify-bundle.mjs` 的 `checks.bundleEvaluated` 是**恒真常量**。
 
 ---
 

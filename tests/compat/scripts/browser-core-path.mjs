@@ -22,6 +22,8 @@ import { join } from 'node:path';
 
 import { chromium } from '@playwright/test';
 
+import { createBatchIngestHandler } from '../lib/ingest-receiver.mjs';
+
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const iifePath = join(repoRoot, 'packages/browser/dist/web-report-sdk.iife.js');
 const resultsDir = join(repoRoot, 'tests/compat/results');
@@ -112,20 +114,15 @@ window.addEventListener('error', function (event) {
 })();
 `;
 
-const batches = [];
+/**
+ * 接收端（HTTP `POST /ingest`）：**按 `batch.schema.json` 校验结构**（D-06）。
+ * 与判别性用例共用 `tests/compat/lib/ingest-receiver.mjs` 的同一实现——"收到字节"不等于
+ * "收到合法批次"，违约批次一律 400 拒收并逐条记录 Ajv 错误。
+ */
+const ingest = createBatchIngestHandler();
+/** 收到的全部批次（含被拒的）；`ingest` 原地追加，别名保持下面的读取逻辑不变。 */
+const batches = ingest.batches;
 let server;
-
-function readBody(request) {
-  return new Promise((resolve) => {
-    let raw = '';
-    request.on('data', (chunk) => {
-      raw += String(chunk);
-    });
-    request.on('end', () => {
-      resolve(raw);
-    });
-  });
-}
 
 async function startServer() {
   const iife = readFileSync(iifePath, 'utf8');
@@ -136,27 +133,7 @@ async function startServer() {
       response.end(iife);
       return;
     }
-    if (url === '/ingest' && request.method === 'POST') {
-      void readBody(request).then((raw) => {
-        let parsed;
-        try {
-          parsed = JSON.parse(raw);
-        } catch {
-          parsed = undefined;
-        }
-        batches.push({
-          at: new Date().toISOString(),
-          bytes: raw.length,
-          body: parsed,
-        });
-        response.writeHead(202, {
-          'x-server-time': String(Date.now()),
-          'content-type': 'application/json',
-        });
-        response.end('{"ok":true}');
-      });
-      return;
-    }
+    if (ingest.handle(request, response)) return;
     if (url === '/page') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(
@@ -230,6 +207,9 @@ async function main() {
         : [],
     );
     checks.serverReceivedBatch = batches.length > 0;
+    // D-06：接收端按 `batch.schema.json` 校验结构。反空转：必须在真收到批次、且**一次都没被
+    // 拒收**的前提下才算过——"收到字节"不等于"收到合法批次"。
+    checks.batchSchemaValid = ingest.rejected.length === 0 && ingest.accepted.length > 0;
     checks.corePath = ['assembly', 'init', 'track', 'captureError'].every((step) =>
       pageResult.steps.includes(step),
     );
@@ -263,6 +243,13 @@ async function main() {
       listenTypes: pageResult.listenTypes,
       windowErrors: pageResult.windowErrors,
       batchesReceived: batches.length,
+      acceptedBatches: ingest.accepted.length,
+      rejectedBatches: ingest.rejected.map((record) => ({
+        at: record.at,
+        bytes: record.bytes,
+        code: record.code,
+        errors: record.errors,
+      })),
       eventNames,
       messages,
       firstBatch: batches[0] ?? null,
