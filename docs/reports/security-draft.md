@@ -5,7 +5,7 @@
 
 - 任务：T31（阶段 P5 / 角色 A11 / 对接：安全负责人）
 - 依赖：T13（C03 配置与缓存）、T14（C04 上下文/脱敏/同意）、T16（C07 发送/离线/选主）——**三者均已合入 main**
-- 基线：`main` = `28d70ab`；`pnpm gates` exit 0（**111 个测试文件 / 1172 个测试**，其中本任务的 `security` project 13 条；2026-10-13 增补撤回同意清除 4 条后为 **17 条**）
+- 基线：`main` = `28d70ab`；`pnpm gates` exit 0（**111 个测试文件 / 1172 个测试**，其中本任务的 `security` project 13 条；2026-10-13 增补撤回同意清除 4 条后为 **17 条**；同日再固化两条仓库级机器守卫共 **10 条**，`security` project 合计 **27 条**）
 - 所有权：本任务可写 `docs/reports/security-*.md` 与 `tests/security/`；**禁止修改实现代码**（本报告未改任何实现）
 - 非功能：只在本地与测试环境进行（本报告全部结论来自本地仓库与本地构建）
 
@@ -51,6 +51,37 @@
 
 补充说明：会话随机数另有一条**确定性随机源**用例（`tests/security/t31-consent-withdrawal.test.ts` 第二组：`sessionRandom: 0.05` + `random: () => 0.95`），断言 `denied` 恰好触发一次重置且值 0.05→0.95，并含负向对照（`granted`/`buffer` 不触发重置）。该用例自行注入 `ErasePort.sessionRandom`，所以只对「重置是否发生」有判别力，不覆盖装配根接线；装配根接线由上面那一行变异负责。
 
+#### 1.3.2 守卫一：截断/切片不得早于脱敏（2026-10-13 新增，机器守卫）
+
+背景：**同一根因在本会话被独立发现三次**（`attachment`、`client.ts` 的预截断、dimensions 的 5 处 + 处理器侧 `url`），每次都是人读或人测发现。形状完全一样：先 `truncate`/`slice`/`substring`/`padEnd`，**再**交给 `masker.apply` —— 截断把敏感值从中间切开，片段不再匹配规则，以残片原样上线（实测残留 `1380`）。
+
+| 项 | 内容 |
+|---|---|
+| 文件 | `tests/security/guard-truncate-before-mask.test.ts`（3 条）+ `tests/security/lib/truncate-before-mask.ts`（扫描器） |
+| 覆盖 | `packages/core/src/**` + `packages/plugins/src/**` 的**非测试** `.ts`（**85 个文件**；TypeScript AST，注释与字符串不计） |
+| 判定 | 对**同一个值**做值传递解析（标识符 / 成员访问 / 条件 / `??` / `||` / `&&` / `+` / 模板串），若先出现截断调用、后出现脱敏调用（`X.apply`（X 名含 mask）、`X.mask/scrub/redact/sanitize`、裸 `sanitizeXxx`/`maskXxx`）即判违规，并输出值传递链 |
+| 反空转 | 扫描文件数 ≥70（实 **85**）、**识别到的脱敏调用点 ≥5（实 8）**、截断/切片调用点 ≥10（实 **31**）——识别器失效或 glob 写错都会红，而不是"扫了 0 个所以通过" |
+| 判别力 | **8 个合成反例**逐个断言被抓：slice→变量、`truncate`→变量、直接嵌套、`event['attachment']`、`padEnd`、条件分支、跨赋值链、裸 `sanitizeUrl`；**6 个正确写法**断言一条都不报：`truncate(masker.apply(value), max)`、先脱敏再按其长度截断、attachment/url 的正向顺序、同名形参遮蔽、先脱敏后 slice |
+| 变异验证 | 在 `packages/core/src/privacy/constraints.ts` 第 147 行临时插入 `const MUTATION_PROBE = truncateUtf16Safe(entry, …); const masked = input.masker.apply(MUTATION_PROBE);` → 守卫**红**，精确报出 `constraints.ts:148` 与值传递链；**恢复后全绿**（`git diff -- packages` 为空） |
+| 实测结论 | 当前 core + plugins 源码中**不存在**该模式（0 命中）——三次事故的修复都仍处于正确顺序 |
+
+**守卫覆盖不到的同族路径（本任务上报、未改实现）**：`packages/core/src/privacy/constraints.ts` 的 `clampAllStringValues()`（第 274–284 行）只做 `truncateUtf16Safe(value, 256)`，**从不过 masker**；而 `collectStringSlots()` 收集的是**全部顶层字符串字段**。声明字段里 `page_id`/`view_id`/`level` 等既不被 `clampUrl`/`clampAttachment` 覆盖，也不在 `dimensions`/`context` 里 → 属于「只截断、从不脱敏」，与本次根因**同族但形状不同**（没有 `masker.apply`，守卫一按定义抓不到）。可达性有限：公开 API 只产出 Schema 允许的键，`readLocation().pageId` 恒为 `undefined`（核心不从 URL 推导 `page_id`），未声明字段须由插件/内核直接写入。因此记为**纵深防御缺口**，请签发人裁定是否补一次脱敏。
+
+### 1.6 守卫二：`tests/**` 不得 import `packages/*/src/**`（2026-10-13 新增，机器守卫）
+
+背景：根 `tsconfig.json` 的 `lib` 只有 `ES2022`（**无 DOM**），而它 typecheck 的正是 `tests/**`。测试一旦 import 包**源码**，`packages/*/src` 就被拉进这个无 DOM 程序 → **成片虚假类型错误**（本会话实测 64 条 `IDBFactory`/`SubtleCrypto`）。踩过**两次**：编排方自己写 `t31-security.test.ts` 时；以及 T31 撤回同意用例 import 了 `packages/browser/dist/index.js`，而该 `.d.ts` 用**裸包名**引用 `@web-report-sdk/core`，在根 `customConditions: ["source"]` 下解析回源码。
+
+| 项 | 内容 |
+|---|---|
+| 文件 | `tests/security/guard-test-source-imports.test.ts`（7 条）+ `tests/security/lib/test-source-imports.ts`（扫描器） |
+| 覆盖 | `tests/**` 全部 `.ts`（**35 个文件 / ≥60 个模块说明符**；TypeScript AST） |
+| 硬断言 | `import` / `export … from` / 字面量 `import()` / 字面量 `require()` / `vi.mock()` 的说明符解析进 `packages/*/src` → 失败。相对路径按**仓库根**解析（不依赖机器路径，用 `import.meta.dirname` 求仓库根）；同时覆盖 `@web-report-sdk/<pkg>/src/…` 别名与含 `packages/<pkg>/src` 的文本。报错直接给出 `文件:行 形式 '说明符'` 与修复方向（改 import `../packages/<pkg>/dist/index.js`） |
+| 需允许清单 | 「声明指向源码的入口常量」（`const ENTRY = '…/packages/core/src/index.ts'` 这类**变量说明符逃生舱**）必须与**带理由的 5 条清单两侧相等**：新增未登记 → 红；清单出现失效条目 → 也红。现存 5 处：`tests/bench/lib/entries.ts` 3 处、`tests/contract/lib/sdk-runtime.ts` 2 处（刻意的运行期真实入口加载；说明符是变量，TS 不静态解析，**不污染根程序**） |
+| 裸包名 | `@web-report-sdk/<pkg>` 这类裸包名单独识别，给出**明确可读报错**：说明「`customConditions` 含 `source` 时会解析到 `packages/*/src`（无 DOM 程序）→ 成片虚假类型错误」，并给出两条修复（改 import dist / 移除 `source` 条件）。当前根 tsconfig 的 `customConditions: []` → 解析到 `dist`，安全 |
+| 反空转 | 扫描文件数 ≥25（实 **35**）、说明符 ≥60；「声明常量」用**清单两侧相等**，即使观察集为空也会红 |
+| 判别力 | **8 个合成反例**：静态 import、`export … from`、`import type`、字面量 `import()`、字面量 `require()`、`vi.mock()`、`@web-report-sdk/x/src/…` 别名、常量+变量说明符；另**不误报** 6 类：dist 产物（含 `import type`）、`node:` 内置、第三方、`tests/contract/lib` 相对路径、模板串与纯字符串里的路径 |
+| 变异验证 | 在 `tests/security/t31-security.test.ts` 第 26 行临时插入 `import '../../packages/core/src/index';` → 守卫**红**，精确报出 `tests/security/t31-security.test.ts:26`；**恢复后全绿**（该文件 `git diff` 为空） |
+
 ### 1.4 配置：篡改、回放旧版本、错误 `key_id`、未知 `format_version` 被拒绝并降级 ✅ 已验证（由 T13）
 
 | 攻击 | 结果 |
@@ -74,7 +105,7 @@
 
 **本节已于 2026-10-13 更新**：原先列出的 4 项中，有 4 项已完成（见下），剩余项均**被外部依赖阻塞**。
 
-1. ~~`tests/security/` 目前为空~~ → **已完成**（2026-10-13）：负责人批准新增 `security` vitest project（门禁配置变更），`tests/security/t31-security.test.ts` 已落地 **13 条**可执行用例并纳入 `pnpm gates`；同日新增 `tests/security/t31-consent-withdrawal.test.ts` **4 条**（1.3 的撤回同意后清除），`security` project 合计 **17 条**。
+1. ~~`tests/security/` 目前为空~~ → **已完成**（2026-10-13）：负责人批准新增 `security` vitest project（门禁配置变更），`tests/security/t31-security.test.ts` 已落地 **13 条**可执行用例并纳入 `pnpm gates`；同日新增 `tests/security/t31-consent-withdrawal.test.ts` **4 条**（1.3 的撤回同意后清除），`security` project 合计 **17 条**；同日再固化两条**仓库级机器守卫**（1.3.2「截断不得早于脱敏」3 条 + 1.6「tests 不得 import 包源码」7 条，共 **10 条**），合计 **27 条**。
 2. **独立注入式复验（脱敏部分）** → **已完成**：本任务用**自己构造的**伪造样本（手机号/邮箱/身份证号/Bearer 令牌）在公开 API `createMasker()` 上复验，断言**原始敏感值不再出现在输出中**（而非断言具体替换串，避免把测试绑死在实现上）；另含两条安全属性（追加远程规则不削弱内置规则、内置脱敏默认开启）。
 3. **撤回同意后清除（1.3）** → **已完成**（2026-10-13）：新增 `tests/security/t31-consent-withdrawal.test.ts`（4 条：公开 API 触发 + 三腿值变化断言 + 三腿变异验证，见 1.3.1）。
 4. **构建产物与源码的秘密形态扫描** → **已完成**：带理由的允许清单（只登记经人工确认的假值），**新的命中一律失败**；判别力经实测（在 `url.ts` 植入一个 JWT → 精确报出该文件；恢复后全绿）。
@@ -86,6 +117,8 @@
 
 - 本报告的一切结论来自**本地仓库与本地构建**；未访问任何预发布或生产环境（符合任务卡的非功能目标）。
 - 真实浏览器行为（信标、`localStorage`/IndexedDB 的真实持久化、`crypto` 差异）**未在本任务验证**，归 T29。
+- **两条守卫的已知边界（如实声明）**：守卫一**不做跨函数分析**（`masker.apply(build(value.slice(0,8)))` 抓不到）、**不传播对象字面量/数组**（`masker.apply(parts.pathname)` 这种"先解析结构、再整体脱敏"的正确写法因此不会误报）；守卫二只对**静态可解析**的说明符硬失败，变量说明符走允许清单。两条守卫都只覆盖 `core`/`plugins` 源码与 `tests/**`，不覆盖 `browser`/`transport` 源码。
+- 本任务**未修改任何实现代码**：两次变异验证的临时改动均已恢复（`git diff -- packages` 为空，`tests/security/t31-security.test.ts` 无改动）。
 - 报告**未经签发**，也**不代表安全评审已通过**。
 
 ## 4. 建议
@@ -93,4 +126,6 @@
 1. 负责人批准新增 `security` vitest project（门禁配置变更），使 `tests/security/**` 可执行；→ **已完成**（2026-10-13）；
 2. ~~T18 完成 `ErasePort` 等接线后，本任务补做 1.3 的"撤回同意后清除"验证~~ → **已完成**（2026-10-13，见 1.3.1）；
 3. T29 完成后补 1.2 的信标通道验证；
-4. 剩余项（第 3 条、以及第 2 节的审计式复查与低危处置计划）完成前，本任务保持"未完成"，不签发。
+4. 把两条机器守卫纳入日常改动面：新增脱敏调用点（1.3.2）或新增 `tests/**` 的 import（1.6）时，先看守卫报错；1.6 的允许清单**只减不增**，新增必须写明理由；
+5. 裁定 1.3.2 上报的同族路径（`clampAllStringValues` 只截断、从不脱敏）是否需要补一次脱敏；
+6. 剩余项（第 3 条、以及第 2 节的审计式复查与低危处置计划）完成前，本任务保持"未完成"，不签发。
