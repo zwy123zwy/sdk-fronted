@@ -4,6 +4,8 @@
  * 口径（`event-standard.md` 第 1 节 + Q5 + 编排方 2026-10-13 的裁定）：
  * - `session_id`：随机 UUID v4，**30 分钟无活动后重新生成**（`SESSION_IDLE_MS`）；
  * - `device_id`：随机 UUID v4。**未取得同意时是页面级临时值**，批头 `device_id_persistent: false`；
+ *   持久化存储里读到的值必须**本身满足 `$defs/uuid`** 才采用，否则丢弃并（覆盖）写回新生成的
+ *   合法 uuid（见 `ensureDevice`）；
  * - **只有确定已授权**（`granted`，或初始化参数声明已授权的 `full`）才持久化设备标识；
  * - `denied` 时清除持久化与内存中的标识，之后重新生成的都是临时值；
  * - 空闲判定**不持久化** `last_activity_at`（避免同意前落盘）：刷新即重新计时。
@@ -15,6 +17,7 @@
  */
 import { DEVICE_ID_KEY, SESSION_ID_KEY, SESSION_IDLE_MS } from './constants';
 import type { ConsentMode, ConsentState } from '../privacy/types';
+import { isSchemaUuid } from './schema-uuid';
 import type { SessionState, SessionTracker, SessionTrackerOptions } from './ports';
 
 /** 判断某个同意状态/模式组合是否已获授权（决定设备标识是否持久化）。 */
@@ -53,13 +56,22 @@ export function createSessionTracker(options: SessionTrackerOptions): SessionTra
     if (deviceId !== undefined) return deviceId;
     if (persistent && options.persistentStorage !== undefined) {
       const stored = options.persistentStorage.read(DEVICE_ID_KEY);
-      if (stored !== undefined && stored.length > 0) {
+      // 存储里的值必须**本身**满足 `$defs/uuid` 才采用。`device_id` 是批次头的 required +
+      // `$ref #/$defs/uuid` 字段，且同属协议字段排除清单（UUID 结构上不可能含 PII → 不脱敏）：
+      // localStorage 被第三方脚本写坏、或旧版本残留非 uuid 值时，非 uuid 的存储值不会被任何
+      // 兜底改写，用它组装的**每一批**都会被接收方拒绝（影响面比 `view_id` 大：`view_id` 只毁
+      // 一条事件）。非 uuid 的存储值因此按「未存储」处理（丢弃 + 走生成路径，与 `noteLocation`
+      // 丢弃非法显式 `view_id`、与 `''` 的先例一致）；**不**截断/改写成"像 uuid"的标识符。
+      if (stored !== undefined && isSchemaUuid(stored)) {
         deviceId = stored;
         return deviceId;
       }
     }
     deviceId = options.createId();
     if (persistent && options.persistentStorage !== undefined) {
+      // **覆盖写回**非法/缺失的存储值：不写回的话，被污染的存储值会一直留在那里，每次启动
+      // 都重新生成一个新标识 ——「同一设备」语义随刷新漂移。代价是非法值场景多一次存储写入
+      // （正常路径本来就写，不增加次数）。
       options.persistentStorage.write(DEVICE_ID_KEY, deviceId);
     }
     return deviceId;

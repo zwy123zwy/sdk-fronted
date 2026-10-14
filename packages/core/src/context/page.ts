@@ -22,6 +22,11 @@ import { MAX_PAGE_ID_LENGTH } from '../privacy/constants';
 import { truncateUtf16Safe } from '../privacy/limits';
 import type { ContextSnapshot } from '../privacy/types';
 import type { PageTracker, PageTrackerOptions } from './ports';
+import { isSchemaUuid } from './schema-uuid';
+
+// `view_id` 的形态判据（`$defs/uuid`）与 `device_id` / `event_id` 共用 `./schema-uuid` 里的
+// 唯一实现；与 Schema 的漂移由 `page.test.ts` 直接读真实 Schema 的 `$defs/uuid.pattern`
+// 逐样本比对锁定（形态改了那里就红）。
 
 /** 从「路径 + 查询 + 片段」里取出纯路径（`page_id` 是路由模板，不是 URL）。 */
 function toPath(value: string): string {
@@ -37,20 +42,6 @@ function normalizePageId(value: string | undefined): string | undefined {
   const path = toPath(value).trim();
   if (path.length === 0) return undefined;
   return truncateUtf16Safe(path, MAX_PAGE_ID_LENGTH);
-}
-
-/**
- * `view_id` 的形态判据 —— 与 `batch.schema.json` 的 `$defs/uuid` **逐字一致**
- * （v4 + variant `[89ab]`，小写）。**不**放宽成 RFC 4122 的宽松判据：接收方按
- * `$defs/uuid` 校验，任何"看着像 uuid"的值都得按会被拒处理。
- * 与 Schema 的漂移由 `page.test.ts` 直接读真实 Schema 的 `$defs/uuid.pattern`
- * 逐样本比对锁定（形态改了这里就红）。
- */
-const SCHEMA_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-
-/** 该字符串是否满足 `$defs/uuid`（能安全作为 `view_id` 上报）。 */
-function isSchemaUuid(value: string): boolean {
-  return SCHEMA_UUID_PATTERN.test(value);
 }
 
 /** 创建页面追踪器。 */

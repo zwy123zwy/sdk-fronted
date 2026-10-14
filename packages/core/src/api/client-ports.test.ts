@@ -122,12 +122,15 @@ describe('缺陷 2：ErasePort 的真实注入点与调用点', () => {
 
 describe('缺陷 3：ContextStoragePort 的注入点（默认仍是内存）', () => {
   it('授权后把设备标识写入注入的存储，并从注入的存储读回已有标识', () => {
-    const recorder = createRecordingStorage({ wr_device_id: 'device-existing' });
+    // 既有标识必须是**合法 uuid**（`batch.schema.json` 的 `$defs/uuid`）：非 uuid 的残留值
+    // 会被 `ensureDevice` 丢弃并覆盖写回（见 `context/session.test.ts` 的格式校验用例）。
+    const existing = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    const recorder = createRecordingStorage({ wr_device_id: existing });
     const client = createClient({ storage: recorder.storage });
     client.init({ appId: 'app-1', consent: 'granted' });
 
     // 读回既有标识：证明注入的存储真的被 C04 使用，而不是被忽略。
-    expect(headerOf(client)().device_id).toBe('device-existing');
+    expect(headerOf(client)().device_id).toBe(existing);
     // 写路径：授权后设备标识落盘（已有标识也要补写）。
     expect(recorder.writes).toContain('wr_device_id');
   });

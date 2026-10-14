@@ -14,8 +14,23 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import batchSchema from '../../../../docs/contracts/schemas/batch.schema.json';
+import { DEVICE_ID_KEY } from './constants';
 import type { ContextStoragePort } from './ports';
 import { createSessionTracker } from './session';
+
+/** 取出真实 Schema 的 `$defs/uuid.pattern`（形态判据的唯一权威，不手写副本）。 */
+function schemaUuidPattern(schema: unknown): string {
+  const root = typeof schema === 'object' && schema !== null ? (schema as Record<string, unknown>) : {};
+  const defs = root['$defs'];
+  const uuid = typeof defs === 'object' && defs !== null ? (defs as Record<string, unknown>)['uuid'] : undefined;
+  const pattern = typeof uuid === 'object' && uuid !== null ? (uuid as Record<string, unknown>)['pattern'] : undefined;
+  if (typeof pattern !== 'string') throw new Error('batch.schema.json 缺少 $defs/uuid.pattern');
+  return pattern;
+}
+
+/** `$defs/uuid` 的形态（v4 + variant `[89ab]`，小写）。 */
+const SCHEMA_UUID_PATTERN = new RegExp(schemaUuidPattern(batchSchema));
 
 /** 内存存储（测试替身；不触碰真实 localStorage/sessionStorage）。 */
 function memoryStorage(seed: Record<string, string> = {}): ContextStoragePort & { readonly dump: () => Record<string, string> } {
@@ -211,5 +226,100 @@ describe('C04-F1 / Q5 设备标识的持久化策略', () => {
       limits: { sessionIdleMs: 1_800_000 },
     });
     expect(reopened.touch(start).deviceId).toBe(after.deviceId);
+  });
+});
+
+/**
+ * `device_id` 的**格式校验**（与 `view_id` 同族）。
+ *
+ * `batch.schema.json` 把 `device_id` 声明为 `$ref #/$defs/uuid`，且它在 C04 的协议字段排除
+ * 清单里（UUID 结构上不可能含 PII → 不脱敏）。此前 `ensureDevice` 只要从注入的
+ * `persistentStorage` 里读到**任意非空串**就当成 `device_id` 使用（判据 `stored.length > 0`）：
+ * localStorage 被第三方脚本写坏、或旧版本残留非 uuid 值，都会让**每一批**过不了 `$defs/uuid`
+ * （影响面比 `view_id` 更大：`view_id` 只毁一条事件，`device_id` 毁一整批）。
+ *
+ * 口径（与 `noteLocation` 的显式 `view_id` 同族）：非 `$defs/uuid` 的存储值**丢弃**，改由
+ * `createId()` 生成合法 uuid；并把新值**覆盖写回**持久化存储（否则每次启动都重新生成，
+ * 「同一设备」语义会漂移）。`''` 与「键不存在」同样按未存储处理，与旧行为一致。
+ */
+describe('device_id 格式校验：存储值必须过 $defs/uuid，否则丢弃并覆盖写回', () => {
+  const VALID_DEVICE_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+  /** 非 uuid 的存储值（全部是格式合法的伪造数据，不含真实个人信息）。 */
+  const INVALID_STORED_DEVICE_IDS: readonly (readonly [string, string])[] = [
+    ['PII 形态的路径', '/user/13800138000'],
+    ['非 uuid 短串', 'abc'],
+    ['空串', ''],
+    ['超长串', 'x'.repeat(300)],
+    ['被截断的 uuid 前缀', '00000000-0000-4000-8000'],
+    ['v1 uuid（是 uuid，但过不了 Schema 的 v4 + variant 约束）', '6ba7b810-9dad-11d1-80b4-00c04fd430c8'],
+  ];
+
+  /** 用同一持久化存储重建实例；注入一个**不同**的生成器以区分「读回」与「新生成」。 */
+  function reopen(storage: ContextStoragePort, generatedId: string) {
+    return createSessionTracker({
+      createId: () => generatedId,
+      now: () => start,
+      state: 'granted',
+      persistentStorage: storage,
+      sessionStorage: memoryStorage(),
+      limits: { sessionIdleMs: 1_800_000 },
+    });
+  }
+
+  it('存储里是合法 uuid → 原样采用（回归）', () => {
+    const { instance, persistent } = tracker({
+      authorized: true,
+      persistentSeed: { [DEVICE_ID_KEY]: VALID_DEVICE_ID },
+    });
+    const state = instance.touch(start);
+    expect(state.deviceId).toBe(VALID_DEVICE_ID);
+    expect(state.deviceIdPersistent).toBe(true);
+    expect(persistent.dump()[DEVICE_ID_KEY]).toBe(VALID_DEVICE_ID);
+  });
+
+  it.each(INVALID_STORED_DEVICE_IDS)('存储里是%s → 不采用该值，生成合法 uuid 并覆盖写回', (_label, bad) => {
+    const { instance, persistent } = tracker({ authorized: true, persistentSeed: { [DEVICE_ID_KEY]: bad } });
+    const state = instance.touch(start);
+    expect(state.deviceId).not.toBe(bad);
+    expect(state.deviceId).toMatch(SCHEMA_UUID_PATTERN);
+    // 覆盖写回：被污染的存储值不再残留（否则每批都还要再判一次、且每次启动都可能变）
+    expect(persistent.dump()[DEVICE_ID_KEY]).toBe(state.deviceId);
+  });
+
+  it.each(INVALID_STORED_DEVICE_IDS)('存储里是%s → 覆盖写回的值被后续实例复用（同一设备语义不漂移）', (_label, bad) => {
+    const { instance, persistent } = tracker({ authorized: true, persistentSeed: { [DEVICE_ID_KEY]: bad } });
+    const first = instance.touch(start).deviceId;
+    const otherId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const reopened = reopen(persistent, otherId);
+    // 读回的是覆盖写回后的值，而不是新生成器的值 → 污染被清掉且没有被反复重新生成
+    expect(reopened.touch(start).deviceId).toBe(first);
+    expect(reopened.touch(start).deviceId).not.toBe(otherId);
+    expect(reopened.touch(start).deviceId).toMatch(SCHEMA_UUID_PATTERN);
+  });
+
+  it('存储里没有该键 → 生成合法 uuid 并写回（回归）', () => {
+    const { instance, persistent } = tracker({ authorized: true });
+    const state = instance.touch(start);
+    expect(state.deviceId).toMatch(SCHEMA_UUID_PATTERN);
+    expect(persistent.dump()[DEVICE_ID_KEY]).toBe(state.deviceId);
+  });
+
+  it('漂移锁定：采用判定与真实 Schema 的 $defs/uuid.pattern 逐样本一致', () => {
+    const samples = [
+      VALID_DEVICE_ID,
+      '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
+      'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA',
+      'aaaaaaaa-aaaa-4aaa-7aaa-aaaaaaaaaaaa',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaaa',
+      'abc',
+      '',
+    ];
+    for (const sample of samples) {
+      const { instance } = tracker({ authorized: true, persistentSeed: { [DEVICE_ID_KEY]: sample } });
+      const accepted = instance.touch(start).deviceId === sample;
+      expect(accepted, sample).toBe(SCHEMA_UUID_PATTERN.test(sample));
+    }
   });
 });

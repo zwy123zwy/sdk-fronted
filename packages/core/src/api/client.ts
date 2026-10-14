@@ -35,6 +35,7 @@ import {
   createPageTracker,
   createSessionTracker,
 } from '../context';
+import { isSchemaUuid } from '../context/schema-uuid';
 import type {
   ConsentManager,
   ContextStoragePort,
@@ -886,12 +887,31 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   function acceptStubCommand(command: StubCommand): void {
     if (isFinished()) return;
     const snapshot = resolveLocation();
+    // `StubCommand.eventId` 是外部（页面上的加载桩）传进来的值，而事件体的 `event_id` 是
+    // required + `$ref #/$defs/uuid`，且同属协议字段排除清单（不脱敏）：非 uuid 的值不会被
+    // 任何兜底改写，带着它上报的**整批**都过不了 `$defs/uuid`。
+    // 口径（与 `noteLocation` 的显式 `view_id` 同族）：非 uuid 的 `eventId` **丢弃** + 回落
+    // `createUuid()` 生成合法值；合法 uuid 原样保留（`event_id` 是去重的唯一依据，能保留就
+    // 必须保留）。**不制造「静默丢弃」**：事件本身照常产出（不是 `undefined`/空串/消失），
+    // 另计 `invalid_args` 并发一条 `dropped: 'field'` / `field: 'event_id'` 的诊断记录使其可观测。
+    let eventId = command.eventId;
+    if (eventId !== undefined && !isSchemaUuid(eventId)) {
+      counters.count(API_REASON_CODES.invalidArgs);
+      drop({
+        reason_code: API_REASON_CODES.invalidArgs,
+        kind: command.kind,
+        event_name: command.name,
+        dropped: 'field',
+        field: 'event_id',
+      });
+      eventId = undefined;
+    }
     try {
       replay({
         kind: command.kind,
         name: command.name,
         args: command.args,
-        eventId: command.eventId ?? createUuid(),
+        eventId: eventId ?? createUuid(),
         occurredAt: command.occurredAt ?? Date.now(),
         pageId: command.pageId ?? currentPageId ?? snapshot.pageId,
         url: command.url ?? snapshot.href,
