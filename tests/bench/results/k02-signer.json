@@ -1,0 +1,45 @@
+{
+  "bench": "k02-signer",
+  "run_id": "run-3",
+  "generated_at": "2026-10-14T06:49:08.136Z",
+  "node": "v24.16.0",
+  "platform": "darwin/arm64",
+  "cpu": "Apple M4",
+  "cpus": 10,
+  "rows": [
+    {
+      "metric": "K02 进程内签名（sign）单次耗时",
+      "stat": "p95",
+      "value": 0.31741700000000606,
+      "unit": "ms",
+      "samples": 100,
+      "target": 100,
+      "targetText": "单次 ≤ 100 ms",
+      "source": "tests/acceptance/K02.md K02-AC-09",
+      "note": "AC-09 的判定统计量是 p95",
+      "extra": {
+        "p50": 0.2718749999999943,
+        "p99": 0.34558300000000486,
+        "min": 0.20508399999999938,
+        "max": 0.36599999999998545
+      }
+    },
+    {
+      "metric": "K02 进程内验签（verify）单次耗时",
+      "stat": "p95",
+      "value": 0.1570000000000107,
+      "unit": "ms",
+      "samples": 100,
+      "target": 100,
+      "targetText": "单次 ≤ 100 ms",
+      "source": "tests/acceptance/K02.md K02-AC-09",
+      "note": "AC-09 的判定统计量是 p95",
+      "extra": {
+        "p50": 0.1369579999999928,
+        "p99": 0.16029199999999832,
+        "min": 0.12558299999997757,
+        "max": 0.16120800000001623
+      }
+    }
+  ]
+}

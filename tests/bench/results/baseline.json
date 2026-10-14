@@ -1,0 +1,937 @@
+{
+  "generated_at": "2026-10-14T06:50:17.274Z",
+  "node": "v24.16.0",
+  "cpus": 10,
+  "benchmark_files": [
+    "c01-track",
+    "c02-kernel",
+    "c03-config-sampling",
+    "c04-privacy",
+    "c06-queue",
+    "c07-offline",
+    "c08-monitor",
+    "k02-signer",
+    "size"
+  ],
+  "rows": [
+    {
+      "metric": "C01 track 单次同步耗时",
+      "stat": "p99",
+      "value": 0.008082999999999174,
+      "unit": "ms",
+      "samples": 20000,
+      "target": 0.1,
+      "targetText": "P99 ≤ 0.1 ms",
+      "source": "docs/tasks/T12.md C01 非功能目标",
+      "extra": {
+        "p50": 0.003124999999997158,
+        "min": 0.0027910000000019863,
+        "max": 1.174790999999999
+      },
+      "bench": "c01-track",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C01 track 单线程吞吐（由 P50 推出）",
+      "stat": "p50",
+      "value": 320000.00000029104,
+      "unit": "次/秒",
+      "samples": 20000,
+      "note": "track P50=0.003125 ms",
+      "bench": "c01-track",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C01 track 批内摊销单条耗时（每批 1000 次）",
+      "stat": "p50",
+      "value": 0.0029199999999999877,
+      "unit": "ms",
+      "samples": 100,
+      "note": "规避逐次计时的计时器下限，无契约目标",
+      "extra": {
+        "min": 0.002857666999999992,
+        "p99": 0.004776041999999961
+      },
+      "bench": "c01-track",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C01 命令队列 200 条 push 组耗时",
+      "stat": "p50",
+      "value": 0.009749999999996817,
+      "unit": "ms",
+      "samples": 200,
+      "target": 1,
+      "targetText": "200 条 ≤ 1 ms",
+      "source": "docs/tasks/T12.md C01 非功能目标",
+      "extra": {
+        "p99": 0.02479199999999082,
+        "min": 0.006042000000036296,
+        "max": 0.028500000000008185
+      },
+      "bench": "c01-track",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C01 命令队列单条 push",
+      "stat": "p50",
+      "value": 0.00012499999996862243,
+      "unit": "ms",
+      "samples": 2000,
+      "extra": {
+        "p99": 0.0012080000000196378,
+        "min": 0.00004099999995332837
+      },
+      "note": "对照值，无独立契约目标",
+      "bench": "c01-track",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C02 初始化 + 启动（createKernel+init+start）",
+      "stat": "p99",
+      "value": 0.006083000000003835,
+      "unit": "ms",
+      "samples": 300,
+      "target": 5,
+      "targetText": "≤ 5 ms",
+      "source": "docs/tasks/T11.md 非功能目标",
+      "extra": {
+        "p50": 0.0017079999999936035,
+        "min": 0.000916999999986956,
+        "max": 0.021500000000003183
+      },
+      "bench": "c02-kernel",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C02 六段管线处理单条事件",
+      "stat": "p99",
+      "value": 0.0007499999999964757,
+      "unit": "ms",
+      "samples": 20000,
+      "target": 0.05,
+      "targetText": "P99 ≤ 0.05 ms",
+      "source": "docs/tasks/T11.md 非功能目标",
+      "extra": {
+        "p50": 0.00012499999999704414,
+        "min": 0.000040999999995960934,
+        "max": 0.2565830000000062
+      },
+      "bench": "c02-kernel",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C02 预启动队列内存（典型形态 3 个短维度，仓库体积口径）",
+      "stat": "p50",
+      "value": 112890,
+      "unit": "B",
+      "samples": 500,
+      "target": 262144,
+      "targetText": "≤ 256 KB",
+      "source": "docs/tasks/T11.md 非功能目标",
+      "note": "JSON 码元数；每条约 226 B",
+      "extra": {
+        "kb": 110.244140625,
+        "memory_upper_bytes": 161780
+      },
+      "bench": "c02-kernel",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C02 预启动队列内存（生产上界形态，仓库体积口径）",
+      "stat": "p50",
+      "value": 325000,
+      "unit": "B",
+      "samples": 500,
+      "target": 262144,
+      "targetText": "≤ 256 KB",
+      "source": "docs/tasks/T11.md 非功能目标",
+      "note": "JSON 码元数；含 200 字符长值与伪造 PII，每条约 650 B；256 KB / 500 条隐含平均 ≤ 524 B/条",
+      "extra": {
+        "kb": 317.3828125,
+        "memory_upper_bytes": 556000
+      },
+      "bench": "c02-kernel",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C02 预启动队列内存（生产上界形态，内存保守上界 UTF-16×2）",
+      "stat": "p50",
+      "value": 556000,
+      "unit": "B",
+      "samples": 500,
+      "note": "每条约 1112 B；真实 V8 对 Latin-1 字符串按 1 B/码元，故这是上界",
+      "extra": {
+        "kb": 542.96875
+      },
+      "bench": "c02-kernel",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C02 预启动队列堆增量摊薄（生产上界形态，含未回收临时对象）",
+      "stat": "p50",
+      "value": 196711.84,
+      "unit": "B",
+      "samples": 100,
+      "note": "上界，未强制 GC（gcForced=false）；每内核 192.10 KB",
+      "bench": "c02-kernel",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C02 管线（5 轮 × 4000 次的轮中位数）",
+      "stat": "p50",
+      "value": 0.00016600000000721593,
+      "unit": "ms",
+      "samples": 5,
+      "note": "轮中位数 0.000708 / 0.000583 / 0.000125 / 0.000166 / 0.000166",
+      "bench": "c02-kernel",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C03 mergeConfig 三级合并单次耗时",
+      "stat": "p99",
+      "value": 0.0014159999999918682,
+      "unit": "ms",
+      "samples": 5000,
+      "note": "T13 任务卡无该指标的目标值，仅记录趋势",
+      "extra": {
+        "p50": 0.0002080000000006521,
+        "min": 0.00012499999999704414,
+        "max": 0.31024999999999636
+      },
+      "bench": "c03-config-sampling",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C03 采样判定单条耗时（整条管线：sample 段）",
+      "stat": "p99",
+      "value": 0.00045800000000895125,
+      "unit": "ms",
+      "samples": 20000,
+      "target": 0.01,
+      "targetText": "P99 ≤ 0.01 ms",
+      "source": "docs/tasks/T13.md 非功能目标",
+      "extra": {
+        "p50": 0.0002909999999900492,
+        "min": 0.00012499999999704414,
+        "max": 0.086749999999995
+      },
+      "bench": "c03-config-sampling",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C02/C03 空六段管线单条事件（对照基线）",
+      "stat": "p99",
+      "value": 0.0003750000000053433,
+      "unit": "ms",
+      "samples": 10000,
+      "note": "无处理器注册时的管线固定开销，用于解释其它几何指标的构成",
+      "extra": {
+        "p50": 0.00008300000000360797,
+        "min": 0
+      },
+      "bench": "c03-config-sampling",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C04 字段约束 + 脱敏：单条事件（仅处理器）",
+      "stat": "p99",
+      "value": 0.06100000000003547,
+      "unit": "ms",
+      "samples": 20000,
+      "target": 0.03,
+      "targetText": "P99 ≤ 0.03 ms",
+      "source": "docs/tasks/T14.md 非功能目标",
+      "extra": {
+        "p50": 0.027667000000064945,
+        "min": 0.024249999999994998,
+        "max": 6.573041999999987
+      },
+      "bench": "c04-privacy",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C04 脱敏器单独处理 256 字符",
+      "stat": "p99",
+      "value": 0.03720899999984795,
+      "unit": "ms",
+      "samples": 20000,
+      "target": 0.03,
+      "targetText": "P99 ≤ 0.03 ms",
+      "source": "docs/tasks/T14.md 非功能目标",
+      "extra": {
+        "p50": 0.03125,
+        "min": 0.03083299999980227
+      },
+      "bench": "c04-privacy",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C04 脱敏器 apply()，长度 32 字符",
+      "stat": "p50",
+      "value": 0.0012500000000272848,
+      "unit": "ms",
+      "samples": 10000,
+      "note": "每字符 39.1 ns；P99=0.001375 ms",
+      "extra": {
+        "p99": 0.0013750000000527507,
+        "ns_per_char": 39.06250000085265
+      },
+      "bench": "c04-privacy",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C04 脱敏器 apply()，长度 64 字符",
+      "stat": "p50",
+      "value": 0.00437499999998181,
+      "unit": "ms",
+      "samples": 10000,
+      "note": "每字符 68.4 ns；P99=0.004500 ms",
+      "extra": {
+        "p99": 0.004500000000007276,
+        "ns_per_char": 68.35937499971578
+      },
+      "bench": "c04-privacy",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C04 脱敏器 apply()，长度 128 字符",
+      "stat": "p50",
+      "value": 0.014499999999998181,
+      "unit": "ms",
+      "samples": 10000,
+      "note": "每字符 113.3 ns；P99=0.015792 ms",
+      "extra": {
+        "p99": 0.015791999999919426,
+        "ns_per_char": 113.28124999998579
+      },
+      "bench": "c04-privacy",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C04 脱敏器 apply()，长度 256 字符",
+      "stat": "p50",
+      "value": 0.031165999999984706,
+      "unit": "ms",
+      "samples": 10000,
+      "note": "每字符 121.7 ns；P99=0.037291 ms",
+      "extra": {
+        "p99": 0.037291000000095664,
+        "ns_per_char": 121.74218749994026
+      },
+      "bench": "c04-privacy",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C04 上下文富化处理器：单条事件",
+      "stat": "p99",
+      "value": 0.0011249999997744453,
+      "unit": "ms",
+      "samples": 20000,
+      "target": 0.03,
+      "targetText": "P99 ≤ 0.03 ms",
+      "source": "docs/tasks/T14.md 非功能目标",
+      "extra": {
+        "p50": 0.00016699999969205237,
+        "min": 0.00008299999990413198
+      },
+      "bench": "c04-privacy",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C04 字段约束 + 脱敏：含事件构造（对照）",
+      "stat": "p99",
+      "value": 0.03208300000005693,
+      "unit": "ms",
+      "samples": 20000,
+      "note": "口径与单元护栏一致：计时区含 makeEvent()",
+      "extra": {
+        "p50": 0.026749999999992724
+      },
+      "bench": "c04-privacy",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C06 入队单条耗时",
+      "stat": "p99",
+      "value": 0.0027919999999994616,
+      "unit": "ms",
+      "samples": 5000,
+      "target": 0.01,
+      "targetText": "P99 ≤ 0.01 ms",
+      "source": "docs/tasks/T15.md 非功能目标",
+      "extra": {
+        "p50": 0.001041999999998211,
+        "min": 0.0008750000000077307,
+        "max": 0.2637500000000017
+      },
+      "bench": "c06-queue",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C06 单批组装（20 条事件）",
+      "stat": "p50",
+      "value": 0.004666999999997756,
+      "unit": "ms",
+      "samples": 500,
+      "note": "对照行（不含序列化）",
+      "extra": {
+        "p99": 0.009917000000001508,
+        "min": 0.003416000000001418
+      },
+      "bench": "c06-queue",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C06 单批组装 + JSON 序列化（20 条事件）",
+      "stat": "p50",
+      "value": 0.009957999999997469,
+      "unit": "ms",
+      "samples": 500,
+      "target": 2,
+      "targetText": "≤ 2 ms",
+      "source": "docs/tasks/T15.md 非功能目标",
+      "extra": {
+        "p99": 0.0158750000000083,
+        "min": 0.009416000000001645,
+        "batch_json_bytes": 5824
+      },
+      "bench": "c06-queue",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C06 满载队列（默认上限 500 条）的常驻内存：实现自估体积",
+      "stat": "p50",
+      "value": 215500,
+      "unit": "B",
+      "samples": 500,
+      "target": 1048576,
+      "targetText": "≤ 1 MB",
+      "source": "docs/tasks/T15.md 非功能目标",
+      "note": "队列自身默认上限 512.00 KB；每条约 431 B",
+      "extra": {
+        "kb": 210.44921875,
+        "queue_max_kb": 512
+      },
+      "bench": "c06-queue",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C06 满载队列（默认上限 500 条）事件体积（仓库口径 JSON 码元数）",
+      "stat": "p50",
+      "value": 175500,
+      "unit": "B",
+      "samples": 500,
+      "note": "每条约 351 B；实现自估 431 B/条（更保守）",
+      "extra": {
+        "kb": 171.38671875
+      },
+      "bench": "c06-queue",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C06 满载队列（默认上限 500 条）事件内存保守上界（UTF-16×2）",
+      "stat": "p50",
+      "value": 263000,
+      "unit": "B",
+      "samples": 500,
+      "note": "确定性结构字节上界，不含引擎对象头",
+      "extra": {
+        "kb": 256.8359375
+      },
+      "bench": "c06-queue",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C06 满载队列保留事件对象的堆增量（含引擎开销）",
+      "stat": "p50",
+      "value": -8029800,
+      "unit": "B",
+      "samples": 500,
+      "note": "上界，未强制 GC（gcForced=false）；合计 -7841.60 KB",
+      "bench": "c06-queue",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C07 prewrite 同步调用（单条事件批次）",
+      "stat": "p99",
+      "value": 0.005041000000005624,
+      "unit": "ms",
+      "samples": 2000,
+      "target": 1,
+      "targetText": "≤ 1 ms",
+      "source": "docs/tasks/T16.md 非功能目标",
+      "extra": {
+        "p50": 0.0009170000000011669,
+        "min": 0.0007499999999964757,
+        "max": 0.404207999999997
+      },
+      "bench": "c07-offline",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C07 prewrite 同步调用（100 条事件 / 每条约 200 B 附件）",
+      "stat": "p99",
+      "value": 0.09004200000001106,
+      "unit": "ms",
+      "samples": 300,
+      "target": 1,
+      "targetText": "≤ 1 ms",
+      "source": "docs/tasks/T16.md 非功能目标",
+      "note": "同步路径不做整批 JSON 序列化",
+      "extra": {
+        "p50": 0.045166999999992186,
+        "min": 0.044291999999998666,
+        "max": 0.1581249999999983
+      },
+      "bench": "c07-offline",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C07 异步落盘提交耗时 P50",
+      "stat": "p50",
+      "value": 0,
+      "unit": "ms",
+      "samples": 50,
+      "note": "真实 IDB（fake-indexeddb），提交 50 次；commitLostEvents=0",
+      "bench": "c07-offline",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C07 异步落盘提交耗时 P95",
+      "stat": "p95",
+      "value": 1,
+      "unit": "ms",
+      "samples": 50,
+      "note": "不阻塞主线程，因此不计入 T16 的 1 ms 口径",
+      "bench": "c07-offline",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C07 提交丢失事件数",
+      "stat": "p50",
+      "value": 0,
+      "unit": "条",
+      "samples": 50,
+      "note": "基准起点时间戳 1793000000000",
+      "bench": "c07-offline",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C08 单次计数操作 counters.count(reason)",
+      "stat": "p99",
+      "value": 0.00012499999999704414,
+      "unit": "ms",
+      "samples": 50000,
+      "target": 0.001,
+      "targetText": "≤ 0.001 ms",
+      "source": "docs/tasks/T17.md 非功能目标",
+      "note": "计数器当前键数=5",
+      "extra": {
+        "p50": 0.00004100000001017179,
+        "min": 0,
+        "max": 0.008707999999998606
+      },
+      "bench": "c08-monitor",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C08 整窗映射（60 个指标）",
+      "stat": "p99",
+      "value": 0.005583000000001448,
+      "unit": "ms",
+      "samples": 5000,
+      "note": "比「单次计数操作」保守得多，T17 的单元回归护栏是 0.06 ms",
+      "extra": {
+        "p50": 0.0038329999999859865,
+        "min": 0.003415999999987207,
+        "max": 0.31508300000001555
+      },
+      "bench": "c08-monitor",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C08 自监控/业务 计数比（真实产出）",
+      "stat": "p50",
+      "value": 0.001,
+      "unit": "比例",
+      "samples": 1000,
+      "target": 0.01,
+      "targetText": "≤ 1%",
+      "source": "docs/tasks/T17.md 非功能目标",
+      "note": "1 条 sdk_health / 1000 条业务事件",
+      "extra": {
+        "percent": 0.1
+      },
+      "bench": "c08-monitor",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "C08 自监控/业务 体积比（真实产出）",
+      "stat": "p50",
+      "value": 0.001606837606837607,
+      "unit": "比例",
+      "samples": 1000,
+      "target": 0.01,
+      "targetText": "≤ 1%",
+      "source": "docs/tasks/T17.md 非功能目标",
+      "note": "sdk_health 564 B；业务 351000 B（351 B/条）；组批后 291200 B",
+      "extra": {
+        "percent": 0.1606837606837607
+      },
+      "bench": "c08-monitor",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "K02 进程内签名（sign）单次耗时",
+      "stat": "p95",
+      "value": 0.31741700000000606,
+      "unit": "ms",
+      "samples": 100,
+      "target": 100,
+      "targetText": "单次 ≤ 100 ms",
+      "source": "tests/acceptance/K02.md K02-AC-09",
+      "note": "AC-09 的判定统计量是 p95",
+      "extra": {
+        "p50": 0.2718749999999943,
+        "p99": 0.34558300000000486,
+        "min": 0.20508399999999938,
+        "max": 0.36599999999998545
+      },
+      "bench": "k02-signer",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "K02 进程内验签（verify）单次耗时",
+      "stat": "p95",
+      "value": 0.1570000000000107,
+      "unit": "ms",
+      "samples": 100,
+      "target": 100,
+      "targetText": "单次 ≤ 100 ms",
+      "source": "tests/acceptance/K02.md K02-AC-09",
+      "note": "AC-09 的判定统计量是 p95",
+      "extra": {
+        "p50": 0.1369579999999928,
+        "p99": 0.16029199999999832,
+        "min": 0.12558299999997757,
+        "max": 0.16120800000001623
+      },
+      "bench": "k02-signer",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "加载桩 gzip（压缩 IIFE，真实交付形态）",
+      "value": 733,
+      "target": 1024,
+      "target_text": "≤ 1 KB（T12 任务卡）",
+      "source": "docs/tasks/T12.md 非功能目标",
+      "note": "原始 1512 B；brotli 640 B",
+      "bench": "size",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "加载桩 gzip（未压缩源码整理版，参考）",
+      "value": 3236,
+      "note": "未压缩形态，仅作参考",
+      "bench": "size",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "size-limit 口径 gzip（打包+minify）：packages/browser/dist/index.js",
+      "value": 39728,
+      "target": 13312,
+      "target_text": "13 KB（.size-limit.json 现行预算）",
+      "source": ".size-limit.json（2026-10-13 批准）",
+      "note": "打包后 120023 B；brotli 35081 B；未打包的 dist 文件 gzip=3376 B（不同口径）；本包产物比源码旧=false；⚠ browser 入口正被 T18 装配根改造，该行仅供参考、不据此判定",
+      "bench": "size",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "size-limit 口径 gzip（打包+minify）：packages/core/dist/index.js",
+      "value": 21146,
+      "target": 21504,
+      "target_text": "21 KB（.size-limit.json 现行预算）",
+      "source": ".size-limit.json（2026-10-13 批准）",
+      "note": "打包后 63358 B；brotli 19128 B；未打包的 dist 文件 gzip=31866 B（不同口径）；本包产物比源码旧=true",
+      "bench": "size",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "size-limit 口径 gzip（打包+minify）：packages/plugins/dist/index.js",
+      "value": 6838,
+      "target": 20480,
+      "target_text": "20 KB（.size-limit.json 现行预算）",
+      "source": ".size-limit.json（2026-10-13 批准）",
+      "note": "打包后 17786 B；brotli 6107 B；未打包的 dist 文件 gzip=9397 B（不同口径）；本包产物比源码旧=false",
+      "bench": "size",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "size-limit 口径 gzip（打包+minify）：packages/transport/dist/index.js",
+      "value": 17191,
+      "target": 18432,
+      "target_text": "18 KB（.size-limit.json 现行预算）",
+      "source": ".size-limit.json（2026-10-13 批准）",
+      "note": "打包后 48918 B；brotli 15313 B；未打包的 dist 文件 gzip=24846 B（不同口径）；本包产物比源码旧=false",
+      "bench": "size",
+      "run_id": "run-3"
+    },
+    {
+      "metric": "<script> 全量 IIFE gzip（packages/browser/dist/web-report-sdk.iife.js）",
+      "value": 39986,
+      "source": "docs/guides（<script> 引入产物）",
+      "note": "原始 120584 B；brotli 35354 B；无独立契约目标，仅记录",
+      "bench": "size",
+      "run_id": "run-3"
+    }
+  ],
+  "variance": [
+    {
+      "metric": "c06-queue｜C06 满载队列保留事件对象的堆增量（含引擎开销）｜p50",
+      "runs": 3,
+      "median": 80328,
+      "spread": 100.96265312219899
+    },
+    {
+      "metric": "c04-privacy｜C04 字段约束 + 脱敏：单条事件（仅处理器）｜p99",
+      "runs": 3,
+      "median": 0.03704200000004221,
+      "spread": 0.8053830786649103
+    },
+    {
+      "metric": "c04-privacy｜C04 上下文富化处理器：单条事件｜p99",
+      "runs": 3,
+      "median": 0.0009579999998550193,
+      "spread": 0.5657620040192844
+    },
+    {
+      "metric": "c01-track｜C01 命令队列 200 条 push 组耗时｜p50",
+      "runs": 3,
+      "median": 0.006624999999985448,
+      "spread": 0.5157735849001911
+    },
+    {
+      "metric": "c01-track｜C01 track 单次同步耗时｜p99",
+      "runs": 3,
+      "median": 0.005542000000005487,
+      "spread": 0.46607722843716654
+    },
+    {
+      "metric": "c02-kernel｜C02 六段管线处理单条事件｜p99",
+      "runs": 3,
+      "median": 0.0007499999999964757,
+      "spread": 0.44533333332898795
+    },
+    {
+      "metric": "k02-signer｜K02 进程内验签（verify）单次耗时｜p95",
+      "runs": 3,
+      "median": 0.18137500000000273,
+      "spread": 0.36756443831821334
+    },
+    {
+      "metric": "c02-kernel｜C02 管线（5 轮 × 4000 次的轮中位数）｜p50",
+      "runs": 3,
+      "median": 0.00012499999999704414,
+      "spread": 0.3280000000891305
+    },
+    {
+      "metric": "c04-privacy｜C04 脱敏器 apply()，长度 64 字符｜p50",
+      "runs": 3,
+      "median": 0.00437499999998181,
+      "spread": 0.28571428572171015
+    },
+    {
+      "metric": "c08-monitor｜C08 整窗映射（60 个指标）｜p99",
+      "runs": 3,
+      "median": 0.005583000000001448,
+      "spread": 0.21637112663788724
+    },
+    {
+      "metric": "c04-privacy｜C04 脱敏器 apply()，长度 128 字符｜p50",
+      "runs": 3,
+      "median": 0.014499999999998181,
+      "spread": 0.1896551724054119
+    },
+    {
+      "metric": "k02-signer｜K02 进程内签名（sign）单次耗时｜p95",
+      "runs": 3,
+      "median": 0.31741700000000606,
+      "spread": 0.16264094235667528
+    },
+    {
+      "metric": "c04-privacy｜C04 字段约束 + 脱敏：含事件构造（对照）｜p99",
+      "runs": 3,
+      "median": 0.03208300000005693,
+      "spread": 0.14412617274384404
+    },
+    {
+      "metric": "c04-privacy｜C04 脱敏器 apply()，长度 32 字符｜p50",
+      "runs": 3,
+      "median": 0.0012500000000272848,
+      "spread": 0.13440000002153685
+    },
+    {
+      "metric": "c02-kernel｜C02 初始化 + 启动（createKernel+init+start）｜p99",
+      "runs": 3,
+      "median": 0.0061249999999972715,
+      "spread": 0.1293061224497103
+    },
+    {
+      "metric": "c04-privacy｜C04 脱敏器单独处理 256 字符｜p99",
+      "runs": 3,
+      "median": 0.03720899999984795,
+      "spread": 0.12432476013999627
+    },
+    {
+      "metric": "c07-offline｜C07 prewrite 同步调用（单条事件批次）｜p99",
+      "runs": 3,
+      "median": 0.004958999999999492,
+      "spread": 0.10082677959601725
+    },
+    {
+      "metric": "c04-privacy｜C04 脱敏器 apply()，长度 256 字符｜p50",
+      "runs": 3,
+      "median": 0.031165999999984706,
+      "spread": 0.09760636590593956
+    },
+    {
+      "metric": "c03-config-sampling｜C03 采样判定单条耗时（整条管线：sample 段）｜p99",
+      "runs": 3,
+      "median": 0.0004579999999947404,
+      "spread": 0.08951965067825901
+    },
+    {
+      "metric": "c03-config-sampling｜C03 mergeConfig 三级合并单次耗时｜p99",
+      "runs": 3,
+      "median": 0.0014159999999989736,
+      "spread": 0.08827683616620452
+    },
+    {
+      "metric": "c06-queue｜C06 入队单条耗时｜p99",
+      "runs": 3,
+      "median": 0.0027079999999983784,
+      "spread": 0.07717872968916267
+    },
+    {
+      "metric": "c06-queue｜C06 单批组装 + JSON 序列化（20 条事件）｜p50",
+      "runs": 3,
+      "median": 0.009874999999993861,
+      "spread": 0.05903797468418814
+    },
+    {
+      "metric": "c07-offline｜C07 prewrite 同步调用（100 条事件 / 每条约 200 B 附件）｜p99",
+      "runs": 3,
+      "median": 0.09391700000000469,
+      "spread": 0.05057657293127885
+    },
+    {
+      "metric": "c01-track｜C01 track 单线程吞吐（由 P50 推出）｜p50",
+      "runs": 3,
+      "median": 320000.00000029104,
+      "spread": 0.027622492596707685
+    },
+    {
+      "metric": "c02-kernel｜C02 预启动队列堆增量摊薄（生产上界形态，含未回收临时对象）｜p50",
+      "runs": 3,
+      "median": 200720.16,
+      "spread": 0.023616561485403392
+    },
+    {
+      "metric": "c06-queue｜C06 单批组装（20 条事件）｜p50",
+      "runs": 3,
+      "median": 0.004666999999997756,
+      "spread": 0.017784443966024643
+    },
+    {
+      "metric": "c01-track｜C01 track 批内摊销单条耗时（每批 1000 次）｜p50",
+      "runs": 3,
+      "median": 0.0029199999999999877,
+      "spread": 0.01635273972604961
+    },
+    {
+      "metric": "c01-track｜C01 命令队列单条 push｜p50",
+      "runs": 3,
+      "median": 0.00012499999996862243,
+      "spread": 0
+    },
+    {
+      "metric": "c08-monitor｜C08 单次计数操作 counters.count(reason)｜p99",
+      "runs": 3,
+      "median": 0.00012499999999704414,
+      "spread": 0
+    },
+    {
+      "metric": "c08-monitor｜C08 自监控/业务 计数比（真实产出）｜p50",
+      "runs": 3,
+      "median": 0.001,
+      "spread": 0
+    },
+    {
+      "metric": "c08-monitor｜C08 自监控/业务 体积比（真实产出）｜p50",
+      "runs": 3,
+      "median": 0.001606837606837607,
+      "spread": 0
+    },
+    {
+      "metric": "c07-offline｜C07 异步落盘提交耗时 P50｜p50",
+      "runs": 3,
+      "median": 0,
+      "spread": 0
+    },
+    {
+      "metric": "c07-offline｜C07 异步落盘提交耗时 P95｜p95",
+      "runs": 3,
+      "median": 1,
+      "spread": 0
+    },
+    {
+      "metric": "c07-offline｜C07 提交丢失事件数｜p50",
+      "runs": 3,
+      "median": 0,
+      "spread": 0
+    },
+    {
+      "metric": "c02-kernel｜C02 预启动队列内存（典型形态 3 个短维度，仓库体积口径）｜p50",
+      "runs": 3,
+      "median": 112890,
+      "spread": 0
+    },
+    {
+      "metric": "c02-kernel｜C02 预启动队列内存（生产上界形态，仓库体积口径）｜p50",
+      "runs": 3,
+      "median": 325000,
+      "spread": 0
+    },
+    {
+      "metric": "c02-kernel｜C02 预启动队列内存（生产上界形态，内存保守上界 UTF-16×2）｜p50",
+      "runs": 3,
+      "median": 556000,
+      "spread": 0
+    },
+    {
+      "metric": "c06-queue｜C06 满载队列（默认上限 500 条）的常驻内存：实现自估体积｜p50",
+      "runs": 3,
+      "median": 215500,
+      "spread": 0
+    },
+    {
+      "metric": "c06-queue｜C06 满载队列（默认上限 500 条）事件体积（仓库口径 JSON 码元数）｜p50",
+      "runs": 3,
+      "median": 175500,
+      "spread": 0
+    },
+    {
+      "metric": "c06-queue｜C06 满载队列（默认上限 500 条）事件内存保守上界（UTF-16×2）｜p50",
+      "runs": 3,
+      "median": 263000,
+      "spread": 0
+    },
+    {
+      "metric": "c03-config-sampling｜C02/C03 空六段管线单条事件（对照基线）｜p99",
+      "runs": 3,
+      "median": 0.0003750000000053433,
+      "spread": 0
+    }
+  ]
+}

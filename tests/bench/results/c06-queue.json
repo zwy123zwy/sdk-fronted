@@ -1,0 +1,98 @@
+{
+  "bench": "c06-queue",
+  "run_id": "run-3",
+  "generated_at": "2026-10-14T06:49:08.793Z",
+  "node": "v24.16.0",
+  "platform": "darwin/arm64",
+  "cpu": "Apple M4",
+  "cpus": 10,
+  "rows": [
+    {
+      "metric": "C06 入队单条耗时",
+      "stat": "p99",
+      "value": 0.0027919999999994616,
+      "unit": "ms",
+      "samples": 5000,
+      "target": 0.01,
+      "targetText": "P99 ≤ 0.01 ms",
+      "source": "docs/tasks/T15.md 非功能目标",
+      "extra": {
+        "p50": 0.001041999999998211,
+        "min": 0.0008750000000077307,
+        "max": 0.2637500000000017
+      }
+    },
+    {
+      "metric": "C06 单批组装（20 条事件）",
+      "stat": "p50",
+      "value": 0.004666999999997756,
+      "unit": "ms",
+      "samples": 500,
+      "note": "对照行（不含序列化）",
+      "extra": {
+        "p99": 0.009917000000001508,
+        "min": 0.003416000000001418
+      }
+    },
+    {
+      "metric": "C06 单批组装 + JSON 序列化（20 条事件）",
+      "stat": "p50",
+      "value": 0.009957999999997469,
+      "unit": "ms",
+      "samples": 500,
+      "target": 2,
+      "targetText": "≤ 2 ms",
+      "source": "docs/tasks/T15.md 非功能目标",
+      "extra": {
+        "p99": 0.0158750000000083,
+        "min": 0.009416000000001645,
+        "batch_json_bytes": 5824
+      }
+    },
+    {
+      "metric": "C06 满载队列（默认上限 500 条）的常驻内存：实现自估体积",
+      "stat": "p50",
+      "value": 215500,
+      "unit": "B",
+      "samples": 500,
+      "target": 1048576,
+      "targetText": "≤ 1 MB",
+      "source": "docs/tasks/T15.md 非功能目标",
+      "note": "队列自身默认上限 512.00 KB；每条约 431 B",
+      "extra": {
+        "kb": 210.44921875,
+        "queue_max_kb": 512
+      }
+    },
+    {
+      "metric": "C06 满载队列（默认上限 500 条）事件体积（仓库口径 JSON 码元数）",
+      "stat": "p50",
+      "value": 175500,
+      "unit": "B",
+      "samples": 500,
+      "note": "每条约 351 B；实现自估 431 B/条（更保守）",
+      "extra": {
+        "kb": 171.38671875
+      }
+    },
+    {
+      "metric": "C06 满载队列（默认上限 500 条）事件内存保守上界（UTF-16×2）",
+      "stat": "p50",
+      "value": 263000,
+      "unit": "B",
+      "samples": 500,
+      "note": "确定性结构字节上界，不含引擎对象头",
+      "extra": {
+        "kb": 256.8359375
+      }
+    },
+    {
+      "metric": "C06 满载队列保留事件对象的堆增量（含引擎开销）",
+      "stat": "p50",
+      "value": -8029800,
+      "unit": "B",
+      "samples": 500,
+      "note": "上界，未强制 GC（gcForced=false）；合计 -7841.60 KB"
+    }
+  ]
+}

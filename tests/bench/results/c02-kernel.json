@@ -1,0 +1,98 @@
+{
+  "bench": "c02-kernel",
+  "run_id": "run-3",
+  "generated_at": "2026-10-14T06:49:08.605Z",
+  "node": "v24.16.0",
+  "platform": "darwin/arm64",
+  "cpu": "Apple M4",
+  "cpus": 10,
+  "rows": [
+    {
+      "metric": "C02 初始化 + 启动（createKernel+init+start）",
+      "stat": "p99",
+      "value": 0.006083000000003835,
+      "unit": "ms",
+      "samples": 300,
+      "target": 5,
+      "targetText": "≤ 5 ms",
+      "source": "docs/tasks/T11.md 非功能目标",
+      "extra": {
+        "p50": 0.0017079999999936035,
+        "min": 0.000916999999986956,
+        "max": 0.021500000000003183
+      }
+    },
+    {
+      "metric": "C02 六段管线处理单条事件",
+      "stat": "p99",
+      "value": 0.0007499999999964757,
+      "unit": "ms",
+      "samples": 20000,
+      "target": 0.05,
+      "targetText": "P99 ≤ 0.05 ms",
+      "source": "docs/tasks/T11.md 非功能目标",
+      "extra": {
+        "p50": 0.00012499999999704414,
+        "min": 0.000040999999995960934,
+        "max": 0.2565830000000062
+      }
+    },
+    {
+      "metric": "C02 预启动队列内存（典型形态 3 个短维度，仓库体积口径）",
+      "stat": "p50",
+      "value": 112890,
+      "unit": "B",
+      "samples": 500,
+      "target": 262144,
+      "targetText": "≤ 256 KB",
+      "source": "docs/tasks/T11.md 非功能目标",
+      "note": "JSON 码元数；每条约 226 B",
+      "extra": {
+        "kb": 110.244140625,
+        "memory_upper_bytes": 161780
+      }
+    },
+    {
+      "metric": "C02 预启动队列内存（生产上界形态，仓库体积口径）",
+      "stat": "p50",
+      "value": 325000,
+      "unit": "B",
+      "samples": 500,
+      "target": 262144,
+      "targetText": "≤ 256 KB",
+      "source": "docs/tasks/T11.md 非功能目标",
+      "note": "JSON 码元数；含 200 字符长值与伪造 PII，每条约 650 B；256 KB / 500 条隐含平均 ≤ 524 B/条",
+      "extra": {
+        "kb": 317.3828125,
+        "memory_upper_bytes": 556000
+      }
+    },
+    {
+      "metric": "C02 预启动队列内存（生产上界形态，内存保守上界 UTF-16×2）",
+      "stat": "p50",
+      "value": 556000,
+      "unit": "B",
+      "samples": 500,
+      "note": "每条约 1112 B；真实 V8 对 Latin-1 字符串按 1 B/码元，故这是上界",
+      "extra": {
+        "kb": 542.96875
+      }
+    },
+    {
+      "metric": "C02 预启动队列堆增量摊薄（生产上界形态，含未回收临时对象）",
+      "stat": "p50",
+      "value": 196711.84,
+      "unit": "B",
+      "samples": 100,
+      "note": "上界，未强制 GC（gcForced=false）；每内核 192.10 KB"
+    },
+    {
+      "metric": "C02 管线（5 轮 × 4000 次的轮中位数）",
+      "stat": "p50",
+      "value": 0.00016600000000721593,
+      "unit": "ms",
+      "samples": 5,
+      "note": "轮中位数 0.000708 / 0.000583 / 0.000125 / 0.000166 / 0.000166"
+    }
+  ]
+}

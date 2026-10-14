@@ -1,0 +1,66 @@
+{
+  "bench": "c07-offline",
+  "run_id": "run-3",
+  "generated_at": "2026-10-14T06:49:08.487Z",
+  "node": "v24.16.0",
+  "platform": "darwin/arm64",
+  "cpu": "Apple M4",
+  "cpus": 10,
+  "rows": [
+    {
+      "metric": "C07 prewrite 同步调用（单条事件批次）",
+      "stat": "p99",
+      "value": 0.005041000000005624,
+      "unit": "ms",
+      "samples": 2000,
+      "target": 1,
+      "targetText": "≤ 1 ms",
+      "source": "docs/tasks/T16.md 非功能目标",
+      "extra": {
+        "p50": 0.0009170000000011669,
+        "min": 0.0007499999999964757,
+        "max": 0.404207999999997
+      }
+    },
+    {
+      "metric": "C07 prewrite 同步调用（100 条事件 / 每条约 200 B 附件）",
+      "stat": "p99",
+      "value": 0.09004200000001106,
+      "unit": "ms",
+      "samples": 300,
+      "target": 1,
+      "targetText": "≤ 1 ms",
+      "source": "docs/tasks/T16.md 非功能目标",
+      "note": "同步路径不做整批 JSON 序列化",
+      "extra": {
+        "p50": 0.045166999999992186,
+        "min": 0.044291999999998666,
+        "max": 0.1581249999999983
+      }
+    },
+    {
+      "metric": "C07 异步落盘提交耗时 P50",
+      "stat": "p50",
+      "value": 0,
+      "unit": "ms",
+      "samples": 50,
+      "note": "真实 IDB（fake-indexeddb），提交 50 次；commitLostEvents=0"
+    },
+    {
+      "metric": "C07 异步落盘提交耗时 P95",
+      "stat": "p95",
+      "value": 1,
+      "unit": "ms",
+      "samples": 50,
+      "note": "不阻塞主线程，因此不计入 T16 的 1 ms 口径"
+    },
+    {
+      "metric": "C07 提交丢失事件数",
+      "stat": "p50",
+      "value": 0,
+      "unit": "条",
+      "samples": 50,
+      "note": "基准起点时间戳 1793000000000"
+    }
+  ]
+}

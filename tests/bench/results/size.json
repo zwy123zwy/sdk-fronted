@@ -1,0 +1,61 @@
+{
+  "bench": "size",
+  "run_id": "run-3",
+  "generated_at": "2026-10-14T06:49:11.026Z",
+  "node": "v24.16.0",
+  "platform": "darwin/arm64",
+  "cpus": 10,
+  "rows": [
+    {
+      "metric": "加载桩 gzip（压缩 IIFE，真实交付形态）",
+      "value": 733,
+      "target": 1024,
+      "target_text": "≤ 1 KB（T12 任务卡）",
+      "source": "docs/tasks/T12.md 非功能目标",
+      "note": "原始 1512 B；brotli 640 B"
+    },
+    {
+      "metric": "加载桩 gzip（未压缩源码整理版，参考）",
+      "value": 3236,
+      "note": "未压缩形态，仅作参考"
+    },
+    {
+      "metric": "size-limit 口径 gzip（打包+minify）：packages/browser/dist/index.js",
+      "value": 39728,
+      "target": 13312,
+      "target_text": "13 KB（.size-limit.json 现行预算）",
+      "source": ".size-limit.json（2026-10-13 批准）",
+      "note": "打包后 120023 B；brotli 35081 B；未打包的 dist 文件 gzip=3376 B（不同口径）；本包产物比源码旧=false；⚠ browser 入口正被 T18 装配根改造，该行仅供参考、不据此判定"
+    },
+    {
+      "metric": "size-limit 口径 gzip（打包+minify）：packages/core/dist/index.js",
+      "value": 21146,
+      "target": 21504,
+      "target_text": "21 KB（.size-limit.json 现行预算）",
+      "source": ".size-limit.json（2026-10-13 批准）",
+      "note": "打包后 63358 B；brotli 19128 B；未打包的 dist 文件 gzip=31866 B（不同口径）；本包产物比源码旧=true"
+    },
+    {
+      "metric": "size-limit 口径 gzip（打包+minify）：packages/plugins/dist/index.js",
+      "value": 6838,
+      "target": 20480,
+      "target_text": "20 KB（.size-limit.json 现行预算）",
+      "source": ".size-limit.json（2026-10-13 批准）",
+      "note": "打包后 17786 B；brotli 6107 B；未打包的 dist 文件 gzip=9397 B（不同口径）；本包产物比源码旧=false"
+    },
+    {
+      "metric": "size-limit 口径 gzip（打包+minify）：packages/transport/dist/index.js",
+      "value": 17191,
+      "target": 18432,
+      "target_text": "18 KB（.size-limit.json 现行预算）",
+      "source": ".size-limit.json（2026-10-13 批准）",
+      "note": "打包后 48918 B；brotli 15313 B；未打包的 dist 文件 gzip=24846 B（不同口径）；本包产物比源码旧=false"
+    },
+    {
+      "metric": "<script> 全量 IIFE gzip（packages/browser/dist/web-report-sdk.iife.js）",
+      "value": 39986,
+      "source": "docs/guides（<script> 引入产物）",
+      "note": "原始 120584 B；brotli 35354 B；无独立契约目标，仅记录"
+    }
+  ]
+}
