@@ -100,7 +100,11 @@ importers:
 
   packages/core: {}
 
-  packages/plugins: {}
+  packages/plugins:
+    dependencies:
+      '@web-report-sdk/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/transport: {}
 

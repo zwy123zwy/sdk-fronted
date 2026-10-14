@@ -4,6 +4,9 @@
 
 ```ts
 
+import { Plugin as Plugin_2 } from '@web-report-sdk/core';
+import { PluginContext } from '@web-report-sdk/core';
+
 // @public
 export const APM_DUAL_WRITE_PLUGIN_ID = "apm_dual_write";
 
@@ -65,7 +68,142 @@ export interface ApmDualWriteStats {
 export type ApmForward = (record: Readonly<Record<string, unknown>>) => void;
 
 // @public
+export interface Breadcrumb {
+    readonly at: number;
+    readonly target: string;
+    readonly type: string;
+}
+
+// @public
+export const BREADCRUMB_CAPACITY = 20;
+
+// @public
+export const BREADCRUMB_CONTEXT_PREFIX = "bc_";
+
+// @public
+export interface BreadcrumbBuffer {
+    clear(): void;
+    push(target: Element, type: string): void;
+    pushBreadcrumb(breadcrumb: Breadcrumb): void;
+    pushRoute(to: string): void;
+    snapshot(): readonly Breadcrumb[];
+}
+
+// @public
+export const BUILTIN_DEFAULTS: Readonly<Record<string, boolean>>;
+
+// @public
+export interface CapturedRequest {
+    // (undocumented)
+    readonly method: string;
+    readonly sdkInternal?: boolean | undefined;
+    readonly url: string;
+}
+
+// @public
+export interface CapturedResponse {
+    readonly failureReason?: FailureReason | undefined;
+    // (undocumented)
+    readonly requestBytes?: number | undefined;
+    // (undocumented)
+    readonly responseBytes?: number | undefined;
+    // (undocumented)
+    readonly status: number;
+}
+
+// @public
+export function captureNativeHistoryRefs(): RouteSurface | undefined;
+
+// @public
+export function captureNativeHttpRefs(): NativeHttpRefs | undefined;
+
+// @public
+export function classifyFailure(error: unknown): FailureReason;
+
+// @public
+export const COEXISTENCE_DEFAULTS: Readonly<Record<string, boolean>>;
+
+// @public
+export interface CoexistenceInitOptions {
+    readonly apmCoexistence?: boolean | undefined;
+}
+
+// @public
+export const COLLECTOR_IDS: readonly string[];
+
+// @public
+export function computeFingerprint(input: Omit<NormalizeInput, 'stack'>): string;
+
+// @public
 export function createApmDualWritePlugin(options?: ApmDualWriteOptions): ApmDualWritePlugin;
+
+// @public
+export function createBreadcrumbBuffer(clock: () => number): BreadcrumbBuffer;
+
+// @public
+export function createDeduplicator<TPayload>(options?: {
+    readonly windowMs?: number | undefined;
+}): Deduplicator<TPayload>;
+
+// @public
+export function createErrorPlugin(sink: JsErrorSink, options?: ErrorPluginOptions): ErrorCapturePlugin;
+
+// @public
+export function createHttpCapture(sink: HttpSink, ports?: HttpPorts): HttpCapture;
+
+// @public
+export function createHttpPlugin(sink: HttpSink, ports?: HttpPorts): HttpPlugin;
+
+// @public
+export function createMatcher(templates: readonly string[]): (path: string) => string;
+
+// @public
+export function createPerfCapture(sink: PerfSink, ports?: PerfPorts): PerfCapture;
+
+// @public
+export function createPerfPlugin(sink: PerfSink, ports?: PerfPorts): PerfPlugin;
+
+// @public
+export function createRouteCapture(ports?: RoutePorts): RouteCapture;
+
+// @public
+export function createRoutePlugin(ports?: RoutePorts): RoutePlugin;
+
+// Warning: (ae-forgotten-export) The symbol "VitalsAccumulatorOptions" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function createVitalsAccumulator(options?: VitalsAccumulatorOptions): VitalsAccumulator;
+
+// @public
+export function decodeBreadcrumbs(context: Readonly<Record<string, string>> | undefined): readonly string[];
+
+// @public
+export interface Deduplicator<TPayload> {
+    count(fingerprint: string): number;
+    due(at: number): readonly string[];
+    observe(fingerprint: string, payload: TPayload, at: number): DedupObservation;
+    reset(): void;
+    size(): number;
+    take(fingerprint: string): DedupSettlement<TPayload> | undefined;
+    takeAll(): readonly DedupSettlement<TPayload>[];
+}
+
+// @public
+export interface DedupObservation {
+    readonly count: number;
+    readonly started: boolean;
+}
+
+// @public
+export interface DedupSettlement<TPayload> {
+    // (undocumented)
+    readonly count: number;
+    // (undocumented)
+    readonly fingerprint: string;
+    readonly firstAt: number;
+    // (undocumented)
+    readonly payload: TPayload;
+}
 
 // @public
 export const DEFAULT_APM_EVENT_TYPES: readonly string[];
@@ -74,7 +212,540 @@ export const DEFAULT_APM_EVENT_TYPES: readonly string[];
 export const DEFAULT_APM_FIELD_MAP: Readonly<Record<string, string>>;
 
 // @public
+export const DEFAULT_DEDUP_WINDOW_MS = 1000;
+
+// @public
+export const DEFAULT_ERROR_PLUGIN_OPTIONS: Required<Omit<ErrorPluginOptions, 'sources' | 'now' | 'windowMs' | 'globalContext' | 'onLeave'>>;
+
+// @public
+export function describeElement(element: Element): string;
+
+// @public
+export function encodeBreadcrumbs(crumbs: readonly Breadcrumb[]): Readonly<Record<string, string>>;
+
+// @public
+export const ERROR_PLUGIN_ID = "error";
+
+// @public
+export const ERROR_TYPE_EXCEPTION = "exception";
+
+// @public
+export const ERROR_TYPE_RESOURCE = "resource_error";
+
+// @public
+export const ERROR_TYPE_UNHANDLED_REJECTION = "unhandled_rejection";
+
+// @public
+export interface ErrorCapture {
+    breadcrumbs(): BreadcrumbBuffer;
+    capture(error: unknown, options?: {
+        readonly source?: string | undefined;
+    }): void;
+    flush(): void;
+    handleRejection(reason: unknown): void;
+    handleWindowError(message: string, line?: number, column?: number, error?: unknown): boolean;
+    stats(): {
+        readonly reported: number;
+        readonly collapsed: number;
+    };
+    uninstall(): void;
+}
+
+// @public
+export interface ErrorCapturePlugin extends Plugin_2 {
+    readonly capture: ErrorCapture;
+    // (undocumented)
+    readonly id: typeof ERROR_PLUGIN_ID;
+}
+
+// @public
+export interface ErrorPluginOptions {
+    readonly captureResourceErrors?: boolean | undefined;
+    readonly globalContext?: (() => Readonly<Record<string, string>> | undefined) | undefined;
+    readonly now?: (() => number) | undefined;
+    readonly onLeave?: ((callback: () => void) => () => void) | undefined;
+    readonly reportRepeats?: boolean | undefined;
+    readonly sources?: readonly string[] | undefined;
+    readonly windowMs?: number | undefined;
+}
+
+// @public
+export const FAILURE_REASONS: readonly FailureReason[];
+
+// @public
+export type FailureReason = 'network_error' | 'timeout' | 'aborted' | 'cors';
+
+// @public
+export interface HistoryPort {
+    // (undocumented)
+    pushState: (data: unknown, unused: string, url?: string | URL | null) => void;
+    // (undocumented)
+    replaceState: (data: unknown, unused: string, url?: string | URL | null) => void;
+}
+
+// @public
+export const HTTP_EVENT_NAME = "web_http";
+
+// @public
+export const HTTP_PLUGIN_ID = "http";
+
+// @public
+export interface HttpCapture {
+    record: (request: CapturedRequest, response: CapturedResponse, durationMs: number) => void;
+    stats(): {
+        readonly captured: number;
+        readonly skippedInternal: number;
+    };
+    traceHeadersFor: (request: {
+        readonly url: string;
+        readonly method: string;
+    }) => TraceHeaders | undefined;
+    uninstall(): void;
+}
+
+// @public
+export interface HttpDimensions {
+    // (undocumented)
+    readonly failure_reason?: FailureReason | undefined;
+    // (undocumented)
+    readonly method: string;
+    // (undocumented)
+    readonly status_class?: StatusClass | undefined;
+    readonly url_template: string;
+}
+
+// @public
+export interface HttpEvent {
+    // (undocumented)
+    readonly dimensions: HttpDimensions;
+    // (undocumented)
+    readonly event_name: typeof HTTP_EVENT_NAME;
+    // (undocumented)
+    readonly metrics: HttpMetrics;
+    // (undocumented)
+    readonly occurred_at: number;
+    // (undocumented)
+    readonly priority: 'normal' | 'critical';
+}
+
+// @public
+export interface HttpMetrics {
+    // (undocumented)
+    readonly duration_ms: number;
+    // (undocumented)
+    readonly request_bytes?: number | undefined;
+    // (undocumented)
+    readonly response_bytes?: number | undefined;
+    readonly status?: number | undefined;
+}
+
+// @public
+export interface HttpPlugin extends Plugin_2 {
+    // (undocumented)
+    readonly capture: HttpCapture;
+    // (undocumented)
+    readonly id: typeof HTTP_PLUGIN_ID;
+}
+
+// @public
+export interface HttpPluginOptions {
+    readonly traceContextProvider?: TraceContextProvider | undefined;
+    readonly traceScope?: TraceScope | undefined;
+    readonly urlTemplate?: ((url: string) => string) | undefined;
+}
+
+// @public
+export interface HttpPorts {
+    // Warning: (ae-forgotten-export) The symbol "Hooker" needs to be exported by the entry point index.d.ts
+    readonly hooker?: Hooker | undefined;
+    readonly now?: (() => number) | undefined;
+    // (undocumented)
+    readonly options?: HttpPluginOptions | undefined;
+    readonly refs?: NativeHttpRefs | undefined;
+}
+
+// @public
+export type HttpSink = (event: HttpEvent) => void;
+
+// @public
+export function installErrorCapture(context: PluginContext, sink: JsErrorSink, options?: ErrorPluginOptions): ErrorCapture;
+
+// @public
+export function installHttpCapture(context: PluginContext, sink: HttpSink, ports?: HttpPorts): HttpCapture;
+
+// @public
+export function installPerfCapture(context: PluginContext, sink: PerfSink, ports?: PerfPorts): PerfCapture;
+
+// @public
+export function installRouteCapture(context: PluginContext, ports?: RoutePorts): RouteCapture;
+
+// @public
+export function isSameOriginOrAllowed(url: string, scope: TraceScope): boolean;
+
+// @public
+export const JS_ERROR_EVENT_NAME = "web_js_error";
+
+// @public
+export interface JsErrorEvent {
+    readonly [field: string]: unknown;
+    readonly attachment?: string | undefined;
+    readonly context?: Readonly<Record<string, string>> | undefined;
+    // Warning: (ae-forgotten-export) The symbol "NormalizedJsDimensions" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly dimensions: NormalizedJsDimensions;
+    // (undocumented)
+    readonly event_name: typeof JS_ERROR_EVENT_NAME;
+    // (undocumented)
+    readonly metrics: JsErrorMetrics;
+    // (undocumented)
+    readonly occurred_at: number;
+    // (undocumented)
+    readonly priority: 'normal' | 'critical';
+}
+
+// @public
+export interface JsErrorMetrics {
+    readonly column?: number | undefined;
+    readonly count: number;
+    readonly line?: number | undefined;
+}
+
+// @public
+export type JsErrorSink = (event: JsErrorEvent) => void;
+
+// @public
+export type JsErrorSource = typeof SOURCE_WINDOW_ERROR | typeof SOURCE_UNHANDLED_REJECTION;
+
+// @public
+export type JsErrorType = typeof ERROR_TYPE_EXCEPTION | typeof ERROR_TYPE_UNHANDLED_REJECTION | typeof ERROR_TYPE_RESOURCE;
+
+// @public
+export const LONG_TASK_EVENT_NAME = "web_long_task";
+
+// @public
+export interface LongTaskEvent {
+    // (undocumented)
+    readonly dimensions: Readonly<Record<string, never>>;
+    // (undocumented)
+    readonly event_name: typeof LONG_TASK_EVENT_NAME;
+    // (undocumented)
+    readonly metrics: LongTaskMetrics;
+    // (undocumented)
+    readonly occurred_at: number;
+    // (undocumented)
+    readonly priority: 'normal' | 'critical';
+}
+
+// @public
+export interface LongTaskMetrics {
+    // (undocumented)
+    readonly duration_ms: number;
+    // (undocumented)
+    readonly start_time_ms?: number | undefined;
+}
+
+// @public
+export function matchTemplate(path: string, templates: readonly string[]): string;
+
+// @public
+export const METRIC_NAMES: readonly MetricName[];
+
+// @public
+export type MetricName = 'FCP' | 'LCP' | 'CLS' | 'INP' | 'TTFB';
+
+// @public
+export function narrowScope(base: TraceScope, remote: TraceScope): TraceScope;
+
+// @public
+export interface NativeHttpRefs {
+    // (undocumented)
+    fetch: (...args: readonly unknown[]) => Promise<unknown>;
+    XMLHttpRequest?: unknown;
+}
+
+// @public
+export interface NormalizedJsError {
+    readonly attachment?: string | undefined;
+    // (undocumented)
+    readonly dimensions: NormalizedJsDimensions;
+    // (undocumented)
+    readonly metrics: JsErrorMetrics;
+}
+
+// @public
+export function normalizeError(input: NormalizeInput): NormalizedJsError;
+
+// @public
+export interface NormalizeInput {
+    readonly column?: number | undefined;
+    readonly errorType: string;
+    readonly line?: number | undefined;
+    readonly message: string;
+    readonly source: string;
+    readonly stack?: string | undefined;
+}
+
+// @public
+export function normalizeLongTask(entry: PerfEntryLike, occurredAt: number): LongTaskEvent;
+
+// @public
+export function normalizeMessage(message: string): string;
+
+// @public
+export const OBSERVED_ENTRY_TYPES: readonly string[];
+
+// @public
 export const PACKAGE_NAME = "@web-report-sdk/plugins";
+
+// @public
+export const PAGEVIEW_EVENT_NAME = "web_pageview";
+
+// @public
+export const PERF_PLUGIN_ID = "perf";
+
+// @public
+export interface PerfCapture {
+    observers(): readonly PerfObserverLike[];
+    stats(): {
+        readonly vitals: number;
+        readonly longTasks: number;
+    };
+    uninstall(): void;
+}
+
+// @public
+export interface PerfEntryLike {
+    // (undocumented)
+    readonly duration: number;
+    // (undocumented)
+    readonly entryType: string;
+    readonly hadRecentInput?: boolean | undefined;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly startTime: number;
+    readonly value?: number | undefined;
+}
+
+// Warning: (ae-forgotten-export) The symbol "PerfEntryListLike" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type PerfObserverCallback = (list: PerfEntryListLike) => void;
+
+// @public
+export type PerfObserverFactory = (callback: PerfObserverCallback) => PerfObserverLike;
+
+// @public
+export interface PerfObserverLike {
+    // (undocumented)
+    disconnect(): void;
+    // (undocumented)
+    observe(options: {
+        readonly type: string;
+        readonly buffered?: boolean;
+    }): void;
+}
+
+// @public
+export interface PerfPlugin extends Plugin_2 {
+    // (undocumented)
+    readonly capture: PerfCapture;
+    // (undocumented)
+    readonly id: typeof PERF_PLUGIN_ID;
+}
+
+// @public
+export interface PerfPorts {
+    // Warning: (ae-forgotten-export) The symbol "PerfCompletionPorts" needs to be exported by the entry point index.d.ts
+    readonly completion?: PerfCompletionPorts | undefined;
+    readonly createObserver?: PerfObserverFactory | undefined;
+    readonly now?: (() => number) | undefined;
+    readonly responseStartProvider?: (() => number | undefined) | undefined;
+}
+
+// @public
+export interface PerfSink {
+    // (undocumented)
+    readonly longTask: (event: LongTaskEvent) => void;
+    // (undocumented)
+    readonly vitals: (event: VitalsEvent) => void;
+}
+
+// @public
+export function rate(metricName: MetricName, value: number): VitalsRating;
+
+// @public
+export type RemotePluginSettings = Readonly<Record<string, {
+    readonly enabled?: boolean | undefined;
+} | undefined>>;
+
+// @public
+export function resolvePluginDefaults(init: CoexistenceInitOptions, remotePlugins?: RemotePluginSettings): Readonly<Record<string, boolean>>;
+
+// @public
+export function resolveTraceHeaders(request: {
+    readonly url: string;
+    readonly method: string;
+}, scope: TraceScope, provider?: TraceContextProvider): TraceHeaders | undefined;
+
+// @public
+export const ROUTE_PLUGIN_ID = "route";
+
+// @public
+export interface RouteCapture {
+    readonly mode: RouteMode;
+    onRouteChange(listener: RouteListener): () => void;
+    setPage(path: string): void;
+    stats(): {
+        readonly changes: number;
+        readonly bySource: Readonly<Record<RouteSource, number>>;
+    };
+    uninstall(): void;
+}
+
+// @public
+export interface RouteChange {
+    readonly at: number;
+    readonly path: string;
+    readonly template: string;
+    // (undocumented)
+    readonly via: RouteSource;
+}
+
+// @public
+export type RouteHooker = Hooker;
+
+// @public
+export type RouteListener = (change: RouteChange) => void;
+
+// @public
+export type RouteMode = 'history' | 'hash' | 'manual';
+
+// @public
+export interface RoutePlugin extends Plugin_2 {
+    // (undocumented)
+    readonly capture: RouteCapture;
+    // (undocumented)
+    readonly id: typeof ROUTE_PLUGIN_ID;
+}
+
+// @public
+export interface RoutePluginOptions {
+    readonly match?: RouteTemplateMatcher | undefined;
+    readonly mode?: RouteMode | undefined;
+    readonly templates?: readonly string[] | undefined;
+}
+
+// @public
+export interface RoutePorts {
+    readonly currentUrl?: (() => {
+        readonly pathname: string;
+        readonly hash: string;
+    }) | undefined;
+    readonly history?: HistoryPort | undefined;
+    readonly hooker?: Hooker | undefined;
+    readonly listen?: ((type: string, handler: () => void) => () => void) | undefined;
+    readonly now?: (() => number) | undefined;
+    readonly options?: RoutePluginOptions | undefined;
+}
+
+// @public
+export type RouteSource = 'push' | 'replace' | 'pop' | 'hash' | 'manual';
+
+// @public
+export interface RouteSurface {
+    // (undocumented)
+    readonly history: HistoryPort;
+}
+
+// @public
+export type RouteTemplateMatcher = (path: string) => string;
+
+// @public
+export const SDK_INTERNAL_HEADER = "x-web-report-sdk-internal";
+
+// @public
+export const SOURCE_UNHANDLED_REJECTION = "unhandled_rejection";
+
+// @public
+export const SOURCE_WINDOW_ERROR = "window_error";
+
+// @public
+export const STATUS_CLASSES: readonly StatusClass[];
+
+// @public
+export type StatusClass = '1xx' | '2xx' | '3xx' | '4xx' | '5xx';
+
+// @public
+export function statusClassOf(status: number): StatusClass | undefined;
+
+// @public
+export function stripQuery(path: string): string;
+
+// @public
+export interface TraceContextProvider {
+    (request: {
+        readonly url: string;
+        readonly method: string;
+    }): TraceHeaders | undefined;
+}
+
+// @public
+export interface TraceHeaders {
+    readonly traceparent: string;
+    readonly tracestate?: string | undefined;
+}
+
+// @public
+export interface TraceScope {
+    readonly allowlist: readonly string[];
+    readonly origin: string;
+}
+
+// @public
+export const VITALS_EVENT_NAME = "web_vitals";
+
+// @public
+export interface VitalsAccumulator {
+    classify(entryType: string, name?: string): MetricName | undefined;
+    observe(entry: PerfEntryLike): void;
+    seen(): readonly MetricName[];
+    take(metricName: MetricName): VitalsEvent | undefined;
+}
+
+// @public
+export interface VitalsDimensions {
+    // (undocumented)
+    readonly metric_name: MetricName;
+    // (undocumented)
+    readonly rating: VitalsRating;
+}
+
+// @public
+export interface VitalsEvent {
+    // (undocumented)
+    readonly dimensions: VitalsDimensions;
+    // (undocumented)
+    readonly event_name: typeof VITALS_EVENT_NAME;
+    // (undocumented)
+    readonly metrics: VitalsMetrics;
+    // (undocumented)
+    readonly occurred_at: number;
+    // (undocumented)
+    readonly priority: 'normal' | 'critical';
+}
+
+// @public
+export interface VitalsMetrics {
+    // (undocumented)
+    readonly delta: number;
+    // (undocumented)
+    readonly value: number;
+}
+
+// @public
+export type VitalsRating = 'good' | 'needs-improvement' | 'poor';
 
 // (No @packageDocumentation comment for this package)
 

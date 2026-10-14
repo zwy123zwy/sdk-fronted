@@ -13,6 +13,7 @@
     "test": "vitest run --coverage",
     "build": "pnpm -r --filter \"./packages/**\" run build",
     "size": "size-limit",
+    "measure:apm-adapter": "node packages/plugins/scripts/measure-apm-adapter.mjs",
     "api:check": "node scripts/api-check.mjs",
     "api:update": "node scripts/api-check.mjs --local",
     "test:contract": "vitest run --project contract --passWithNoTests",

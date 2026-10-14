@@ -1,10 +1,80 @@
 # @web-report-sdk/plugins —— 采集插件包（C05）
 
-本包承载 C05 采集插件（T18）与 **C05-F5 第三方 APM 双写适配器（T19）**。
-当前只有双写适配器；T18 的四个内置采集插件尚未实现，`PACKAGE_NAME` 保留不变。
+本包承载**四个内置采集插件（C05-F1..F4、F6，T18）**与 **C05-F5 第三方 APM 双写适配器（T19）**。
+
+## 0. 四个按需入口（C05-AC-13）
+
+| 入口 | 内容 | gzip 实测（本轮） |
+|---|---|---|
+| `@web-report-sdk/plugins/error` | C05-F1 错误归一化、指纹、去重、面包屑 | 3.4 KB |
+| `@web-report-sdk/plugins/perf` | C05-F2 核心指标与长任务 | — |
+| `@web-report-sdk/plugins/route` | C05-F3 自动路由与页面浏览 | — |
+| `@web-report-sdk/plugins/http` | C05-F4 HTTP 采集与追踪头注入 | — |
+| `@web-report-sdk/plugins` | 全量聚合（含 T19 双写适配器） | 9.2 KB |
+
+体积预算（T18-plan §5）：全量入口 **gzip 后不超过 20 KB**。AC-13 的"仅错误插件构建"由
+`tsup.error.config.ts` + `scripts/check-error-only-bundle.mjs` 在 `pnpm build` 里强制：
+产物出现 perf/route/http/双写适配器的可识别符号即**非零退出**。
+
+> AC-13 的产物扫描放在 `scripts/`（构建脚本域）而不是包内单元测试：本包是**浏览器包**，
+> `tsconfig.json` 刻意是 `"types": []`；为了一个测试能 `import 'node:fs'` 而给整包打开 node types，
+> 等于允许实现代码随手用 `fs`/`path`/`process`——这些在浏览器里会直接炸。
 
 本模块顶层无副作用（不注册原生监听、不访问 `window`），`package.json` 声明 `"sideEffects": false`，
-可在 SSR 与 Vitest 中直接导入。**本包当前零依赖**（不依赖 `@web-report-sdk/core`，也不依赖任何第三方包）。
+可在 SSR 与 Vitest 中直接导入。本包只依赖 `@web-report-sdk/core`（workspace）用于 C02 插件宿主类型，
+**不依赖任何第三方包**。
+
+---
+
+## 0.1 接入方需要知道的行为（照实现写清，避免"实现定义"）
+
+### F1 错误插件（`/error`）
+
+- **指纹构成**（去重的键，接入方可据此预测去重行为）：
+  `error_type` + `source` + **归一化后的 message** + `line` + `column` 的 FNV-1a 32 位十六进制哈希（8 字符）。
+  "归一化"= 剥离 URL 查询参数（`?...`）并把连续数字替换为 `N`，因此同一处代码在不同请求/不同计数下
+  得到**同一指纹**；反过来，**只靠数字区分的两条消息会被判为同一错误**。
+- **聚合窗口（用户可见的时延变化）**：同一指纹在 **1 秒窗口**内只上报**一条** `web_js_error`，
+  其 `metrics.count` 为窗口内总次数；被折叠的重复计原因码 `filtered_by_plugin`。
+  **错误事件最多延迟 1 个窗口（≤1s）**；页面离开（`pagehide` / 隐藏）、`uninstall()` 与显式
+  `flush()` 都会立即结算，避免"离开前发生的错误"丢失。
+- **面包屑**：固定 **20 条**容量、**不开放配置**；只记元素标识（标签名 + `id`/`data-track`/`data-testid`）
+  与动作类型，**绝不记录输入框的 `value`**；路由面包屑只记路径（去掉 `?query`/`#hash`）。
+  承载方式：`web_js_error.dimensions` 是契约里的**封闭四键**、`metrics` 只认 `count/line/column`，
+  因此面包屑写在事件的 `context` 上（`bc_00`…`bc_19`，键名匹配 Schema 的 `fieldKey`）。
+- **脱敏边界**：本插件**不做**脱敏，只把原始 message/stack 交给管线（脱敏归 C04）。
+  ⚠️ 已知缺口：C04 的 `constrainEvent` 只对 `dimensions`/`context` 的字符串值脱敏，
+  `attachment`（错误栈）**只做 8 KB 截断、不脱敏**——AC-01 的"脱敏后的错误栈"当前只覆盖到
+  `dimensions.message`，待 C04 修复后回改（修复后 `src/error/capture.test.ts` 里那条哨兵会变红，那是预期）。
+
+### F2 性能插件（`/perf`）
+
+- 五类核心指标共用 `web_vitals`：`FCP`/`LCP`/`CLS`/`INP`/`TTFB`，值在 `metrics.value`/`metrics.delta`；
+  `rating` 三档。上报时机：加载完成 → FCP/LCP/TTFB；交互后 → INP；页面隐藏 → CLS。
+- **`rating` 阈值（本任务按 Web Vitals 官方值定，真实浏览器差异归 T29）**：
+  FCP ≤1800 good / >3000 poor；LCP ≤2500 / >4000；CLS ≤0.1 / >0.25；INP ≤200 / >500；TTFB ≤800 / >1800；
+  区间之间为 `needs-improvement`。
+- 长任务单列 `web_long_task`，其 `dimensions` 是**空对象**（契约不允许任何维度键）。
+- **不采集** `resource` 与 `navigation` 的明细条目（契约没有承载字段）。
+
+### F3 路由插件（`/route`）
+
+- 默认 `mode: 'history'`：包装 `pushState`/`replaceState` 并监听 `popstate`；`mode: 'hash'` 只监听
+  `hashchange`；`mode: 'manual'` 不包装不监听，只在业务调用 `setPage` 时通知。
+- 包装遵循 Q7 叠加规则：安装时保存**当前**引用并叠在其上，卸载时**仅当当前值仍是自己的包装**才还原；
+  不改变原生签名/返回值/`this`，不吞宿主异常。
+- `page_id` 的最终计算归 C04；本插件只发 `path`（路由模板）+ `via`。
+
+### F4 HTTP 插件（`/http`）
+
+- **请求体默认不采集**（硬约束）：不注册任何读取 `body`/`FormData`/`Blob` 的逻辑。
+- SDK 自身的上报请求靠**显式标记**（`x-web-report-sdk-internal`，请求上的 `sdkInternal`）识别，不靠 URL 猜测。
+- `failure_reason` 取值集（CR-006，只表达传输层失败）：`network_error`/`timeout`/`aborted`/`cors`；
+  **成功请求省略该维度**；4xx/5xx 走 `metrics.status` + `dimensions.status_class`（`1xx`…`5xx`），不用该维度。
+- URL 进的是 `dimensions.url_template`（缺省去掉 `?query`/`#hash`），**不是实参 URL**。
+- 链路追踪头（AC-12，CR-006）：W3C `traceparent`（必需）/`tracestate`（可选）；
+  **值由接入方注入**（`traceContextProvider`），未提供则**不注入**；只对**同源或白名单**注入，
+  白名单外一律不注入（不做降级注入）；远程配置只能**收紧**范围（`narrowScope`）。
 
 ---
 
