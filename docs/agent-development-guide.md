@@ -104,7 +104,9 @@ T08 已冻结目录与包名（2026-10-10）：
 
 ### 4.2 兼容要求
 
-- 在主流构建工具（Vite、webpack）的生产构建、开发服务器，以及 Vitest、Jest 测试环境中，SDK 都必须能直接导入，不需要额外配置。T08 在 `examples/` 中至少提供一个 Vite 示例和一个 `<script>` 引入示例，验证这一点。
+- 在主流构建工具（Vite、webpack）的生产构建、开发服务器，以及 Vitest、Jest 测试环境中，SDK 都必须能直接导入。T08 在 `examples/` 中至少提供一个 Vite 示例和一个 `<script>` 引入示例，验证这一点。
+  - **2026-10-13 口径修正（由 T30 的兼容矩阵实测暴露）**：原句写的是"**不需要额外配置**"，但**实测不成立**——SDK 是 **ESM-only**，`require("@web-report-sdk/browser")` 会报 `ERR_PACKAGE_PATH_NOT_EXPORTED`（`exports` 无 `require` 条件）。**Jest 的默认 CJS 模式无法直接导入 ESM 包**，必须开启 ESM 模式（`--experimental-vm-modules`，本仓库的 Jest 示例即如此）。
+  - **决定**：**不为浏览器 SDK 增加 CJS 构建**（那要双格式发布并放大产物，收益存疑），而是把要求改成**可实现的准确口径**，并把 CJS 缺口记为**已知限制**（见 `docs/tasks/board.md`）。矩阵证据：`tests/compat/results/matrix.json`、报告 `docs/reports/compat-matrix.md`。
 - SDK 不假设接入方使用某个 HTTP 库、状态管理库或第三方 APM。需要和它们交互时（比如双写适配器），通过注入接口实现，不直接 import。
 - 公共 API 有任何变化，都要同步更新类型声明和 `CHANGELOG.md`。破坏性变更只能出现在主版本中。
 
