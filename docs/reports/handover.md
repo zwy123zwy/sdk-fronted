@@ -148,6 +148,17 @@ Q2（首期试点应用与对接人）**待负责人确认**；记录里写明�
 | D004 的「需要改的文档」 | ①容量建议 **已完成**（CR-005）；②**4 个 C08 原因码未实施**——见下 |
 | T31 的机械可验项 | **已完成**（供应链零第三方依赖、秘密形态扫描、端上脱敏独立样本、URL 白名单）；`security` project 已获批并纳入门禁 |
 
+### 【隐私缺陷，待修】C04 的 `attachment` 未脱敏（2026-10-13 由 T18 实测发现）
+
+`packages/core/src/privacy/constraints.ts` 里 `constrainStringMap` **只对 `dimensions` 与 `context` 的字符串值**调 `masker.apply`
+（`:146`，调用点 `:312`/`:314`），而 **`attachment` 只走 `clampAttachment`（`:184-195`）→ 仅按 8 KB 截断、不脱敏**。
+实测证据：同一事件 `dimensions.message` = `…Bearer ***`（已脱敏），而 `attachment` 里**手机号与 JWT 原样**。
+**影响**：AC-01 要求"附带脱敏后的错误栈"，而错误栈走的正是 `attachment` → **送到接收方的栈没有脱敏**。这是隐私条款。
+
+**修法（已裁定）**：修在 **C04 侧**——`clampAttachment` 与 `dimensions`/`context` 走**同一个 masker**（单一脱敏权威，
+一次覆盖所有 attachment 路径）。**不要**把 masker 注入插件（脱敏逻辑会分散，且只覆盖错误栈一条路径）。
+T18 已留一条"断言 attachment 目前未脱敏"的哨兵：**C04 修好后它会变红**，那时把它翻转为"断言已脱敏"即可（等价一次变异验证）。
+
 ### 唯一"已识别、有据、未实施"的缺口：4 个 C08 原因码
 
 `beacon_rejected`、`flush_skipped_due_to_budget`、`leader_lost`、`recovery_duplicate`
