@@ -15,8 +15,14 @@
  * 2026-10-14 收口：脱敏只作用于**载荷/自由文本**字段。Schema 关死取值的**协议字段**
  * （`event_id`/`event_name`/`event_type`/`priority`/`level`，清单与取法见 `protocol-fields.ts`）
  * **排除在脱敏之外** —— 否则接入方追加一条恰好命中它们的规则就能弄坏协议语义（去重失效、
- * 必要事件判定错乱、枚举离开契约词汇表）。`page_id`/`view_id`（路由上下文，可能含个人信息）
+ * 必要事件判定错乱、枚举离开契约词汇表）。`page_id`（路由上下文，可能含个人信息）
  * 与未声明字段**继续脱敏**。
+ *
+ * 2026-10-14 二次修订：`view_id` 也进排除清单（`$ref uuid` → 结构上不可能含 PII）。旧口径把它
+ * 当载荷脱敏，而内置 `cn_mobile` 规则会**随机**命中 uuid 末段的一串数字，把它改成非 uuid 形态
+ * → 事件违反 `$defs/uuid`（`api/schema-validation.test.ts`「多实例」用例偶发红的根因）。
+ * 因此本文件里原先「view_id 必须被脱敏」的断言**按新口径反转**：uuid 形态的 `view_id` 不得被
+ * 任何规则改写，而 `page_id`/未声明字段里的敏感值仍必须被脱敏。
  *
  * 本文件在修复前先写（旧实现下断言级失败），修复后转绿。
  * 测试数据全部是格式合法的伪造值（非真实个人信息）。
@@ -98,8 +104,8 @@ const HOSTILE_PROTOCOL_RULE: MaskRule = {
 };
 
 /**
- * 会命中 **UUID 形态**的追加规则：同时命中 `event_id`（协议字段，不得改写）与 `view_id`
- * （载荷字段，必须继续脱敏）—— 用来证明判别力来自**协议语义**而不是「长得像什么」。
+ * 会命中 **UUID 形态**的追加规则：同时命中 `event_id` 与 `view_id`（两者都是协议字段，都不得
+ * 改写）—— 用来证明判别力来自**协议语义**（Schema 关死取值 / 非 PII 形态）而不是「长得像什么」。
  */
 const HOSTILE_UUID_RULE: MaskRule = {
   name: 'hostile_uuid_probe',
@@ -119,11 +125,13 @@ describe('C04 顶层字符串字段必须过同一个 masker（守卫一抓不�
     expect(counter.get(PRIVACY_REASON_CODES.truncatedDimension)).toBe(0);
   });
 
-  it('view_id 里的伪造 JWT 被脱敏，原始值不再出现', () => {
-    const { event } = run(makeEvent({ view_id: `view-${FAKE_JWT}` }));
-    const viewId = textOf(event, 'view_id');
-    expect(viewId).not.toContain(FAKE_JWT);
-    expect(viewId).toContain('view-');
+  it('view_id 是 $ref uuid（协议字段）：即使取值像 JWT 也不被改写（改写只会违反 $defs/uuid）', () => {
+    // 2026-10-14 修订：此前这条断言的是「view_id 里的伪造 JWT 被脱敏」；但 view_id 在 Schema 里
+    // 是 `$ref uuid`，脱敏它必然产出非法事件（内置 cn_mobile 规则随机命中 uuid 末段数字就会触发，
+    // 即"多实例"用例偶发红的根因）。协议字段不脱敏，故断言反转为「原样保留」。
+    const raw = `view-${FAKE_JWT}`;
+    const { event } = run(makeEvent({ view_id: raw }));
+    expect(textOf(event, 'view_id')).toBe(raw);
   });
 
   it('level 是 Schema 枚举协议字段：被排除清单跳过（脱敏会产出枚举外的值）', () => {
@@ -144,7 +152,8 @@ describe('C04 顶层字符串字段必须过同一个 masker（守卫一抓不�
   it('短事件（未触发 16 KB 阶梯）就必须脱敏 —— 旧实现的盲区', () => {
     // 旧实现里这些字段只在 clampAllStringValues 跑到时才被「截断」，而该函数**只在事件体
     // 超过 16 KB 时**才被调用：长度不足 256 的敏感值此前会原样发出。
-    const { event } = run(makeEvent({ page_id: `/task/${FAKE_PHONE}`, view_id: `v-${FAKE_JWT}` }));
+    // 载荷示例用 page_id 与**未声明字段**（`view_id` 自 2026-10-14 起是协议字段、不脱敏）。
+    const { event } = run(makeEvent({ page_id: `/task/${FAKE_PHONE}`, raw_note: `v-${FAKE_JWT}` }));
     expect(JSON.stringify(event)).not.toContain(FAKE_PHONE);
     expect(JSON.stringify(event)).not.toContain(FAKE_JWT);
   });
@@ -236,9 +245,11 @@ describe('C04 协议字段不可被接入方配置破坏（排除清单的行为
     expect(textOf(event, 'level')).toBe('info');
   });
 
-  it('同一条 UUID 追加规则下，view_id（载荷里的 uuid 形态）仍被脱敏', () => {
-    const { event } = run(makeEvent({ view_id: '00000000-0000-4000-8000-0000000000ff' }), [HOSTILE_UUID_RULE]);
-    expect(textOf(event, 'view_id')).toBe('***');
+  it('同一条 UUID 追加规则下，view_id（协议字段的 uuid 形态）不被改写', () => {
+    // 2026-10-14 修订（断言反转）：旧口径要求这里被脱敏成 `***`，但那会让事件违反 `$defs/uuid`。
+    const viewId = '00000000-0000-4000-8000-0000000000ff';
+    const { event } = run(makeEvent({ view_id: viewId }), [HOSTILE_UUID_RULE]);
+    expect(textOf(event, 'view_id')).toBe(viewId);
   });
 
   it('同一条规则下，page_id 里的伪造手机号仍被脱敏（排除清单没有放过该脱敏的）', () => {

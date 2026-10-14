@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 import batchSchema from '../../../../docs/contracts/schemas/batch.schema.json';
 import webJsErrorSchema from '../../../../docs/contracts/schemas/builtin-events/web_js_error.schema.json';
-import { createClient, createUuid } from './index';
+import { createClient, createLocationSource, createUuid } from './index';
 import type { KernelEvent } from '../kernel';
 
 /** 契约 Schema 的 Ajv 实例（2020-12；非严格模式以兼容元数据字段）。 */
@@ -139,13 +139,30 @@ describe('C01 契约自证（Ajv 2020-12）', () => {
     const eventsB: KernelEvent[] = [];
     const clientA = createClient({ onEvent: (event) => eventsA.push(event) });
     const clientB = createClient({ onEvent: (event) => eventsB.push(event) });
-    clientA.init({ appId: 'app-a', consent: 'granted' });
-    clientB.init({ appId: 'app-b', consent: 'granted' });
+    // 位置**显式注入**，不依赖 happy-dom 的环境默认 URL（那是跨用例共享的环境全局状态：
+    // 默认 URL 一变，事件里的 `url`/`page_id` 就跟着变，本用例的输入就不再自洽）。
+    // 两个实例给**不同**的 URL，顺带让"实例间的位置/上下文串味"变成可被断言抓住的失败。
+    clientA.init({
+      appId: 'app-a',
+      consent: 'granted',
+      location: createLocationSource('https://app.example/a?utm_source=probe', '/a'),
+    });
+    clientB.init({
+      appId: 'app-b',
+      consent: 'granted',
+      location: createLocationSource('https://app.example/b?utm_source=probe', '/b'),
+    });
 
     clientA.track('page_view', { dimensions: { route: '/a' } });
     clientB.track('page_view', { dimensions: { route: '/b' } });
     clientA.flush();
     clientB.flush();
+
+    // 实例隔离：A 的事件只能看到 A 的位置，B 的只能看到 B 的。
+    expect(eventsA.map((event) => event['page_id'])).toEqual(['/a']);
+    expect(eventsB.map((event) => event['page_id'])).toEqual(['/b']);
+    expect(eventsA.map((event) => event['url'])).toEqual(['https://app.example/a']);
+    expect(eventsB.map((event) => event['url'])).toEqual(['https://app.example/b']);
 
     expectValidBatch(eventsA, 'app-a');
     expectValidBatch(eventsB, 'app-b');

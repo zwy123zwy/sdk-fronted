@@ -43,8 +43,20 @@ function makeCounter() {
   };
 }
 
+/** 生产口径的缓冲上限（每次现取，避免用例间共享同一个可变对象）。 */
+function defaultLimits(): { maxEvents: number; maxBytes: number } {
+  return { maxEvents: CONSENT_BUFFER_MAX_EVENTS, maxBytes: CONSENT_BUFFER_MAX_BYTES };
+}
+
 /** 创建一个同意状态机 + 事件出口替身。 */
-function makeManager(options: { mode: ConsentMode; state?: ConsentState }) {
+function makeManager(options: {
+  mode: ConsentMode;
+  state?: ConsentState;
+  /** 单条事件的字节数；缺省与生产同口径（`JSON.stringify` 的字符数）。 */
+  sizeOf?: (event: KernelEvent) => number;
+  /** 缓冲上限覆盖；缺省用生产口径（用于显式覆盖"按字节淘汰"这条路径）。 */
+  limits?: { maxEvents: number; maxBytes: number };
+}) {
   const emitted: KernelEvent[] = [];
   const counter = makeCounter();
   const manager = createConsentManager({
@@ -54,10 +66,42 @@ function makeManager(options: { mode: ConsentMode; state?: ConsentState }) {
     emit: (event) => {
       emitted.push(event);
     },
-    sizeOf: (event) => JSON.stringify(event).length,
-    limits: { maxEvents: CONSENT_BUFFER_MAX_EVENTS, maxBytes: CONSENT_BUFFER_MAX_BYTES },
+    sizeOf: options.sizeOf ?? ((event) => JSON.stringify(event).length),
+    limits: options.limits ?? defaultLimits(),
   });
   return { manager, emitted, counter };
+}
+
+/**
+ * **对照模型**：修改前 `consent.buffer()` 的口径 —— 每次 push 之后对整个缓冲区**逐条重算**
+ * `sizeOf` 之和，再按「条数上限 ∪ 字节上限」淘汰最早的 normal（没有 normal 时淘汰最早的
+ * critical）。用于证明现在实现里的**增量字节统计**（`bufferedBytes`）与它逐条等价：
+ * 同一串事件下，存活序列与淘汰计数必须完全相同。
+ *
+ * 前提：`sizeOf` 是纯函数（同一事件重复调用返回同一值）—— 本仓两个注入点
+ * （`api/client.ts` 的 `byteLengthOf` 与本文件的替身）都满足。
+ */
+function referenceEviction(
+  events: readonly KernelEvent[],
+  limits: { maxEvents: number; maxBytes: number },
+  sizeOf: (event: KernelEvent) => number,
+): { survivors: KernelEvent[]; evicted: number } {
+  const buffer: KernelEvent[] = [];
+  let evicted = 0;
+  for (const event of events) {
+    buffer.push(event);
+    while (
+      buffer.length > limits.maxEvents ||
+      buffer.reduce((sum, item) => sum + sizeOf(item), 0) > limits.maxBytes
+    ) {
+      if (buffer.length === 0) break;
+      let index = buffer.findIndex((item) => item['priority'] !== 'critical');
+      if (index < 0) index = 0;
+      buffer.splice(index, 1);
+      evicted += 1;
+    }
+  }
+  return { survivors: buffer, evicted };
 }
 
 describe('同意状态机的基础语义', () => {
@@ -142,6 +186,83 @@ describe('C04-AC-11 / C04-AC-18 缓冲与清空', () => {
     // 淘汰不借用 consent_denied、也不新增原因码
     expect(counter.get('consent_denied')).toBe(0);
     expect(counter.get('consent_buffer_cleared')).toBe(0);
+  });
+
+  it('按字节上限淘汰：总字节超过 maxBytes 时淘汰最早的 normal，并回落到上限内', () => {
+    // 显式覆盖**按字节**（而非按条数）的上限路径：每条约 100 B、上限 250 B，
+    // 于是从第 3 条起每条都挤掉最早的一条，稳定在 2 条 / 200 B。
+    const { manager } = makeManager({
+      mode: 'buffer',
+      sizeOf: () => 100,
+      limits: { maxEvents: CONSENT_BUFFER_MAX_EVENTS, maxBytes: 250 },
+    });
+    for (let index = 0; index < 10; index += 1) manager.buffer(makeEvent());
+    expect(manager.bufferSize()).toBe(2);
+    expect(manager.bufferEvicted()).toBe(8);
+  });
+
+  it('增量字节统计与「每次全量重算」逐条等价（差分对照，同时压条数与字节两条上限）', () => {
+    // 参照模型（见文件末尾的 `referenceEviction`）= 修改前的实现口径：每次 push 后对
+    // **整个缓冲区**重算一遍 `sizeOf` 之和。源码现在改成增量维护（`bufferedBytes`），
+    // 这条差分对照就是"逐条等价"的证明：同一串事件下，存活序列与淘汰计数必须完全相同。
+    const limits = { maxEvents: 7, maxBytes: 300 };
+    /** 事件的"字节数"编码在 `occurred_at` 的低 4 位：既让同一事件可重复取到同一个值，
+     *  又让每个事件的 `occurred_at` 唯一（存活序列可按它逐条比对）。 */
+    const sizeOf = (event: KernelEvent): number => event['occurred_at'] % 10_000;
+
+    const sizes = [0, 40, 120, 300, 7, 256, 500, 1, 64, 999, 3, 88];
+    const events: KernelEvent[] = [];
+    for (let index = 0; index < 48; index += 1) {
+      const size = sizes[index % sizes.length] ?? 0;
+      const base = makeEvent('task_complete', index * 10_000 + size);
+      // 每 5 条一条 critical：覆盖"缓冲区里没有 normal 时淘汰最早的 critical"。
+      events.push(index % 5 === 0 ? { ...base, priority: 'critical' } : base);
+    }
+
+    const reference = referenceEviction(events, limits, sizeOf);
+    const { manager, emitted } = makeManager({ mode: 'buffer', sizeOf, limits });
+    for (const event of events) manager.buffer(event);
+    manager.drain();
+
+    expect(manager.bufferEvicted()).toBe(reference.evicted);
+    expect(emitted.map((event) => event['occurred_at'])).toEqual(reference.survivors.map((event) => event['occurred_at']));
+    // 反空转：这条对照必须真的触发过淘汰，否则"两侧都空"也能通过。
+    expect(reference.evicted).toBeGreaterThan(0);
+    expect(reference.survivors.length).toBeGreaterThan(0);
+  });
+
+  it('差分对照 ×128 组确定性随机序列：增量维护与逐条重算的淘汰结果必须完全一致', () => {
+    // 单条序列只能覆盖一种大小组合。这里用确定性 LCG（不依赖 Math.random，失败可复现）
+    // 造 128 组「条数 / 字节上限 / 事件大小 / critical 位置」各异的序列，覆盖单条就超上限、
+    // 大量 0 字节、连续 critical、上限=1 等边界，逐组比对存活序列与淘汰计数。
+    let seed = 20_261_014;
+    const next = (): number => {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+      return seed;
+    };
+    const sizeOf = (event: KernelEvent): number => event['occurred_at'] % 10_000;
+
+    for (let round = 0; round < 128; round += 1) {
+      const limits = { maxEvents: 1 + (next() % 9), maxBytes: 1 + (next() % 600) };
+      const count = 1 + (next() % 60);
+      const events: KernelEvent[] = [];
+      for (let index = 0; index < count; index += 1) {
+        const size = next() % 1_000;
+        const base = makeEvent('task_complete', index * 10_000 + size);
+        events.push(next() % 4 === 0 ? { ...base, priority: 'critical' } : base);
+      }
+
+      const reference = referenceEviction(events, limits, sizeOf);
+      const { manager, emitted } = makeManager({ mode: 'buffer', sizeOf, limits });
+      for (const event of events) manager.buffer(event);
+      manager.drain();
+
+      const context = `第 ${String(round)} 组：limits=${JSON.stringify(limits)} count=${String(count)}`;
+      expect(manager.bufferEvicted(), context).toBe(reference.evicted);
+      expect(emitted.map((event) => event['occurred_at']), context).toEqual(
+        reference.survivors.map((event) => event['occurred_at']),
+      );
+    }
   });
 
   it('大量事件时仍受缓冲区容量约束（不会无限增长）', () => {

@@ -31,24 +31,30 @@ export function createConsentManager(options: ConsentManagerOptions): ConsentMan
   let mode: ConsentMode = options.mode;
   const buffer: KernelEvent[] = [];
   let evicted = 0;
+  // 缓冲区的**运行中字节总量**：push 时加、淘汰时减。
+  // 不能在每次 push 时对整个缓冲区重算（`totalBytes(buffer)`）——那使每次入队都是 O(缓冲区长度)、
+  // 填满 2,000 条上限整体是 O(n²)（实测 4,000 次 push ≈ 8×10⁶ 次 `sizeOf`，空闲 1.1 s；
+  // 生产里缓冲区接近上限时每次入队都要重算一遍）。
+  // 等价性前提与证明：`sizeOf` 是**纯函数**（同一事件重复调用返回同一值，本仓两个注入点
+  // ——`api/client.ts` 的 `byteLengthOf` 与测试注入——都是纯的）。在此前提下增量维护的
+  // `bufferedBytes` 恒等于对当前缓冲区逐条重算的结果，淘汰序列逐条相同；
+  // `consent.test.ts` 有用例用「每次全量重算」的参照模型做差分对照。
+  let bufferedBytes = 0;
 
   /** 取出并清空缓冲（原子：先 splice 再逐条投递，避免重入时重复补发）。 */
   function takeBuffer(): KernelEvent[] {
     if (buffer.length === 0) return [];
-    return buffer.splice(0, buffer.length);
-  }
-
-  function totalBytes(events: readonly KernelEvent[]): number {
-    let bytes = 0;
-    for (const event of events) bytes += options.sizeOf(event);
-    return bytes;
+    const events = buffer.splice(0, buffer.length);
+    bufferedBytes = 0;
+    return events;
   }
 
   /** 淘汰一条最早的 normal（没有 normal 时淘汰最早的 critical）。 */
   function evictOne(): void {
     let index = buffer.findIndex((event) => event['priority'] !== 'critical');
     if (index < 0) index = 0;
-    buffer.splice(index, 1);
+    const removed = buffer.splice(index, 1)[0];
+    if (removed !== undefined) bufferedBytes -= options.sizeOf(removed);
     evicted += 1;
   }
 
@@ -93,7 +99,8 @@ export function createConsentManager(options: ConsentManagerOptions): ConsentMan
     },
     buffer(event: KernelEvent): boolean {
       buffer.push(event);
-      while (buffer.length > options.limits.maxEvents || totalBytes(buffer) > options.limits.maxBytes) {
+      bufferedBytes += options.sizeOf(event);
+      while (buffer.length > options.limits.maxEvents || bufferedBytes > options.limits.maxBytes) {
         if (buffer.length === 0) break;
         evictOne();
       }

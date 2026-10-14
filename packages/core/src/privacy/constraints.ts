@@ -8,9 +8,10 @@
  *      （**非法键名归 C04；非法参数归 C01，两者不合并**）
  *   2. 键数量：`dimensions` / `context` / `metrics` 各按键名字典序保留前 50，其余丢弃
  *   3. 值：先脱敏（`Masker`），再按 UTF-16 码元截断到 256（不切断代理对）；
- *      顶层**载荷/自由文本**字段（`page_id`/`view_id`/未声明字段等）与维度值同规则：
+ *      顶层**载荷/自由文本**字段（`page_id`/未声明字段等）与维度值同规则：
  *      **同一个** `Masker`，且脱敏先于任何截断。Schema 关死取值的**协议字段**
- *      （`event_id`/`event_name`/`event_type`/`priority`/`level`）不脱敏，见 `protocol-fields.ts`
+ *      （`event_id`/`event_name`/`event_type`/`priority`/`level`，以及非 PII 形态的 `view_id`）
+ *      不脱敏，见 `protocol-fields.ts`
  *   4. 附件：先脱敏（**与第 3 步同一个 `Masker`**），再截断到 8 KB（UTF-8 字节）；
  *      `url` 同规则：先脱敏（整条文本）、再截断到 2048（处理器侧纵深防御，不押调用方自律）
  *   5. 非有限指标：丢弃该字段，计 `non_finite_metric`
@@ -278,14 +279,15 @@ const DEDICATED_MASK_KEYS: ReadonlySet<string> = new Set(['url', 'attachment']);
  *
  * 存在的理由（本会话第四次同族缺口，形状不同所以守卫一抓不到）：这些字段此前唯一的处理是
  * `clampAllStringValues` 的 256 截断，而该函数**只在事件体超过 16 KB 时**才跑，且**从不调用
- * masker** —— 于是 `page_id`/`view_id` 等声明字段与未声明顶层字符串字段属于「只截断、
+ * masker** —— 于是 `page_id` 等声明字段与未声明顶层字符串字段属于「只截断、
  * 从不脱敏」。正确性不能押在「调用方都写对」上：处理器是唯一脱敏权威。
  *
  * **协议字段排除清单**（`PROTOCOL_STRING_FIELDS`，取法与漂移检测见 `protocol-fields.ts`）：
- * `event_id`/`event_name`/`event_type`/`priority`/`level` 是 Schema 关死取值的协议字段，
- * **不脱敏** —— 否则接入方只要追加一条恰好命中它们的规则，就能弄坏协议语义（`event_id`
- * 是去重的唯一依据、`event_name` 参与「必要事件」判定、其余是闭集枚举）。脱敏只作用于
- * **载荷/自由文本**字段：`page_id`/`view_id`（路由上下文，可能含个人信息）、未声明字段
+ * `event_id`/`event_name`/`event_type`/`priority`/`level` 是 Schema 关死取值的协议字段、
+ * `view_id` 被 Schema 锁死为 `$defs/uuid`（非 PII 形态），**都不脱敏** —— 否则接入方只要追加
+ * 一条恰好命中它们的规则，就能弄坏协议语义（`event_id` 是去重的唯一依据、`event_name` 参与
+ * 「必要事件」判定、其余是闭集枚举，而脱敏 `view_id` 会把它变成非 uuid）。脱敏只作用于
+ * **载荷/自由文本**字段：`page_id`（路由上下文，可能含个人信息）、未声明字段
  * 与 `dimensions`/`context`/`attachment`/`url`。
  *
  * 与 `clampAllStringValues` 的分工与顺序：本函数**只脱敏、不改长度**；长度上限仍由后者施加。
@@ -405,8 +407,8 @@ export function constrainEvent(input: ConstrainInput): ConstrainResult {
 
   // 顶层字符串字段先过**同一个** masker（只脱敏、不改长度），再进入下面的截断路径：
   // `clampAttachment` / `clampUrl` 各自用同一个 masker 处理自己的字段，其余顶层**载荷**
-  // 字段（`page_id`/`view_id` 等声明字段与未声明字段）由本行覆盖；协议字段（`event_id`/
-  // `event_name`/枚举字段）由 `PROTOCOL_STRING_FIELDS` 排除，避免接入方配置破坏协议语义。
+  // 字段（`page_id` 等声明字段与未声明字段）由本行覆盖；协议字段（`event_id`/
+  // `event_name`/`view_id`/枚举字段）由 `PROTOCOL_STRING_FIELDS` 排除，避免接入方配置破坏协议语义。
   maskTopLevelStringValues(event, input.masker);
   clampAttachment(event, input, recorder);
   clampUrl(event, input, recorder);
