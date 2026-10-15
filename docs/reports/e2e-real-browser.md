@@ -168,3 +168,75 @@
 - WebKit：本次任务只允许 Chromium（`test.skip` 已写明原因）。
 - 真实 `pagehide`/`visibilitychange` 触发的**队列**离页冲刷（本节从 `submit(batch,{channel:'page_leave'})`
   入口驱动，与 T29 的 AC-13 口径一致）；队列路径共用同一个 `createLeaveSender`，预算行为相同。
+
+---
+
+## 追加节（第 2 次）：AC-03 切片路径复测 —— `c931a73`（32 KiB 片 / 64 KiB 在途 / 96 KiB 预算 + 二次切片 + 波次让出）之后
+
+- 执行：2026-10-15，独立验证 lane（**只跑不改**：未改 `packages/**`、`tests/**`、任何配置；无 git 写操作）
+- 被测对象：`packages/transport/dist/index.js`（`sha256 f56b472e014b8acfc72c15b50446c2958e0dad62576e00e57f0748aab9c8e952`，mtime 2026-10-15 10:39:59；
+  `packages/transport/src/**` 无任何文件比它新 → **dist 不落后于 src，未重新 build**）；仓库 `HEAD=c931a73`
+- 环境：Node v24.16.0 / pnpm 11.18.0；跑前 `loadavg` 5.04、10 核；无残留 Chromium/WebKit（残留的只有一个 Playwright
+  `test-server` pid 47909，非浏览器、不影响本次结果）
+- 复现命令（两条都跑）：
+  - `pnpm test:e2e --project=chromium --grep "C07-AC-03"` → **6 passed / 2 failed**（33.9 s）
+  - `pnpm test:e2e --project=webkit tests/e2e/leave-slice.spec.mjs` → **4 passed / 2 failed**（24.5 s）
+  - 逐请求**原始报文字节**由只读复测脚本另跑一次取得（复用 `tests/e2e/lib/*` 与同一探针，Chromium 与 WebKit 各一次）
+
+### 判据逐条判定（Chromium 与 WebKit 数字**完全相同**）
+
+| # | 判据 | 实测 | 判定 |
+|---|---|---|---|
+| 1 | 接收端 ≥2 个真实信标请求 | **3** 个（SDK 侧尝试 4 次） | ✅ 通过 |
+| 2 | 重组 `event_id` 序列 = 原始 112 条，无重复无缺失 | **77 / 112**，缺失 35 条（`ac03-0070`…`ac03-0104`），重复 0 | ❌ **不通过** |
+| 3 | 每请求 < 60 KB | 最大 **26391 B**（另有 26391 B、5559 B） | ✅ 通过 |
+| 4 | `Content-Type: text/plain;charset=UTF-8` | 接收端三个请求都是 `"text/plain;charset=utf-8"`（**小写 `utf-8`**，Chromium/WebKit 一致） | ✅ 通过（前缀口径 `text/plain` 成立；与判据字面量的 `UTF-8` 大小写不同） |
+| 5 | 令牌在 body `auth`，URL 无令牌 | 三请求 `body.auth={"app_id":"ac03","write_token":"tok-ac03"}`；`x-write-token` 头 = `null`；URL = `/beacon`，不含令牌 | ✅ 通过 |
+| 6 | 对照：单次 80 KB = `false`、32 KB = `true` | `80 KB accepted=false`；`32 KB accepted=true`（真的到达 1 次）——两引擎一致 | ✅ 通过 |
+| 7 | 先验：探针 `config()` 读到 `leaveBudget.maxBytes` | `{"maxBytes":98304,"maxEvents":200,"maxBatches":4,"maxMs":50}` → **98304**（可读，写法无问题） | ✅ 通过 |
+
+### 接收端逐请求明细（原始报文，Chromium；WebKit 逐字节相同）
+
+| 序 | URL | 字节 | 事件数 | `event_id` 区间 | `Content-Type` | 令牌位置 |
+|---|---|---|---|---|---|---|
+| #1 | `/beacon` POST | 26391 | 35 | `ac03-0000`–`ac03-0034` | `text/plain;charset=utf-8` | body `auth`，无请求头 |
+| #2 | `/beacon` POST | 26391 | 35 | `ac03-0035`–`ac03-0069` | `text/plain;charset=utf-8` | body `auth`，无请求头 |
+| #3 | `/beacon` POST | 5559 | 7 | `ac03-0105`–`ac03-0111` | `text/plain;charset=utf-8` | body `auth`，无请求头 |
+
+- 接收字节合计 58341 B（事件原文合计 57289 B，原始事件数组 83329 B，整批序列化 83603 B）。
+- SDK 侧自报：`leave.stats={"sent":112,"skipped":0,"bytes":84732,"requests":4,"budgetStops":0}`，
+  `counters={"retry_network":1}`。预算放宽（`maxBytes=4 MB`）后 SDK 侧数字**一字不变**，接收端仍是这 3 片 / 77 条。
+
+### 失败形态（哪一条、差多少、有没有 `retry_network`）
+
+- 唯一失败的判据是 **#2（全量送达）**，差 **35 条事件 / 26391 B**；另两条红都源自它。
+- 第 **4** 片（`ac03-0070`–`ac03-0104`，26391 B）**被浏览器拒绝**：SDK 侧 `requests=4` 而接收端只有 3 片，
+  `counters={retry_network:1}` 恰好为 1 → 该片 `sendBeacon` 返回 `false`，事件既未重试也未再切，直接丢失。
+- 被拒原因可由同批数据反推（浏览器累计在途额度）：接受到 26391+26391 = **58341 B** 时再请求 26391 B
+  （累计 **79173 B**）被拒，随后 5559 B（累计 58341 B）却被接受 → 额度落在 **(65536, 79173] B**。
+  与 `beacon-quota` 用例同机实测一致（`single-64K`→`true`、`sync-32x32`=65536 B→`true,true`、`sync-32x32x32`→`true,true,false`）。
+- 两引擎（Chromium 9 项 / WebKit 9 项）额度刻画完全相同，**WebKit 的累计额度与 Chromium 无差异**。
+
+### 本次观察到、但不在判据里的异常
+
+1. **`Content-Type` 大小写**：实现传的 Blob type 是 `text/plain;charset=UTF-8`，两个引擎落到线上的头部都是
+   `text/plain;charset=utf-8`（charset 小写）。判据 #4 若按字面量做全等比较会误判为不通过（HTTP 里 charset 大小写不敏感）。
+2. **`leave.stats()` 是乐观自报**：接收端只到 77/112 条，SDK 侧仍报 `sent:112, skipped:0, budgetStops:0`；
+   唯一线索是没有进 `leave.stats` 的 `counters.retry_network=1`。被 `sendBeacon` 拒绝的整片事件被计入 `sent` 且不再重切。
+3. **估算器高估 24% 直接放大了片数**：单事件实际 743 B，`estimateEventBytes` 923 B（估 103600 B vs 实测 83603 B），
+   于是 32 KiB 的阈值只产出 **26391 B** 的片 —— 80 KB 需要 **4 片**而不是 3 片；
+   4 次尝试落在同一回合内，第 3 次就撞上累计额度。（同上：仅报数字）
+4. **波次让出在当前默认路径上无实际效果**：接收端可见的拒绝发生在“第 3 次写”（累计 79173 B > 65536 B），
+   说明让出没有把后续片推到下一个同步回合。默认 `schedule` 即刻执行（`sender/page-leave.ts` 的 `trackWave()`），
+   探针未注入 `schedule`；此条为**读源码 + 浏览器额度证据**的推断，非直接观测。
+5. `beacon-quota.spec.mjs` 里名为 “webkit” 的用例其实跑在 `--project=chromium` 下（spec 内部自己 `resolveBrowser('webkit')`），
+   因此 `--grep "C07-AC-03"` 的 “6 passed / 2 failed” 里包含了一次 WebKit 取数；WebKit 的 AC-03 判定需显式
+   `--project=webkit`（本次已单独跑）。
+6. 变异自检仍然有效：变异体（关掉切片）下接收端 **0 片**、`retry_network=1`、判据报「信标请求数 0 < 2 / 丢失 112」→ 红，
+   说明同一判据对“切片存在/不存在”敏感。
+
+### 结论（只记数字，不给参数建议）
+
+- `c931a73` 之后，AC-03 的 **#1、#3、#4、#5、#6、#7 全部通过**；**#2 仍不通过**：
+  两个引擎都只有 3 片 / 77 条到达，稳定丢失尾部区间 `ac03-0070`–`ac03-0104`（35 条 / 26391 B），
+  丢失形态为「第 4 片被浏览器拒绝且不重试」（`retry_network=1`）。默认配置与预算放宽两种情形的数字完全相同。
