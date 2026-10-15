@@ -287,3 +287,114 @@ pnpm test:e2e --project=webkit tests/e2e/leave-slice.spec.mjs
      本轮的复用是指令要求（丢失必须从这条出口可见），如需写进契约请走 CR-009 的兼容澄清；
   2. `CR-009` §4 第 84 行写「`schedule` 为可注入钩子，**缺省立即执行**以保持离页同步语义」——
      这正是根因③的缺陷描述，本轮已改为缺省**宏任务让出**（第一回合仍同步写满，权衡见上）。
+
+## 追加节（第 3 步 · 浏览器实测）：3 片被切出、**第 3 片仍被浏览器拒**、`skipped=26` 与接收端缺失**相等**
+
+- 执行：2026-10-15 16:22–16:25，独立验证 lane。**只读复测**：未改 `packages/*/src/**`、
+  未改 `tests/**` 任何文件、未改任何配置、无任何 git 写操作；本 lane 的写操作只有 build 产物与本节追加。
+- 被测对象：`packages/transport/dist/index.js`
+  （`sha256 23d3de14404335274beb95157a3f9328b71d6fa524e238d029fd0fc48f26d46b`，113.29 KB；
+  `packages/transport/dist/index.d.ts` `sha256 d07ae5ea4395860338faf0f8502dc95f12014a31d5ee0292f5912293bcee7697`），
+  由 `pnpm --filter @web-report-sdk/transport run build`（tsup，118 ms）**从当前 src 现场构建**；
+  仓库 `HEAD=a23b508`，`git status` 里 `packages/**` 无改动 → 本次测的就是 HEAD 的 src。
+- 环境：Node v24.16.0 / pnpm 11.18.0 / 10 核；跑前 `loadavg [2.20, 1.90, 2.08]`，
+  跑后 `[2.54, 2.31, 2.22]`；无残留 Chromium/WebKit 浏览器进程（残留一个 Playwright `test-server`
+  pid 47909，非浏览器，不影响本次结果）。
+- 命令与结果（原样）：
+  1. `pnpm --filter @web-report-sdk/transport run build` → 成功（`dist/index.js 113.29 KB`）
+  2. `pnpm test:e2e --project=chromium --grep "C07-AC-03"` → **8 tests，5 passed / 3 failed**（30.2 s）
+  3. `pnpm test:e2e --project=webkit tests/e2e/leave-slice.spec.mjs` → **6 tests，3 passed / 3 failed**（18.6 s）
+  - 上面两条各另跑一次**同一条命令 + `--reporter=json`**：只为取回本 spec 写在 annotation 里的 `leave.stats`
+    与逐片数字（不改测试、不改参数、不加 `only`/`skip`）；两次数字**逐位相同**。
+
+### 判据逐条判定（Chromium 与 WebKit 数字**完全相同**）
+
+| # | 判据 | 实测 | 判定 |
+|---|---|---|---|
+| 1 | 接收端 ≥2 个真实信标请求 | 到达 **2 片**（SDK 侧尝试 **3** 次，第 3 次被浏览器拒） | ✅ 通过（≥2）；但少 1 片 |
+| 2 | 重组 `event_id` = 原始 112 条，无重复无缺失（80 KB 全到） | **86 / 112**，缺失 **26** 条（`ac03-0086`–`ac03-0111`，尾部连续区间），重复 **0**，保序 | ❌ **不通过**（差 26 条） |
+| 3 | 每请求 < 60 KB | 每片 **32343 B**（< 61440 B） | ✅ 通过 |
+| 4 | `Content-Type: text/plain;charset=UTF-8` | 判据口径 `startsWith('text/plain')` 对**每片**都成立（不合格项里无 Content-Type 项）；线上字面量的 charset 大小写本轮未逐字打印（第 2 次追加节实测为 `text/plain;charset=utf-8`） | ✅ 通过（前缀口径） |
+| 5 | 令牌在 body `auth`（URL/头无令牌） | 每片 `body.auth={"app_id":"ac03","write_token":"tok-ac03"}`、`x-write-token` 头 `null`（不合格项里无令牌项） | ✅ 通过 |
+| 6 | 对照：单次 80 KB = `false`、32 KB = `true` | `80 KB accepted=false`；`32 KB accepted=true`（真的到达 1 次） | ✅ 通过 |
+| 7 | 先验 `LEAVE_BUDGET.maxBytes` | `{"maxBytes":98304,"maxEvents":200,"maxBatches":4,"maxMs":50}` → **98304** | ✅ 通过 |
+| 8 | `leave.stats` 能看出丢失条数 | `leave.stats={"sent":86,"skipped":26,"bytes":84381,"requests":3,"budgetStops":1}`、`counters={"retry_network":1}`；`skipped(26)` = 接收端缺失(26)，`sent+skipped = 112`，`sent(86)` = 重组到的条数(86)（**不大于**） → 走「仍有拒绝」分支 | ✅ 通过（**不是** `sent=112/skipped=0/budgetStops=0` 那支） |
+
+- `requests` **= 3**（不再是 4）：切片确实按设计变成 3 片 —— 单事件估算校准生效
+  （片正文由 26391 B 变成 32343 B / 43 事件，112 条 = 43+43+26）。
+- 预算放宽（`maxBytes = 4 MB`）后 SDK 侧与接收端数字**一字不变** → 本次丢失与预算无关。
+
+### 接收端逐请求明细（Chromium；WebKit 逐位相同）
+
+| 序 | 方法 / 路径 | 字节 | 事件数 | `event_id` 区间 | `Content-Type` | 令牌位置 |
+|---|---|---|---|---|---|---|
+| #1 | POST `/beacon` | 32343 | 43 | `ac03-0000`–`ac03-0042` | `text/plain*`（判据前缀成立） | body `auth`，`x-write-token` 头 = `null` |
+| #2 | POST `/beacon` | 32343 | 43 | `ac03-0043`–`ac03-0085` | `text/plain*`（判据前缀成立） | body `auth`，`x-write-token` 头 = `null` |
+| — | 第 3 片（`ac03-0086`–`ac03-0111`，正文 19695 B） | **未到达** | 26 | — | — | — |
+
+- 接收字节合计 **64686 B**（事件原文合计 63985 B）；原始事件数组 83329 B，整批序列化 83603 B。
+- `leave.stats.bytes = 84381 B` = 64686 + 19695 → 该字段计**尝试写出**的体积（含被拒片）。
+
+### 失败形态（哪一条、差多少、有没有 `retry_network`）
+
+- 失败判据只有 **#2（全量送达）**：差 **26 条 / 约 19695 B**（尾部连续区间 `ac03-0086`–`ac03-0111`）。
+- **有** `retry_network`：`counters={"retry_network":1}`，且 `requests=3` 而接收端只有 2 片
+  → 第 3 片 `sendBeacon` 返回 `false`，已被第 3 步④计入 `skipped=26`（不再谎报 `sent`）。
+- 拒绝原因可由数字反推（浏览器累计在途额度）：回合同步写入 32343 + 32343 = **64686 B** 被接受，
+  让出后单独写 **19695 B**（≪ 65536 B）却被拒 → 该 19695 B 被拒时，前面 64686 B 仍被计入在途
+  （64686 + 19695 = **84381 B** > 65536 B）。这一条是**由数字反推**，不是直接观测。
+- 两次 Chromium（无/有 `--reporter`）与两次 WebKit 结果**逐位一致** → 非抖动。
+
+### 本次观察到、但不在判据里的异常
+
+1. **第 3 步③ 的依据（“新任务重置额度”）在特性刻画里其实没有被 `setTimeout` 验证过**：
+   `tests/e2e/probes/beacon-quota-driver.js` 的 `yieldToBrowser('timeout')` 是**死代码**
+   ——`plan()` 只在 `delayMs === 0 && !sync` 时调用 `yieldToBrowser('raf')`（第 58 行），
+   `'timeout'` 分支从未被调用。因此 `beacon-quota` 结果里标签为 `delay0-21x4` 的那一行
+   **实际走的是 rAF**（该行 annotation 自述就是「rAF,rAF,rAF,rAF」，4 步共 56 ms ≈ 13–14 ms/步），
+   `delay10/25/50` 则是真的定时器。本次 3 片路径是 `setTimeout(flush, 0)`（≈1 ms）在浏览器里的
+   **第一次实测**，结果是第 3 片被拒。**“新任务”与“请求是否已完成”在当前数据里无法分离**（仅报数字）。
+2. **annotation 里的「单事件估算 923 B / 估算 103600 B」会误导**：探针取的是 transport 的
+   **队列层** `estimateEventBytes`（未校准，923 B），而信标切片用的是新加的
+   `estimateBeaconEventBytes`（校准后 ≈745 B，故 43 事件 / 32343 B）。两者是不同函数，
+   923 B 已不驱动信标切片（`packages/transport/dist/index.js:195` vs `:1841`）。
+3. **同一同步回合的上限是 65536 B 整**（`sync-32x32` → `[true,true]` 恰好 65536 B；
+   `sync-21x21x21x21` → 3 次 `true` 后 `false`，即 3×21504 = 64512 B 通过、第 4 次被拒）：
+   83603 B 的批次在任何片大小下都**必须跨 ≥2 个“额度已重置”的回合**；本次回合 1 写 64686 B（正确 ≤ 上限），
+   回合 2 只写 19695 B（本身也 ≤ 上限）却被拒。
+4. `budgetStops = 1` 来自**浏览器拒绝**那条出口（`write()` 里 `sendBeacon` 返回 `false` → `noteBudgetStop()`），
+   与四个预算维度无关：因此“全部被接受”才会是 0。
+5. 变异自检这条用例在本次运行里是**绿**的，但它的 annotation 是「接收端 **0 片**、`retry_network=1`、
+   丢失 112」——由变异体把整批 83603 B 一次性发出（单次 > 上限）被拒造成，属于预期形态。
+6. `--grep "C07-AC-03" --project=chromium` 会连 `beacon-quota.spec.mjs` 里名为 “webkit” 的用例一起跑
+   （spec 内部自己 `resolveBrowser('webkit')`），所以那条命令是 8 个用例；WebKit 的 AC-03 判定仍需
+   显式 `--project=webkit`（本轮已单独跑）。
+7. **WebKit 用例结束后有 3 个孤儿 WebKit XPC 进程存活**（pid 96565/96566/96567，
+   `com.apple.WebKit.{GPU,Networking,WebContent}`，`pgrep -P 1` 命中 → 父进程已是 launchd）。
+   与数字无关，但 `killMatching(profilePids(dir))` 没清掉它们。（沙箱禁止 `ps`，无法进一步判定归属。）
+
+### 产物与工作区状态（供编排方恢复）
+
+- 本次运行**现场重生/覆写**了 3 个已跟踪产物（属 e2e 正常产物，非本 lane 手工编辑）：
+  - `tests/e2e/probes/mutant-transport.js`：`3c5e4dcb…` → `5720d407…`（每次 leave-slice 运行都由 spec 从 dist 复制+一处替换重生）
+  - `tests/e2e/results/beacon-quota-chromium.json`：`ca6bdeef…` → `9bad8b33…`
+  - `tests/e2e/results/beacon-quota-webkit.json`：`95813273…` → `4bd75cc7…`
+- 跑前工作区**已经**是脏的（非本 lane 造成，本 lane 未触碰，哈希跑前跑后一致）：`tests/compat/results/`
+  两个 json、`tests/e2e/probes/{beacon-quota,durability,leave-slice,real-browser}-driver.js`
+  （diff 全部是注释级「口径（#4）」补充，无功能改动）。
+- **工作区不是独占的**：本 lane 的 e2e 全部在 16:22:17–16:25:05 之间跑完，之后 **16:26:14–16:26:18**
+  有**另一个写入者**改了 `examples/node-import/package.json`、`examples/script-tag/package.json`
+  并新建 `examples/{node-import,script-tag}/scripts/verify-build.mjs`（`build` 脚本由 `node -e "process.exit(0)"`
+  改成 `node scripts/verify-build.mjs`）——不是本 lane 所为（本 lane 只跑 transport 的 build 与 e2e）。
+  上述产物与数字不受影响：`packages/transport/dist/index.js` 的 mtime 仍是 16:22:17、sha256 仍是
+  `23d3de14…`（= 本节被测对象），`packages/**` 无改动。
+
+### 结论（只记数字，不给参数建议）
+
+- `8882355` + 本次 build 之后：**#1、#3、#4、#5、#6、#7 通过；#8 以「仍有拒绝」分支通过
+  （`skipped=26` 等于接收端缺失 26 条、`sent+skipped=112`、`sent=86` ≤ 重组 86）；#2 仍不通过
+  （86/112，尾部 26 条丢失）**。
+- 相对第 2 次追加节（4 片 / 77 条到达 / `sent=112,skipped=0`）：片数 4 → **3**、片大小 26391 → **32343 B**、
+  到达 77 → **86 条**、丢 35 → **26 条**，且丢失**首次在 `leave.stats.skipped` 里可见**（不再自报全绿）。
+- 残余丢失的唯一形态：**回合 1 的 64686 B 之外，让出到新任务写出的第 3 片（19695 B）被 `sendBeacon` 拒绝**
+  （`retry_network=1`），Chromium 与 WebKit 逐位相同。
