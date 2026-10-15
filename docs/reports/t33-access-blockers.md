@@ -460,13 +460,13 @@ webpack 沙箱 `bundleEvaluated` / `batchPassesContractSchema` / `minimalPathRan
 根 `tsc -p tsconfig.json` exit 0、`example-vite` 的 `typecheck` exit 0。
 
 **已知偏差（必须记住，不是"已通过"）**：
-1. `pnpm exec vitest run --coverage.enabled=false --project unit` 本次**未全绿**：2 文件/3 用例红，
-   全部在 `packages/transport/src/sender/page-leave.test.ts` 与一个**运行中途消失**的
-   `packages/core/src/api/zz-probe-options.test.ts`。这两处**不是本批改动**：本批只动
-   `examples/**`、`tests/e2e/lib/receiver.mjs`、`tests/e2e/probes/*.js` 的注释与本文档，而
-   `packages/*/src` 里**没有任何 import 指向这些路径**；且工作区在本 lane 之外**被并发修改**
-   （同一测试文件的失败数在两次运行间从 3 变 1，且出现了本 lane 从未创建/删除的文件）。
-   复核步骤：等 `packages/transport` / `packages/core` 的在途改动落地后重跑完整 unit。
+1. `pnpm exec vitest run --coverage.enabled=false --project unit` **最终 139 文件 / 1277 用例全绿、exit 0**。
+   但**第一次**运行时曾有 2 文件/3 用例红（`packages/transport/src/sender/page-leave.test.ts` 与一个
+   运行中**被删掉**的 `packages/core/src/api/zz-probe-options.test.ts`），随后同一命令复跑即全绿——
+   即那是一批**在本 lane 之外并发修改** `packages/transport` / `packages/core` 的在途改动造成的瞬态，
+   不是本批改动：本批只动 `examples/**`、`tests/e2e/lib/receiver.mjs`、`tests/e2e/probes/*.js` 的注释与
+   本文档，而 `packages/*/src` 里**没有任何 import 指向这些路径**（已 `grep` 验证）。
+   **记录第 1 次的红**，是因为"第一次红、第二次绿"本身值得下一个人知道。
 2. `tests/compat/results/webpack-*.json` 被 `pnpm examples:*` 覆写，已按 `git show HEAD:<path>` 恢复
    （内容回到 HEAD 版本；因此这两份证据文件里的 `checks` **不含** `evaluationError` 字段，
    与新代码的产出形状有一个字段的差异，下次正常跑门禁时会自然刷新）。

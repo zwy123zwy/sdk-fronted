@@ -13,6 +13,14 @@
  *
  * 第 3 条是关键：只验证"能读到 SDK_VERSION"无法区分"真的打进了依赖"与"只是常量被内联"。
  * 注入 `transport` 走的是运行期工厂参数，所以能证明 SDK 的装配与上报链路在 bundle 里是活的。
+ *
+ * ## 复用（#1/#2，2026-10-15）
+ *
+ * `runBundleInSandbox` 只做"**bundle 文本**喂沙箱"，因此 bundler 无关：vite 的生产产物
+ * （`examples/vite/scripts/verify-build.mjs`）与 script-tag 的 IIFE（`examples/script-tag/check.mjs`）
+ * 都用它，只通过 `options` 换"入口把符号挂在哪个全局键上"。`installBrowserGlobals()` 是同一份
+ * 最小浏览器面的"装到宿主 `globalThis`"版本，给 node-import 示例（真实 `import` 产物、没有
+ * bundle 文本）用。**最小投递路径只实现一次**，四个例子共用同一套断言（含 Ajv 契约校验）。
  */
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
@@ -51,12 +59,19 @@ export function createUploadStub() {
   };
 }
 
-/** 最小 DOM 面：bundle 入口只做 `document.querySelector('#app').textContent = ...`。 */
+/**
+ * 最小 DOM 面：bundle 入口只做 `document.querySelector('#app').textContent = ...`。
+ *
+ * `querySelectorAll` 与 `MutationObserver` 是给 **vite 产物**的：vite 会在入口前注入一段
+ * modulepreload polyfill（`document.createElement('link').relList` → `querySelectorAll` →
+ * `new MutationObserver(...)`），webpack 产物不碰它们。两个桩都是空实现（不发真实请求、不观察）。
+ */
 function createDocumentStub() {
   const app = { textContent: '' };
   return {
     documentElement: { lang: 'zh-CN' },
     querySelector: (selector) => (selector === '#app' ? app : null),
+    querySelectorAll: () => [],
     createElement: () => ({ style: {}, setAttribute() {}, appendChild() {} }),
     addEventListener() {},
     removeEventListener() {},
@@ -73,17 +88,24 @@ function createDocumentStub() {
   };
 }
 
+/** `MutationObserver` 的空替身（vite 的 modulepreload polyfill 会 `new` 一个）。 */
+function MutationObserverStub() {
+  this.observe = () => {};
+  this.disconnect = () => {};
+  this.takeRecords = () => [];
+}
+
 /**
- * 在 `node:vm` 沙箱里执行 bundle。
+ * 最小浏览器全局面：`window`/`self`/`document`/`setTimeout`/`fetch` 的空实现。
  *
- * 沙箱只有最小可用面（`window`/`self`/`document`/`setTimeout`/`fetch` 的空实现），
  * 刻意**不提供** `CompressionStream`、`crypto`、`navigator.locks`、`indexedDB`——
  * 这些都属于 T30 降级矩阵的格子，不在这里重复；这里只要最小路径能跑通。
  */
-export async function runBundleInSandbox(code, bundlePath) {
+export function createBrowserSandbox() {
   const document = createDocumentStub();
   const sandbox = {
     document,
+    MutationObserver: MutationObserverStub,
     setTimeout,
     clearTimeout,
     setInterval,
@@ -95,22 +117,85 @@ export async function runBundleInSandbox(code, bundlePath) {
   sandbox.window = sandbox;
   sandbox.self = sandbox;
   sandbox.globalThis = sandbox;
+  return sandbox;
+}
+
+/**
+ * 把最小浏览器全局面**临时**装到宿主的 `globalThis` 上，并返回 `restore()`。
+ *
+ * 用途（#2）：`examples/node-import` 的用例要**真实 `import` 产物**（不是 bundle 文本），
+ * 然后在 Node 里跑 `createAssembly → init → track → flush`；Node 没有 DOM，所以借用同一份面。
+ * **必须** `restore()`，否则会污染同进程里的其它用例。
+ */
+export function installBrowserGlobals() {
+  const previous = {
+    window: globalThis.window,
+    self: globalThis.self,
+    document: globalThis.document,
+  };
+  const document = createDocumentStub();
+  globalThis.window = globalThis;
+  globalThis.self = globalThis;
+  globalThis.document = document;
+  const restoreKey = (key, value) => {
+    if (value === undefined) {
+      delete globalThis[key];
+    } else {
+      globalThis[key] = value;
+    }
+  };
+  return {
+    restore: () => {
+      restoreKey('window', previous.window);
+      restoreKey('self', previous.self);
+      restoreKey('document', previous.document);
+    },
+  };
+}
+
+/**
+ * 在 `node:vm` 沙箱里执行 **bundle 文本**，并跑一次最小投递路径。
+ *
+ * `options`（全部可选，默认值保持 webpack 例子的原行为）：
+ *   - `exposedKey`：入口把 SDK 符号挂在沙箱全局的哪个键上（vite 用 `__VITE_EXAMPLE__`）；
+ *   - `appId` / `probeEventName` / `probeDimensions`：最小路径用的上报身份与探针事件。
+ *
+ * 求值失败**不再直接抛出**：`checks.bundleEvaluated` 是真实检查（#3），失败时转 `false`
+ * 并把原因记进 `evaluationError`，让"产物到底有没有被求值"变成可观测、可失败的检查项。
+ */
+export async function runBundleInSandbox(code, bundlePath, options = {}) {
+  const exposedKey = options.exposedKey ?? '__WEBPACK_EXAMPLE__';
+  const appId = options.appId ?? 'webpack-compat';
+  const probeEventName = options.probeEventName ?? 'webpack_probe';
+  const probeDimensions = options.probeDimensions ?? { probe: 'webpack-bundle' };
+
+  const sandbox = createBrowserSandbox();
+  const document = sandbox.document;
 
   const start = Date.now();
   vm.createContext(sandbox);
-  vm.runInContext(code, sandbox, { filename: bundlePath });
+  let evaluated = false;
+  let evaluationError = null;
+  try {
+    vm.runInContext(code, sandbox, { filename: bundlePath });
+    evaluated = true;
+  } catch (error) {
+    evaluationError = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  }
   const evaluatedMs = Date.now() - start;
 
   // 取用姿势与接入方一致：bundle 是**自执行的**，SDK 的符号不会平铺到全局，
-  // 而是入口自己在 `globalThis.__WEBPACK_EXAMPLE__` 上暴露出来（见 src/main.js）。
-  const exposed = sandbox.__WEBPACK_EXAMPLE__;
+  // 而是入口自己在 `globalThis.__WEBPACK_EXAMPLE__`（或 `options.exposedKey`）上暴露出来。
+  const exposed = sandbox[exposedKey];
   const sdkVersion = exposed?.SDK_VERSION;
   const createAssembly = exposed?.createAssembly;
   const appText = document.__app.textContent;
   const expectedVersion = expectedSdkVersion();
 
   const checks = {
-    bundleEvaluated: true,
+    // #3（2026-10-15）：此前是字面量 `true`——恒真、什么都证明不了。现在它**可失败**：
+    // 产物模块级求值抛错 → false（并记录 `evaluationError`），而不是把这个事实藏起来。
+    bundleEvaluated: evaluated,
     entryExposedOnGlobal: typeof exposed === 'object' && exposed !== null,
     sdkVersionIsString: typeof sdkVersion === 'string' && sdkVersion.length > 0,
     // 反空转：不是"读到个字符串就算过"，必须与仓库真实包版本一致。
@@ -119,15 +204,68 @@ export async function runBundleInSandbox(code, bundlePath) {
     domRenderedSdkVersion: appText.includes('web-report-sdk'),
   };
 
-  // ---- 最小路径：createAssembly → init → track → flush → 接收方真收到批次 ----
+  // ---- 最小路径（唯一实现，见 runAssemblyMinimalPath）：装配根 → init → track → flush ----
+  const minimal = await runAssemblyMinimalPath({
+    createAssembly,
+    appId,
+    probeEventName,
+    probeDimensions,
+  });
+  Object.assign(checks, minimal.checks);
+
+  return {
+    bundlePath,
+    bundleBytes: Buffer.byteLength(code, 'utf8'),
+    evaluatedMs,
+    sdkVersion: typeof sdkVersion === 'string' ? sdkVersion : null,
+    expectedSdkVersion: expectedVersion,
+    domText: appText,
+    batchSummary:
+      minimal.batch === null
+        ? null
+        : {
+            protocolVersion: minimal.batch.protocol_version ?? null,
+            appId: minimal.batch.app_id ?? null,
+            eventNames: (minimal.batch.events ?? []).map((event) => event.event_name),
+          },
+    minimalPathError: minimal.minimalPathError,
+    evaluationError,
+    checks,
+    status: Object.values(checks).every(Boolean) ? 'pass' : 'fail',
+  };
+}
+
+/**
+ * 最小投递路径的**唯一实现**（四个例子共用；#1/#2 靠它复用而不是各写各的）。
+ *
+ * 传入的 `createAssembly` 可以是**沙箱里的**（bundler 产物，`runBundleInSandbox` 用），
+ * 也可以是**真实 `import` 来的**（`examples/node-import` 用）——区别只在"符号从哪儿来"。
+ *
+ * 断言（每条都能因真实缺陷转红）：
+ *   - `assemblyCreated` / `assemblyClientHasTrack`：装配根真的建起来了、`track` 在；
+ *   - `uploadStubReceivedRequest`：`flush()` 之后接收方**真收到**请求（等到本地 Promise 链排空）；
+ *   - `batchPassesContractSchema`：收到的批次必须**通过 `batch.schema.json` 的 Ajv 校验**
+ *     （D-06：只解析不校验结构会让违约批次被当成"送达成功"）；
+ *   - `batchHasEvents` / `batchContainsProbeEvent`：批次里有事件、且就是我们 track 的那条；
+ *   - `minimalPathRan`：以上几条的合取（反空转，防止单点检查被删掉后仍算过）。
+ */
+export async function runAssemblyMinimalPath(options) {
+  const {
+    createAssembly,
+    appId = 'webpack-compat',
+    probeEventName = 'webpack_probe',
+    probeDimensions = { probe: 'webpack-bundle' },
+  } = options;
+
+  const checks = {};
   let batch = null;
   let minimalPathError = null;
   try {
     const upload = createUploadStub();
     const assembly = createAssembly({
-      appId: 'webpack-compat',
+      appId,
       endpoint: FAKE_ENDPOINT,
-      token: 'webpack-token',
+      token: 'example-token',
       env: 'test',
       release: '0.0.0',
       consent: 'granted',
@@ -137,7 +275,7 @@ export async function runBundleInSandbox(code, bundlePath) {
     checks.assemblyCreated = typeof assembly === 'object' && assembly !== null;
     checks.assemblyClientHasTrack = typeof assembly.client?.track === 'function';
     assembly.init();
-    assembly.client.track('webpack_probe', { dimensions: { probe: 'webpack-bundle' } });
+    assembly.client.track(probeEventName, { dimensions: probeDimensions });
     assembly.flush();
     // 传输是异步的：给队列一个排空窗口（不是"等网络"，是等本地 Promise 链）。
     const deadline = Date.now() + 2000;
@@ -154,7 +292,7 @@ export async function runBundleInSandbox(code, bundlePath) {
       batch = JSON.parse(raw);
       checks.batchHasEvents = Array.isArray(batch.events) && batch.events.length > 0;
       checks.batchContainsProbeEvent =
-        batch.events?.some((event) => event.event_name === 'webpack_probe') === true;
+        batch.events?.some((event) => event.event_name === probeEventName) === true;
     } else {
       checks.batchHasEvents = false;
       checks.batchContainsProbeEvent = false;
@@ -171,26 +309,7 @@ export async function runBundleInSandbox(code, bundlePath) {
       checks.uploadStubReceivedRequest === true &&
       checks.batchContainsProbeEvent === true;
   }
-
-  return {
-    bundlePath,
-    bundleBytes: Buffer.byteLength(code, 'utf8'),
-    evaluatedMs,
-    sdkVersion: typeof sdkVersion === 'string' ? sdkVersion : null,
-    expectedSdkVersion: expectedVersion,
-    domText: appText,
-    batchSummary:
-      batch === null
-        ? null
-        : {
-            protocolVersion: batch.protocol_version ?? null,
-            appId: batch.app_id ?? null,
-            eventNames: (batch.events ?? []).map((event) => event.event_name),
-          },
-    minimalPathError,
-    checks,
-    status: Object.values(checks).every(Boolean) ? 'pass' : 'fail',
-  };
+  return { checks, batch, minimalPathError };
 }
 
 /** 从 webpack 的 `stats` 里摘出解析到 SDK 的真实文件路径（证明裸包名被解析了）。 */
