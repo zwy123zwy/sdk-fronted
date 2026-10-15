@@ -145,7 +145,8 @@ export interface AssemblyOptions {
   readonly endpoint?: string | undefined;
   /**
    * 上报令牌（**装配根字段**，同 `endpoint`）；未提供 `credentials` 时用它组装凭据端口。
-   * 绝不进入事件或调试输出。
+   * 绝不进入事件或调试输出。core 的 `createClient({ token })` / `init({ token })` 会把它当作
+   * 无效参数**显式拒绝**（计 `invalid_args` + `dropped: 'field'` 诊断，只带字段名不带值）。
    */
   readonly token?: string | undefined;
   readonly env?: string | undefined;

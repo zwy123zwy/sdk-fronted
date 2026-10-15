@@ -224,11 +224,11 @@ type Mutable<T> = { -readonly [K in keyof T]: T[K] };
  * 不可能消费它们）。此前 core 的构造/初始化面声明了这两个字段却**从不读取**（静默忽略），
  * 与 D-09 同族；现在的口径是「计 `invalid_args` + 发 `dropped: 'field'` 诊断」，不再静默忽略。
  *
- * `token` 暂不在此列（已上报待裁定）：`api/public-api.test.ts` 的 C01-AC-12 三条既有断言以
- * 「token 在 init 上传入但不泄漏」为样本锁定了诊断记录的**精确序列**（记录数组逐项相等、
- * console 行数恰为 2），把 `token` 纳入本清单会让那三条红，而既有测试断言只加不改。
+ * `token` 的纳入经编排方 2026-10-15 裁决（选项 A）：`api/public-api.test.ts` 的 C01-AC-12
+ * 断言随之按「token 会被拒绝」更新，但**「token 值绝不进入诊断/日志」这条意图一字未动**
+ * （诊断记录只带字段名 `token`，不带值）。
  */
-const ASSEMBLY_ONLY_FIELDS = ['endpoint'] as const;
+const ASSEMBLY_ONLY_FIELDS = ['endpoint', 'token'] as const;
 
 
 /** 事件参数的公共部分。 */

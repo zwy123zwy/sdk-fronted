@@ -218,11 +218,9 @@ export interface ClientInitOptions {
   readonly endpoint?: string | undefined;
   /**
    * 上报令牌。**属装配根字段**（同 `endpoint`）：真正消费点是 `AssemblyOptions.token`，绝不进入事件或
-   * 调试输出。
-   *
-   * 注意：`token` 目前在 core 的构造/初始化面仍按「接受但不使用」处理（不计数、不发诊断）——既有
-   * C01-AC-12 用例以「init 传入 token 但诊断记录序列精确不变」锁定了该行为，改为显式拒绝需先改那三条
-   * 断言；已上报待裁定。
+   * 调试输出。在 `createClient({ token })` 或 `init({ token })` 上传入会被**显式拒绝**：计
+   * `invalid_args` 并发一条 `dropped: 'field'` / `field: 'token'` 的诊断记录（不静默忽略）；
+   * 该记录只带**字段名**，不带令牌值。请改传 `createAssembly({ token })`。
    */
   readonly token?: string | undefined;
   /**

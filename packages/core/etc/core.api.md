@@ -1552,7 +1552,7 @@ export function sanitizeUrl(url: string, allowlist: readonly string[], masker: M
 export type Sdk<TDictionary extends EventDictionary = PermissiveDictionary> = Client<TDictionary>;
 
 // @public
-export const SDK_VERSION = "0.0.0";
+export const SDK_VERSION = "0.1.0";
 
 // @public
 export const SESSION_ID_KEY = "wr_session_id";
