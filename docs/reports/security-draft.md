@@ -146,3 +146,42 @@
 4. 把两条机器守卫纳入日常改动面：新增脱敏调用点（1.3.2）或新增 `tests/**` 的 import（1.6）时，先看守卫报错；1.6 的允许清单**只减不增**，新增必须写明理由；
 5. ~~裁定 1.3.2 上报的同族路径（`clampAllStringValues` 只截断、从不脱敏）是否需要补一次脱敏~~ → **已裁定并修复**（2026-10-14）：补一次脱敏，证据见 1.3.3；
 6. 剩余项（第 3 条、以及第 2 节的审计式复查与低危处置计划）完成前，本任务保持"未完成"，不签发。
+
+## 5. 2026-10-15 定向诊断：T31「设备标识腿」红是**实现缺陷**，不是测试前提失效
+
+（本节只报告，**未改实现、未改测试**。）
+
+现象：`tests/security/t31-consent-withdrawal.test.ts:115` 红——批头声称 `device_id_persistent === true`（:114 绿），而注入的持久化存储里没有 `DEVICE_ID_KEY`。
+
+### 5.1 性质判定：**实现缺陷**（声称与实际不符）；该用例的前提是正确的
+
+`session.ts` 文件头口径 + `context/header.test.ts` 的 AC-19 都写明：**只有确定已授权才持久化设备标识**，已授权时 `device_id_persistent` 为 `true`。因此「`consent:'granted'` + 注入持久化存储 ⇒ `DEVICE_ID_KEY` 必须已落盘」是**契约要求的前提**，不是过时断言。**未修改 `tests/security/**`**，未回退任何隐私/校验修复。
+
+### 5.2 三条最小探针（`node` 直打 `packages/core/dist`，与用例同一产物）
+
+| 探针 | 前提 | 结果 |
+|---|---|---|
+| A | 空存储 + 默认同意（`unknown` + `essential_only`） | **不落盘**（正确）✅ |
+| A2 | 空存储 + `unknown` + `consent_mode:'full'` | **不落盘**，而 `device_id_persistent: true` ❌ 同型不一致 |
+| B | 空存储 + `consent:'granted'`（**用例夹具**） | **不落盘**、`device_id_persistent: true` ❌ ← 本次红 |
+| B2 | 空存储 + 同意**只经 `init({consent:'granted'})`** | **落盘**（`wr_device_id`）✅ ← 与 B 只差“同意在哪一步传入” |
+| C | 非法（非 uuid）存储值 + `granted` | **未写回**（存储里仍是 `not-a-uuid`）❌ `ddfccaf3` 的写回路径**在生产路径不可达** |
+| D | **合法**存储 uuid + `granted` | 存储值未被读取：批头 `device_id` 是**另一个**新造的 uuid ❌ |
+
+### 5.3 根因（两处叠加；`device_id_persistent` 与实际写入**确实可能不一致**——这条最重要）
+
+1. **`device_id_persistent` 的来源是「授权意图」，不是「已落盘事实」**。`context/header.ts:43` 取 `session.deviceIdPersistent`；`session.ts` 里它就是 `persistent` 变量，只由 `isAuthorized(state, mode)`（构造时）与 `onConsentChange` 赋值，**从不检查是否真的 read/write 过**。因此「已授权但从未落盘」时它照样是 `true`。
+2. **`device_id` 与它来自不同来源**：`header.ts:29-30` 在 `session.deviceId === ''` 时**现场 `createUuid()` 兜底**。而 `sessionTracker.current()`（`client.ts:323` 唯一接线）**既不生成也不落盘**——生成/落盘的 `ensureDevice()` 只在 `touch()` 与 `onConsentChange→persistDevice()` 里被调用，而 **`touch()` 在全仓 `packages/*/src` 无任何调用点**（只有测试调用）。⇒ 从未 `touch()` 的实例：存储空、`current()` 返回空串 ⇒ 批头**每调一次就换一个 uuid**（实测连续 3 次 `header()` 得到 **3 个不同** `device_id`），同时挂着 `device_id_persistent: true`。**这是本次回归暴露的、影响面比该用例更大的正确性问题**：已授权接入方的批次设备标识逐批漂移，T31 的「清除」腿与任何设备级归因/去重都建立在假前提上。
+3. **触发回归的是 `d941e76`（D-09 修复）**：该修复让 `let consent` 在构造时读 `options.consent`；装配根把 `consent` 放进 `clientOptions` 并 `init({...clientOptions})`，于是 `performInit` 里 `previousConsent === consent`，那句 `if (consent !== previousConsent) sessionTracker.onConsentChange(...)` **被跳过** → `persistDevice()` 不再执行。修 D-09 前构造态恒为 `'unknown'`，该守卫必然触发，所以此前是绿的——**这是 D-09 的副作用，不是 D-09 修错了**（P4 证：`init` 传同意仍落盘；P3 证：运行期 `setConsent('granted')` 落盘且 `stored === header.device_id`）。
+
+### 5.4 最小修法建议（属实现缺陷，**本任务未改** `packages/*/src`，交另派）
+
+- **根治（首选）**：让批头路径真正执行一次 `ensureDevice()`——把 `client.ts:323` 的 `session: () => sessionTracker.current()` 改为 `touch(...)`，或让 `current()` 惰性补 `ensureDevice()`（授权时顺带落盘）。改完后 `header.ts` 的 `createUuid()` 兜底成为不可达代码，`device_id` 稳定、`device_id_persistent` 与实际一致。
+- **同时修守卫**：`performInit` 里 `if (consent !== previousConsent)` 改为**无条件**（或按「本次是否提供了 consent/consent_mode」）调用 `onConsentChange`——该方法幂等（`granted` → 补写、`denied` → 清除、`unknown` → 仅置 `persistent=false`）。
+- **加固**：`header.ts` 不应在 `session.deviceId === ''` 时声称 `device_id_persistent: true`（两个字段必须同源），否则「声称」永远可能强于「事实」。
+
+### 5.5 验证与顺带核实
+
+- `pnpm exec vitest run --coverage.enabled=false --project security` → **1 failed | 31 passed**（仅本腿红）；`--project unit packages/core` → **61 files / 603 tests 全绿**（core 无回退）。
+- **其他 security 用例是否依赖同一前提**：`tests/security/**` 里只有本用例引用 `DEVICE_ID_KEY`/`device_id_persistent`（`guard-e2e-receivers-validate-contract.test.ts` 的提及只是说明文字）。`t31-security.test.ts` 13 条**全绿**是因为它**不注入持久化存储、也不断言已授权下的落盘**（只覆盖未授权方向），因此**结构上无法发现**本缺陷——**这个区别本身是「永远绿」的线索**，建议后续为它补一条「已授权 ⇒ 落盘」的对照。
+- 纪律：本任务**未改任何实现**（`packages/*/src` 未动）、**未改任何测试**（`tests/security/**` 的 `git diff` 为空）。
