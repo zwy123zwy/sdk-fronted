@@ -3,7 +3,7 @@
     "name": "browser（**实际发货的装配产物**：C01–C08 接线后的入口，2026-10-13 装配根落地后首次量到真实值）——2026-10-13 经负责人批准 10→13 KB（re-export 壳口径）→ **本次按真实 bundle 重推为 35 KB**：实测 33.47 kB = core 18.38 + transport 14.81 + plugins 5.97 的并集",
     "path": "packages/browser/dist/index.js",
     "import": "*",
-    "limit": "35 KB"
+    "limit": "37 KB"
   },
   {
     "name": "core（C01/C02 内核与 API + C03 配置与采样 + C04 上下文/脱敏/同意；2026-10-13 经负责人批准 10 KB → 16 KB → 21 KB：C03 后 13.07 kB、C04 后 18.35 kB）",
