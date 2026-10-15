@@ -131,6 +131,17 @@ const RECEIVER_DISPOSITIONS: readonly ReceiverDisposition[] = [
   },
   {
     kind: 'transport-probe',
+    file: 'tests/e2e/lib/beacon-receiver.mjs',
+    scan: 'http-body-receiver',
+    reason:
+      '传输探针，不声称按契约送达：C07-AC-03「信标累计额度」特性刻画的测量端点（beacon-quota.spec.mjs），' +
+      '收到的**根本不是批次**——tests/e2e/probes/beacon-quota-driver.js 直接对 `navigator.sendBeacon` 发 ' +
+      '`new Uint8Array(bytes)` 逐字节填充 `i % 251` 的假字节（Content-Type text/plain），全程不加载任何 ' +
+      'SDK 产物，也不经过装配根。判定对象是浏览器传输行为（单次上限 / 累计在途额度 / 片间节流），' +
+      '因此接 batch-contract.mjs 的 Ajv 门只会去校验这些随机字节本身，属于「校验夹具」而非校验批次。',
+  },
+  {
+    kind: 'transport-probe',
     file: 'tests/e2e/leave-slice.spec.mjs',
     scan: 'http-body-receiver',
     reason:

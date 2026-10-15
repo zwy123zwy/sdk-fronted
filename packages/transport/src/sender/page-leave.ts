@@ -32,7 +32,9 @@ export interface LeaveSendResult {
  * 离开通道的观测量。
  *
  * **单位口径**：`sent` / `skipped` 是**事件数**；`requests` 是**信标/fetch 请求数**；
- * `bytes` 是**累计写入的估算体积**（UTF-16 码元数）。全部是内部观测量，没有契约指标名。
+ * `bytes` 是**累计写入的估算体积**（UTF-16 码元数）；`budgetStops` 是**次数**
+ * （CR-008：离开 burst 内首次因预算用尽而停手的次数）。全部是内部观测量，
+ * 其中只有 `budgetStops` 有契约指标名（`flush_skipped_due_to_budget`）。
  */
 export interface LeaveStats {
   /** 事件数。 */
@@ -43,6 +45,12 @@ export interface LeaveStats {
   readonly bytes: number;
   /** 信标 / fetch keepalive 请求数。 */
   readonly requests: number;
+  /**
+   * CR-008：离开 burst 内**首次**因预算（≤48 KB / ≤200 条 / ≤4 批 / 时间窗）用尽
+   * 而**停手**的次数；同一 burst 内后续被跳过的切片不重复计数。它是**次数**，
+   * 不是被跳过的事件数（事件数见 `skipped`）。burst 以 `resetBudget()` 划界。
+   */
+  readonly budgetStops: number;
 }
 
 export interface LeaveSenderOptions {
@@ -127,6 +135,15 @@ export function createLeaveSender(options: LeaveSenderOptions): LeaveSender {
   let skippedTotal = 0;
   let requestsTotal = 0;
   let bytesTotal = 0;
+  // CR-008：burst 内首次因预算用尽而停手记 1 次；同一 burst 内不重复计数。
+  let budgetStopsTotal = 0;
+  let budgetStopCounted = false;
+
+  function noteBudgetStop(): void {
+    if (budgetStopCounted) return;
+    budgetStopCounted = true;
+    budgetStopsTotal += 1;
+  }
 
   function exhausted(): boolean {
     return (
@@ -143,6 +160,7 @@ export function createLeaveSender(options: LeaveSenderOptions): LeaveSender {
       usedBatches = 0;
       usedEvents = 0;
       usedBytes = 0;
+      budgetStopCounted = false;
     },
 
     send(batch: BatchEnvelope): LeaveSendResult {
@@ -161,6 +179,7 @@ export function createLeaveSender(options: LeaveSenderOptions): LeaveSender {
       for (const slice of slices) {
         if (exhausted()) {
           skipped += slice.events.length;
+          noteBudgetStop();
           continue;
         }
         const body = JSON.stringify({
@@ -170,6 +189,7 @@ export function createLeaveSender(options: LeaveSenderOptions): LeaveSender {
         const size = body.length;
         if (usedBytes + size > budget.maxBytes) {
           skipped += slice.events.length;
+          noteBudgetStop();
           continue;
         }
         requests += 1;
@@ -214,7 +234,13 @@ export function createLeaveSender(options: LeaveSenderOptions): LeaveSender {
     },
 
     stats(): LeaveStats {
-      return { sent: sentTotal, skipped: skippedTotal, bytes: bytesTotal, requests: requestsTotal };
+      return {
+        sent: sentTotal,
+        skipped: skippedTotal,
+        bytes: bytesTotal,
+        requests: requestsTotal,
+        budgetStops: budgetStopsTotal,
+      };
     },
   };
 }

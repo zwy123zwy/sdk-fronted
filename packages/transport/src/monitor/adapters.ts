@@ -31,6 +31,8 @@ import type {
   HealthDimensionsInput,
   HealthState,
   HealthTimerPort,
+  ObservableMetricsInput,
+  ObservableMetricsPort,
 } from './types';
 
 const isAcceptedPush = (status: QueuePushResult['status']): boolean =>
@@ -257,16 +259,73 @@ export interface ExposureStatsLike {
     readonly exposure: {
       readonly commitLostEvents: number;
       readonly commitLostWindowMs: number | null;
+      /** CR-008：真实窗口的**下界**读数（CR-007 起由 T16 提供）；缺省表示没有该读数。 */
+      readonly commitLostObservedWindowMs?: number | null | undefined;
     };
   };
 }
 
-/** CR-001 暴露窗口来源：读取 T16 的对账结果，规则由映射层执行。 */
+/** CR-001 / CR-008 暴露窗口来源：读取 T16 的对账结果，规则由映射层执行。 */
 export function createOfflineExposureSource(source: ExposureStatsLike): ExposureWindowPort {
   return {
     exposure(): ExposureWindowInput {
       const exposure = source.stats().exposure;
-      return { events: exposure.commitLostEvents, windowMs: exposure.commitLostWindowMs };
+      return {
+        events: exposure.commitLostEvents,
+        windowMs: exposure.commitLostWindowMs,
+        observedWindowMs: exposure.commitLostObservedWindowMs ?? null,
+      };
+    },
+  };
+}
+
+/** CR-008：离开通道观测量（`sender/page-leave.ts` 的 `LeaveStats`）的最小结构。 */
+export interface LeaveObservablesLike {
+  stats(): { readonly budgetStops: number };
+}
+
+/** CR-008：选主观测量（`leader/leader.ts` 的 `LeaderElection`）的最小结构。 */
+export interface LeaderObservablesLike {
+  leaderLost(): number;
+}
+
+export interface ObservableMetricsSourceOptions {
+  readonly leave?: LeaveObservablesLike | undefined;
+  readonly leader?: LeaderObservablesLike | undefined;
+}
+
+/**
+ * CR-008 的两个**观测量**来源：把 `page-leave` / `leader` 的**累计**观测量差分成本窗口增量
+ * （与 `createDeliveryMetricsSource` 同口径），值为 0 时不上报（映射层再兜一层）。
+ *
+ * 这两个量**不是原因码**（CR-001 §5.2 第 3 条裁定），因此不经过 `HealthCountersPort`。
+ */
+export function createObservableMetricsSource(
+  options: ObservableMetricsSourceOptions = {},
+): ObservableMetricsPort {
+  const leave = options.leave;
+  const leader = options.leader;
+  let lastBudgetStops = leave === undefined ? 0 : leave.stats().budgetStops;
+  let lastLeaderLost = leader === undefined ? 0 : leader.leaderLost();
+  return {
+    take(): ObservableMetricsInput {
+      const deltas: {
+        flushSkippedDueToBudget?: number;
+        leaderLost?: number;
+      } = {};
+      if (leave !== undefined) {
+        const current = leave.stats().budgetStops;
+        const delta = current - lastBudgetStops;
+        lastBudgetStops = current;
+        if (Number.isFinite(delta) && delta >= 1) deltas.flushSkippedDueToBudget = delta;
+      }
+      if (leader !== undefined) {
+        const current = leader.leaderLost();
+        const delta = current - lastLeaderLost;
+        lastLeaderLost = current;
+        if (Number.isFinite(delta) && delta >= 1) deltas.leaderLost = delta;
+      }
+      return deltas;
     },
   };
 }

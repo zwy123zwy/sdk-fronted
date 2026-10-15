@@ -53,6 +53,11 @@ export interface LeaderElection {
   mode(): LeaderMode;
   /** 最近一次是否当选（观测用）。 */
   lastLeader(): boolean;
+  /**
+   * CR-008：本标签页**从 leader 变为非 leader**的累计次数（首轮即未当选不计）。
+   * 契约指标名 `leader_lost`（观测量，不是原因码——POC-1 实测正确性不依赖选主）。
+   */
+  leaderLost(): number;
 }
 
 /** settle 窗口下界（D003/POC 强制；0 ms 不可用）。 */
@@ -153,6 +158,14 @@ export function createLeaderElection(options: LeaderElectionOptions = {}): Leade
   const channelName = options.channelName ?? DEFAULT_CHANNEL_NAME;
   let lastMode: LeaderMode = 'none';
   let lastWasLeader = false;
+  // CR-008：观测量 `leader_lost`（累计）。首轮即未当选不算"失去"。
+  let leaderLostTotal = 0;
+
+  /** 每次 `run()` 结算选主结果时更新：从 leader 变非 leader 记 1 次。 */
+  function settleLeader(wasLeader: boolean, isLeader: boolean): void {
+    if (wasLeader && !isLeader) leaderLostTotal += 1;
+    lastWasLeader = isLeader;
+  }
 
   async function runWithBroadcast<T>(task: () => Promise<T>): Promise<LeaderRunResult<T>> {
     const channel = broadcast === null ? null : broadcast.open(channelName);
@@ -189,17 +202,17 @@ export function createLeaderElection(options: LeaderElectionOptions = {}): Leade
           holder.value = await task();
         });
         lastMode = 'locks';
-        lastWasLeader = acquired;
+        settleLeader(lastWasLeader, acquired);
         return { leader: acquired, mode: 'locks', result: acquired ? holder.value : undefined };
       }
       if (broadcast !== null) {
         const outcome = await runWithBroadcast(task);
         lastMode = outcome.mode;
-        lastWasLeader = outcome.leader;
+        settleLeader(lastWasLeader, outcome.leader);
         return outcome;
       }
       lastMode = 'none';
-      lastWasLeader = true;
+      settleLeader(lastWasLeader, true);
       return { leader: true, mode: 'none', result: await task() };
     },
 
@@ -209,6 +222,10 @@ export function createLeaderElection(options: LeaderElectionOptions = {}): Leade
 
     lastLeader(): boolean {
       return lastWasLeader;
+    },
+
+    leaderLost(): number {
+      return leaderLostTotal;
     },
   };
 }

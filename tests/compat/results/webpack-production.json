@@ -1,6 +1,6 @@
 {
   "task": "T30",
-  "generatedAt": "2026-10-14T08:39:28.833Z",
+  "generatedAt": "2026-10-15T02:05:25.706Z",
   "engine": "webpack 5.104.1 / node v24.16.0",
   "command": "node examples/webpack/scripts/build-production.mjs",
   "entry": "/Users/spirit-ai/Desktop/sdk/examples/webpack/src/main.js",
@@ -12,8 +12,8 @@
     "assets": [
       {
         "name": "main.js",
-        "size": 116874,
-        "emitted": true
+        "size": 118973,
+        "emitted": false
       }
     ],
     "sdkModules": [
@@ -23,8 +23,8 @@
   },
   "sandbox": {
     "bundlePath": "/Users/spirit-ai/Desktop/sdk/examples/webpack/dist/main.js",
-    "bundleBytes": 116874,
-    "evaluatedMs": 1,
+    "bundleBytes": 118973,
+    "evaluatedMs": 2,
     "sdkVersion": "0.0.0",
     "expectedSdkVersion": "0.0.0",
     "domText": "web-report-sdk 0.0.0",
@@ -46,6 +46,7 @@
       "assemblyCreated": true,
       "assemblyClientHasTrack": true,
       "uploadStubReceivedRequest": true,
+      "batchPassesContractSchema": true,
       "batchHasEvents": true,
       "batchContainsProbeEvent": true,
       "minimalPathRan": true

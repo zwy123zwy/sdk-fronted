@@ -88,6 +88,7 @@ export function createHealthReporter(options: HealthReporterOptions): HealthRepo
       fixed: options.metrics?.take(),
       latency: options.latency?.take(),
       exposure: options.exposure?.exposure() ?? null,
+      observables: options.observables?.take() ?? null,
       windowMs: clampWindowMs(elapsed),
     });
 

@@ -216,7 +216,21 @@ describe('其余端口适配器', () => {
     const source = createOfflineExposureSource({
       stats: () => ({ exposure: { commitLostEvents: 2, commitLostWindowMs: 40 } }),
     });
-    expect(source.exposure()).toEqual({ events: 2, windowMs: 40 });
+    // CR-008：没有下界读数时 `observedWindowMs` 为 null（夹逼不成立，映射层不上报端点）。
+    expect(source.exposure()).toEqual({ events: 2, windowMs: 40, observedWindowMs: null });
+  });
+
+  test('createOfflineExposureSource 同时读取 CR-007 的下界读数（CR-008 的夹逼左端点）', () => {
+    const source = createOfflineExposureSource({
+      stats: () => ({
+        exposure: {
+          commitLostEvents: 2,
+          commitLostWindowMs: 1247,
+          commitLostObservedWindowMs: 7,
+        },
+      }),
+    });
+    expect(source.exposure()).toEqual({ events: 2, windowMs: 1247, observedWindowMs: 7 });
   });
 
   test('createRegistryTimer 委托给 C02 全局注册表的 scheduleRepeat', () => {

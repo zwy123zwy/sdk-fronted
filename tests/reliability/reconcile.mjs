@@ -316,8 +316,137 @@ export function renderReconciliation() {
     );
   }
   p('');
+  p(renderExposureBounds());
+  p('');
 
   return L.join('\n');
+}
+
+// ---------------------------------------------------------------- CR-008 夹逼读数（只增不改）
+
+/**
+ * CR-008（2026-10-14 批准）的夹逼读数：契约字段暴露窗口的**两个端点**。
+ *
+ * **只增不改**：本区**不复用、也不改动**任何既有判定（`verdict` / `identityHolds` /
+ * `CLASSIFICATION` / 3.0–3.2 的表格与口径），只把两个端点成对列出：
+ * `observedWindowMs ≤ W ≤ windowMs`。
+ *
+ * 数据源按优先级取第一个存在的文件；每个格子的下界依次读：
+ * `reopenCommitLoss.observedWindowMs`（CR-007 起 T29/T33 产物带）→
+ * `reopenStats.exposure.commitLostObservedWindowMs` →
+ * 契约指标键 `exposure_window_lower_bound_ms`（若 JSON 直接带了 metrics）。
+ */
+export const SQUEEZE_SOURCES = [
+  'tests/reliability/results/d004-chromium-observed-window.json',
+  'tests/e2e/results/d004-chromium.json',
+  'tests/e2e/results/d004-webkit.json',
+];
+
+/** 读一份 d004 JSON 的两个端点；只读，不写任何 T29/T33 产物。 */
+export function loadExposureBounds(path) {
+  const json = loadJson(path);
+  const cells = json.cells.map((cell, index) => {
+    const metrics = cell.sdkHealthMetrics ?? cell.metrics ?? null;
+    const fromMetrics = (key) => (metrics !== null && typeof metrics[key] === 'number' ? metrics[key] : null);
+    const lower =
+      cell.reopenCommitLoss?.observedWindowMs ??
+      cell.reopenStats?.exposure?.commitLostObservedWindowMs ??
+      fromMetrics('exposure_window_lower_bound_ms');
+    const upper =
+      cell.reopenCommitLoss?.windowMs ??
+      fromMetrics('exposure_window_upper_bound_ms') ??
+      fromMetrics('exposure_window_ms');
+    const lostEvents =
+      typeof cell.reopenCommitLoss?.events === 'number' ? cell.reopenCommitLoss.events : null;
+    const captured = cell.windowCaptured === true;
+    // 夹逼只在「窗口被捕获且真有丢失事件、且两端点都可读」时成立。
+    // 未捕获的格子 JSON 里是 `{events: 0, windowMs: 0, observedWindowMs: 0}` 的初值，
+    // 那是「没有账目」而不是「窗口 = 0 ms」——不得渲染成 [0, 0]（与 3.0 的既有口径一致）。
+    const bounded =
+      captured &&
+      (lostEvents === null || lostEvents > 0) &&
+      typeof lower === 'number' &&
+      typeof upper === 'number' &&
+      upper >= 1;
+    return {
+      index,
+      name: cell.name,
+      lower: bounded ? lower : null,
+      upper: bounded ? upper : null,
+      captured,
+      lostEvents,
+      bounded,
+      measuredMsAfterIssue: cell.measuredMsAfterIssue ?? null,
+    };
+  });
+  return {
+    file: path.startsWith(REPO) ? path.slice(REPO.length + 1) : path,
+    browser: json.browser,
+    generatedAt: json.generatedAt,
+    cells,
+  };
+}
+
+/** 一格没有夹逼区间时的原因（不美化、不补数）。 */
+function noBracketReason(cell) {
+  if (!cell.captured) {
+    const lost = cell.lostEvents === null ? '未知' : cell.lostEvents;
+    return `—（未捕获窗口：\`prewrite_commit_lost\` = ${lost}，无端点；**不得读作窗口 0 ms**）`;
+  }
+  if (cell.upper === null) return '—（该产物没有上界读数）';
+  return '—（该产物早于 CR-007，没有下界读数）';
+}
+
+/** 渲染 3.3 节；没有任何产物时如实说明，不补数。 */
+export function renderExposureBounds() {
+  const out = [];
+  out.push('### 3.3 暴露窗口的夹逼读数（CR-008 追加，只增不改）');
+  out.push('');
+  out.push('> **口径**（CR-008）：D004 的真实暴露窗口 W 的右端点（进程死亡时刻）客户端不可观测，');
+  out.push('> 因此契约只承诺两个端点，不承诺任何叫「真实窗口」的字段：');
+  out.push('> `exposure_window_lower_bound_ms`（`事件产生 → 最后一次「会话仍存活」证据`，**低估**）与');
+  out.push('> `exposure_window_upper_bound_ms`（`事件产生 → 重启后对账`，**高估**，与 `exposure_window_ms` 同源同值）。');
+  out.push('> 本节**不改动** 3.0–3.2 的任何判定，只把两个端点成对列出：`lower ≤ W ≤ upper`；');
+  out.push('> 没有捕获到窗口的格子**没有**夹逼区间（JSON 的 `0` 是初值，不是窗口 0 ms）。');
+  out.push('');
+
+  const path = SQUEEZE_SOURCES.map((p) => resolve(REPO, p)).find((p) => existsSync(p));
+  if (path === undefined) {
+    out.push('> ⚠️ 没有可用的 d004 产物，本节无数据（不补数）。');
+    return out.join('\n');
+  }
+
+  const data = loadExposureBounds(path);
+  out.push(`数据源：\`${data.file}\`（${data.browser}，${data.generatedAt}）`);
+  out.push('');
+  out.push('| 格子 | 下界 `observedWindowMs` | 上界 `windowMs`（= `exposure_window_ms`） | 窗口捕获 | 杀在发出后 | 夹逼区间 |');
+  out.push('|---|---|---|---|---|---|');
+  for (const cell of data.cells) {
+    const bracket = cell.bounded ? `[${cell.lower}, ${cell.upper}] ms` : noBracketReason(cell);
+    out.push(
+      `| \`${cell.name}\` | ${cell.lower === null ? '—' : `${cell.lower} ms`} | ` +
+        `${cell.upper === null ? '—' : `${cell.upper} ms`} | ${cell.captured ? '是' : '否'} | ` +
+        `${fmtMs(cell.measuredMsAfterIssue)} | ${bracket} |`,
+    );
+  }
+  out.push('');
+  const bounded = data.cells.filter((cell) => cell.bounded);
+  if (bounded.length === 0) {
+    out.push('> ⚠️ 本产物里**没有**任何可用的夹逼区间：');
+    if (data.cells.every((cell) => !cell.captured)) {
+      out.push('> 所有格子都没有捕获到暴露窗口（`windowCaptured=false`），因此谈不上端点。');
+    } else {
+      out.push('> 捕获到窗口的格子缺下界读数——该产物产生于 CR-007（本地下界观测量 `observedWindowMs`）落地之前。');
+    }
+    out.push('> 表中的上界仍按 CR-007 的「上界」语义列出；**不得**把缺失读成"窗口为 0"。');
+  } else {
+    const captured = data.cells.filter((cell) => cell.captured).length;
+    out.push(
+      `> 本产物有 **${bounded.length}/${data.cells.length}** 格给出夹逼区间（捕获到窗口的格子共 ${captured} 格）；` +
+        '未给出的格子已逐格标注原因，**不得**读成"窗口为 0"。',
+    );
+  }
+  return out.join('\n');
 }
 
 // ---------------------------------------------------------------- 重复性对账（可选：两份 JSON 逐格比对）

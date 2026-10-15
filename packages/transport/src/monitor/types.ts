@@ -39,10 +39,36 @@ export interface FixedMetricsPort {
 export interface ExposureWindowInput {
   readonly events: number;
   readonly windowMs: number | null;
+  /**
+   * CR-008：真实窗口的**下界**读数（`stats().exposure.commitLostObservedWindowMs`，
+   * 结束点＝最后一次「会话仍存活」证据）。`null` / 缺省表示没有可用读数，
+   * 此时夹逼不成立，两个端点都不上报。允许 `0`（它是时长，不是计数）。
+   */
+  readonly observedWindowMs?: number | null | undefined;
 }
 
 export interface ExposureWindowPort {
   exposure(): ExposureWindowInput;
+}
+
+/**
+ * CR-008：两个**观测量**的**窗口增量**。
+ *
+ * 它们由 CR-001 §5.2 第 3 条裁定为「不计原因码、改为观测量上报」，因此：
+ * - 键名照抄 CR-001 原文（`flush_skipped_due_to_budget`、`leader_lost`），**没有**
+ *   `drop_` / `count_` 前缀；
+ * - 与固定计数同样按窗口取增量（来源是累计值），值为 0 时不上报。
+ */
+export interface ObservableMetricsInput {
+  /** 离开 burst 内首次因预算用尽而停手的次数（每 burst 至多 1 次）。 */
+  readonly flushSkippedDueToBudget?: number | undefined;
+  /** 本标签页从 leader 变为非 leader 的次数（首轮未当选不计）。 */
+  readonly leaderLost?: number | undefined;
+}
+
+/** CR-008 观测量来源；`take()` 返回窗口增量并在实现内推进基线。 */
+export interface ObservableMetricsPort {
+  take(): ObservableMetricsInput;
 }
 
 /**
@@ -122,6 +148,8 @@ export interface HealthReporterOptions {
   readonly metrics?: FixedMetricsPort | undefined;
   readonly latency?: LatencyWindowPort | undefined;
   readonly exposure?: ExposureWindowPort | undefined;
+  /** CR-008：两个观测量的窗口增量来源（离开预算停手、失去 leader）。 */
+  readonly observables?: ObservableMetricsPort | undefined;
   readonly timer?: HealthTimerPort | undefined;
   readonly now?: (() => number) | undefined;
   /** `event_id` 生成器；缺省 `crypto.randomUUID()`，不可用时退回 UUID v4。 */

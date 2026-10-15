@@ -172,6 +172,12 @@ export interface CountersPort {
 }
 
 // @public
+export const CR008_METRIC_KEYS: readonly ["exposure_window_lower_bound_ms", "exposure_window_upper_bound_ms", "flush_skipped_due_to_budget", "leader_lost"];
+
+// @public
+export const CR008_OBSERVABLE_METRIC_KEYS: readonly ["flush_skipped_due_to_budget", "leader_lost"];
+
+// @public
 export function createBatchAssembler(options: BatchAssemblerOptions): BatchAssembler;
 
 // @public
@@ -221,6 +227,9 @@ export function createLeaderElection(options?: LeaderElectionOptions): LeaderEle
 
 // @public
 export function createMemoryQueue(options?: MemoryQueueOptions): MemoryQueue;
+
+// @public
+export function createObservableMetricsSource(options?: ObservableMetricsSourceOptions): ObservableMetricsPort;
 
 // @public
 export function createOfflineExposureSource(source: ExposureStatsLike): ExposureWindowPort;
@@ -575,6 +584,12 @@ export function estimateEventBytes(event: QueueEvent): number;
 export type EventPriority = 'normal' | 'critical';
 
 // @public
+export const EXPOSURE_WINDOW_LOWER_BOUND_MS = "exposure_window_lower_bound_ms";
+
+// @public
+export const EXPOSURE_WINDOW_UPPER_BOUND_MS = "exposure_window_upper_bound_ms";
+
+// @public
 export interface ExposureStats {
     readonly commitLatencyP50Ms: number | null;
     // (undocumented)
@@ -597,6 +612,7 @@ export interface ExposureStatsLike {
         readonly exposure: {
             readonly commitLostEvents: number;
             readonly commitLostWindowMs: number | null;
+            readonly commitLostObservedWindowMs?: number | null | undefined;
         };
     };
 }
@@ -605,6 +621,7 @@ export interface ExposureStatsLike {
 export interface ExposureWindowInput {
     // (undocumented)
     readonly events: number;
+    readonly observedWindowMs?: number | null | undefined;
     // (undocumented)
     readonly windowMs: number | null;
 }
@@ -720,6 +737,7 @@ export interface HealthMetricsInput {
     readonly fixed?: FixedMetricDeltas | undefined;
     // (undocumented)
     readonly latency?: LatencyP99 | undefined;
+    readonly observables?: ObservableMetricsInput | null | undefined;
     // (undocumented)
     readonly windowMs: number;
 }
@@ -748,6 +766,7 @@ export interface HealthReporterOptions {
     readonly metrics?: FixedMetricsPort | undefined;
     // (undocumented)
     readonly now?: (() => number) | undefined;
+    readonly observables?: ObservableMetricsPort | undefined;
     // (undocumented)
     readonly timer?: HealthTimerPort | undefined;
     readonly windowMs?: number | undefined;
@@ -845,6 +864,7 @@ export interface LatencyWindowPort {
 // @public (undocumented)
 export interface LeaderElection {
     lastLeader(): boolean;
+    leaderLost(): number;
     mode(): LeaderMode;
     run<T>(task: () => Promise<T>): Promise<LeaderRunResult<T>>;
 }
@@ -871,6 +891,12 @@ export interface LeaderElectionOptions {
 
 // @public
 export type LeaderMode = 'locks' | 'broadcast' | 'none';
+
+// @public
+export interface LeaderObservablesLike {
+    // (undocumented)
+    leaderLost(): number;
+}
 
 // @public (undocumented)
 export interface LeaderRunResult<T> {
@@ -903,7 +929,16 @@ export interface LeaveBudget {
 }
 
 // @public
+export interface LeaveObservablesLike {
+    // (undocumented)
+    stats(): {
+        readonly budgetStops: number;
+    };
+}
+
+// @public
 export interface LeaveStats {
+    readonly budgetStops: number;
     readonly bytes: number;
     readonly requests: number;
     readonly sent: number;
@@ -984,6 +1019,12 @@ export const METRIC_EXPOSURE_WINDOW_EVENTS = "exposure_window_events";
 export const METRIC_EXPOSURE_WINDOW_MS = "exposure_window_ms";
 
 // @public
+export const METRIC_FLUSH_SKIPPED_DUE_TO_BUDGET = "flush_skipped_due_to_budget";
+
+// @public
+export const METRIC_LEADER_LOST = "leader_lost";
+
+// @public
 export const MIN_SETTLE_MS = 50;
 
 // @public
@@ -1015,6 +1056,26 @@ export interface NetworkSnapshot {
 
 // @public
 export const NOOP_DEBUG_TRACER: DebugTracer;
+
+// @public
+export interface ObservableMetricsInput {
+    readonly flushSkippedDueToBudget?: number | undefined;
+    readonly leaderLost?: number | undefined;
+}
+
+// @public
+export interface ObservableMetricsPort {
+    // (undocumented)
+    take(): ObservableMetricsInput;
+}
+
+// @public (undocumented)
+export interface ObservableMetricsSourceOptions {
+    // (undocumented)
+    readonly leader?: LeaderObservablesLike | undefined;
+    // (undocumented)
+    readonly leave?: LeaveObservablesLike | undefined;
+}
 
 // @public
 export const OFFLINE_DB_NAME = "web-report-sdk-offline";

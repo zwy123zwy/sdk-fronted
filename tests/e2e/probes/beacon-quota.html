@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Chromium/WebKit 信标累计额度特性刻画（与实现无关）</title>
+    <!-- 纯浏览器 API 探针：不加载任何 SDK 产物，用来量出「单次上限 + 累计在途额度」。 -->
+  </head>
+  <body>
+    <p>
+      信标额度刻画：真实 <code>navigator.sendBeacon</code>，按给定的
+      <code>{bytes, delayMs, sync}</code> 序列连续调用，返回每次的返回值与耗时。
+    </p>
+    <script type="module" src="/probes/beacon-quota-driver.js"></script>
+  </body>
+</html>

@@ -2,6 +2,14 @@
  * C08 自监控（T17）的目录内聚合导出。公共面只从 `packages/transport/src/index.ts` 暴露。
  */
 export { COUNT_REASON_CODES, DROP_REASON_CODES } from './reason-codes';
+export {
+  CR008_METRIC_KEYS,
+  CR008_OBSERVABLE_METRIC_KEYS,
+  EXPOSURE_WINDOW_LOWER_BOUND_MS,
+  EXPOSURE_WINDOW_UPPER_BOUND_MS,
+  METRIC_FLUSH_SKIPPED_DUE_TO_BUDGET,
+  METRIC_LEADER_LOST,
+} from './observables';
 export { WINDOW_METRIC_KEY, buildHealthMetrics, clampWindowMs } from './metrics';
 export { MAX_METRICS_PER_EVENT, buildHealthEvents } from './events';
 export {
@@ -22,6 +30,7 @@ export {
   createDeliveryMetricsSource,
   createFixedMetricsAccumulator,
   createHealthDimensionsReader,
+  createObservableMetricsSource,
   createOfflineExposureSource,
   createQueueMetricsSource,
   createRegistryTimer,
@@ -44,7 +53,10 @@ export type {
   ExposureStatsLike,
   FixedMetricsAccumulator,
   HealthDimensionsReaderOptions,
+  LeaderObservablesLike,
+  LeaveObservablesLike,
   LifecycleStateSource,
+  ObservableMetricsSourceOptions,
   QueueMetricsSource,
   QueueMetricsSourceOptions,
   RepeatSchedulerLike,
@@ -77,5 +89,7 @@ export type {
   LatencyP99,
   LatencyStage,
   LatencyWindowPort,
+  ObservableMetricsInput,
+  ObservableMetricsPort,
   SdkHealthEvent,
 } from './types';

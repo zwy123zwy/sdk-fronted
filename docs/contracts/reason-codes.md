@@ -81,7 +81,7 @@ C08 每 60 秒聚合一次，作为 `sdk_health` 事件上报（C08-F3），且�
 
 | 位置 | 内容 |
 |---|---|
-| `metrics` | `calls_total`、`events_enqueued`、`events_sent`、`batches_sent`、`batches_failed`、`offline_written`、`offline_replayed`、`queue_length_max`、`window_ms`、`exposure_window_events`、`exposure_window_ms`，以及第 1 节每个原因码一个 `drop_<原因码>`、第 2 节每个原因码一个 `count_<原因码>` |
+| `metrics` | `calls_total`、`events_enqueued`、`events_sent`、`batches_sent`、`batches_failed`、`offline_written`、`offline_replayed`、`queue_length_max`、`window_ms`、`exposure_window_events`、`exposure_window_ms`、`exposure_window_lower_bound_ms`、`exposure_window_upper_bound_ms`、`flush_skipped_due_to_budget`、`leader_lost`，以及第 1 节每个原因码一个 `drop_<原因码>`、第 2 节每个原因码一个 `count_<原因码>` |
 | `metrics`（1% 会话） | `track_p99_ms`、`pipeline_p99_ms`、`serialize_p99_ms`（C08-F2） |
 | `dimensions` | `sdk_version`、`state`（生命周期状态）、`config_version` |
 
@@ -92,7 +92,28 @@ C08 每 60 秒聚合一次，作为 `sdk_health` 事件上报（C08-F3），且�
 - **起点**是事件产生（`first_pending_at`）；**结束点是重启后的对账时刻**——会话死亡时刻在客户端不可观测，窗口只能在下次打开时闭合。
 - 因此该值**包含「强杀 + 重启 + 打开探测页」的固定开销**：T29/T32 实测 **923–1712 ms**，而 D004 的真实窗口由批写提交延迟决定（实测 **0–11 ms**；D004 引用的 p50 1–4.1 ms / p95 3–17 ms），**两者相差 2–3 个数量级**。
 - 该字段的数值随**重启速度**漂移：重启越快，上报的窗口越小。**不得把它读作真实窗口，也不得用于 SLA / 容量判定**。
-- 真实窗口的本地可观测读数见 `packages/transport` 的 `stats().exposure.commitLostObservedWindowMs`（**内部观测量，不是契约指标，不进 `sdk_health`**）。
+- 真实窗口的本地可观测读数见 `packages/transport` 的 `stats().exposure.commitLostObservedWindowMs`（**内部观测量，不是契约指标，不进 `sdk_health`**；2026-10-14 经 CR-008 起该读数作为**下界**随 `exposure_window_lower_bound_ms` 上报，见下段的夹逼口径）。
+
+**暴露窗口的夹逼口径**（2026-10-14 经 CR-008 追加两个端点，兼容追加，既有字段名/类型/取值口径不变）：
+
+- D004 的真实暴露窗口 W 的**右端点（进程死亡时刻）在客户端不可观测**，因此契约**不承诺**任何叫「真实窗口」的字段；
+  能承诺的是把它**夹逼**在两个显式命名的区间端点之间：`[exposure_window_lower_bound_ms, exposure_window_upper_bound_ms]`。
+- `exposure_window_lower_bound_ms`（时长，`minimum: 0`）：`事件产生 → 最后一次「会话仍存活」证据`（intent 锚点的 `updated_at`），
+  来源是上面那个本地观测量。它**低估** W（事务提交被卡住时尤其明显）。
+- `exposure_window_upper_bound_ms`（时长，`minimum: 1`）：`事件产生 → 重启后的对账时刻`，与 `exposure_window_ms` **同源同值**，
+  只是名字显式标注为上界。它**高估** W（含强杀 + 重启 + 打开探测页的固定开销）。
+- 两个端点必须**成对**、且与 `exposure_window_events`（以及既有 `exposure_window_ms`）**同现**（Schema 的 `dependentRequired`，机器可校验）；
+  没有捕获到窗口（下界无读数）时两个都**不得**上报。**任一端点都不得单独读作 W，也不得用于 SLA / 容量判定**；
+  `exposure_window_upper_bound_ms` 与 `exposure_window_ms` 是同一读数的两个名字，**不得相加或平均**。
+
+**两个观测量**（2026-10-14 经 CR-008 追加；口径由 CR-001 §5.2 第 3 条裁定为「不计原因码、改为观测量上报」）：
+
+| 观测量 | 语义 | 为什么不是原因码 |
+|---|---|---|
+| `flush_skipped_due_to_budget` | 本窗口内**离开 burst 内首次**因预算（≤48 KB / ≤200 条 / ≤4 批 / 时间窗）用尽而**停手**的次数；同一 burst 内后续被跳过的切片不重复计数（剩余明确交给下次加载补发）。**不是**被跳过的事件数 | 没有任何事件被**丢弃**（剩余事件由下次加载补发），不属第 1/2 节的丢弃或只计数路径 |
+| `leader_lost` | 本窗口内本标签页**从 leader 变为非 leader**的次数（首轮即未当选不计） | POC-1 实测正确性**不依赖选主**（选主只控制重复补发流量），没有事件因失去 leader 而丢失 |
+
+两者都**没有** `drop_` / `count_` 前缀（前缀是原因码专用），值为 0 时同样不上报。
 
 `dimensions` 取值的口径（2026-10-12 经架构负责人确认；本节其余内容不变）：
 
@@ -109,3 +130,4 @@ C08 每 60 秒聚合一次，作为 `sdk_health` 事件上报（C08-F3），且�
 | 0.2（兼容追加） | 2026-10-13 | 经 CR-001 与架构负责人批准（2026-10-13）：第 1 节新增 `prewrite_commit_lost`（C07，硬杀导致的预写未落盘）；第 4 节 `metrics` 新增 `exposure_window_events`、`exposure_window_ms`。属兼容变更，**不递增文档版本号**（沿用 2026-10-12 对内置事件 Schema 与样例的先例）；`offline_evicted`、`storage_unavailable` 的既有语义不变 |
 | 0.2（兼容追加） | 2026-10-13 | 经 **CR-003** 与架构负责人批准：第 2 节新增 `config_schema_invalid`（C03，「合法 JSON 但不符合 `remote-config.schema.json`」，与 `config_parse_failed`＝非合法 JSON 区分；含使用了 `remote-config.md` 5.1 节未列出的 semver 范围语法）。属兼容变更，**不递增文档版本号**；`config_parse_failed` 的既有语义不变 |
 | 0.2（兼容追加） | 2026-10-13 | 经 **CR-007** 与编排方批准：第 4 节澄清 `exposure_window_ms` 是暴露窗口时长的**上界**（结束点是重启后的对账时刻，含强杀+重启开销，实测 923–1712 ms），**不是** D004 的真实窗口（0–11 ms），不得用于 SLA/容量判定；真实窗口的本地可读量见 `stats().exposure.commitLostObservedWindowMs`（内部观测量，非契约指标）。**未改字段名、类型、取值口径与 Schema**，属兼容澄清，**不递增文档版本号** |
+| 0.2（兼容追加） | 2026-10-14 | 经 **CR-008** 与架构负责人批准：第 4 节 `metrics` 追加 **`exposure_window_lower_bound_ms`**、**`exposure_window_upper_bound_ms`**（暴露窗口的夹逼两端点，成对且与 `exposure_window_events` 同现；下界是时长，允许 0；上界与 `exposure_window_ms` 同源同值）与 **`flush_skipped_due_to_budget`**、**`leader_lost`**（CR-001 §5.2 第 3 条裁定为**观测量**、不计原因码，故无 `drop_`/`count_` 前缀），并写入夹逼口径与两个观测量的语义。**未新增/删除/改名任何既有键，未改任何既有取值口径**，属兼容追加，**不递增文档版本号**（`schema_version` 仍为 `1`） |

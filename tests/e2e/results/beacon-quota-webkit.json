@@ -1,0 +1,807 @@
+{
+  "browser": "webkit",
+  "at": "2026-10-14T16:08:55.808Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Safari/605.1.15",
+  "rows": [
+    {
+      "label": "single-64K",
+      "sizesBytes": [
+        65536
+      ],
+      "delayMs": [
+        0
+      ],
+      "sync": [
+        true
+      ],
+      "accepted": [
+        true
+      ],
+      "arrivedBytes": [
+        65536
+      ],
+      "elapsedMs": 4
+    },
+    {
+      "label": "single-60K",
+      "sizesBytes": [
+        61440
+      ],
+      "delayMs": [
+        0
+      ],
+      "sync": [
+        true
+      ],
+      "accepted": [
+        true
+      ],
+      "arrivedBytes": [
+        61440
+      ],
+      "elapsedMs": 2
+    },
+    {
+      "label": "single-56K",
+      "sizesBytes": [
+        57344
+      ],
+      "delayMs": [
+        0
+      ],
+      "sync": [
+        true
+      ],
+      "accepted": [
+        true
+      ],
+      "arrivedBytes": [
+        57344
+      ],
+      "elapsedMs": 1
+    },
+    {
+      "label": "single-48K",
+      "sizesBytes": [
+        49152
+      ],
+      "delayMs": [
+        0
+      ],
+      "sync": [
+        true
+      ],
+      "accepted": [
+        true
+      ],
+      "arrivedBytes": [
+        49152
+      ],
+      "elapsedMs": 2
+    },
+    {
+      "label": "single-40K",
+      "sizesBytes": [
+        40960
+      ],
+      "delayMs": [
+        0
+      ],
+      "sync": [
+        true
+      ],
+      "accepted": [
+        true
+      ],
+      "arrivedBytes": [
+        40960
+      ],
+      "elapsedMs": 2
+    },
+    {
+      "label": "single-32K",
+      "sizesBytes": [
+        32768
+      ],
+      "delayMs": [
+        0
+      ],
+      "sync": [
+        true
+      ],
+      "accepted": [
+        true
+      ],
+      "arrivedBytes": [
+        32768
+      ],
+      "elapsedMs": 2
+    },
+    {
+      "label": "single-24K",
+      "sizesBytes": [
+        24576
+      ],
+      "delayMs": [
+        0
+      ],
+      "sync": [
+        true
+      ],
+      "accepted": [
+        true
+      ],
+      "arrivedBytes": [
+        24576
+      ],
+      "elapsedMs": 1
+    },
+    {
+      "label": "single-16K",
+      "sizesBytes": [
+        16384
+      ],
+      "delayMs": [
+        0
+      ],
+      "sync": [
+        true
+      ],
+      "accepted": [
+        true
+      ],
+      "arrivedBytes": [
+        16384
+      ],
+      "elapsedMs": 2
+    },
+    {
+      "label": "sync-40x40",
+      "sizesBytes": [
+        40960,
+        40960
+      ],
+      "delayMs": [
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        false
+      ],
+      "arrivedBytes": [
+        40960
+      ],
+      "elapsedMs": 2
+    },
+    {
+      "label": "sync-32x32",
+      "sizesBytes": [
+        32768,
+        32768
+      ],
+      "delayMs": [
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        32768,
+        32768
+      ],
+      "elapsedMs": 4
+    },
+    {
+      "label": "sync-32x32x32",
+      "sizesBytes": [
+        32768,
+        32768,
+        32768
+      ],
+      "delayMs": [
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        true,
+        false
+      ],
+      "arrivedBytes": [
+        32768,
+        32768
+      ],
+      "elapsedMs": 4
+    },
+    {
+      "label": "sync-28x28x28",
+      "sizesBytes": [
+        28672,
+        28672,
+        28672
+      ],
+      "delayMs": [
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        true,
+        false
+      ],
+      "arrivedBytes": [
+        28672,
+        28672
+      ],
+      "elapsedMs": 4
+    },
+    {
+      "label": "sync-24x24x24x24",
+      "sizesBytes": [
+        24576,
+        24576,
+        24576,
+        24576
+      ],
+      "delayMs": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        true,
+        false,
+        false
+      ],
+      "arrivedBytes": [
+        24576,
+        24576
+      ],
+      "elapsedMs": 5
+    },
+    {
+      "label": "sync-21x21x21x21",
+      "sizesBytes": [
+        21504,
+        21504,
+        21504,
+        21504
+      ],
+      "delayMs": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "arrivedBytes": [
+        21504,
+        21504,
+        21504
+      ],
+      "elapsedMs": 5
+    },
+    {
+      "label": "sync-16x16x16x16",
+      "sizesBytes": [
+        16384,
+        16384,
+        16384,
+        16384
+      ],
+      "delayMs": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        16384,
+        16384,
+        16384,
+        16384
+      ],
+      "elapsedMs": 6
+    },
+    {
+      "label": "sync-12x12x12x12",
+      "sizesBytes": [
+        12288,
+        12288,
+        12288,
+        12288
+      ],
+      "delayMs": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        12288,
+        12288,
+        12288,
+        12288
+      ],
+      "elapsedMs": 6
+    },
+    {
+      "label": "raf-40x40",
+      "sizesBytes": [
+        40960,
+        40960
+      ],
+      "delayMs": [
+        0,
+        0
+      ],
+      "sync": [
+        false,
+        false
+      ],
+      "accepted": [
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        40960,
+        40960
+      ],
+      "elapsedMs": 32
+    },
+    {
+      "label": "raf-32x32",
+      "sizesBytes": [
+        32768,
+        32768
+      ],
+      "delayMs": [
+        0,
+        0
+      ],
+      "sync": [
+        false,
+        false
+      ],
+      "accepted": [
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        32768,
+        32768
+      ],
+      "elapsedMs": 17
+    },
+    {
+      "label": "raf-28x28x28",
+      "sizesBytes": [
+        28672,
+        28672,
+        28672
+      ],
+      "delayMs": [
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        false,
+        false,
+        false
+      ],
+      "accepted": [
+        true,
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        28672,
+        28672,
+        28672
+      ],
+      "elapsedMs": 31
+    },
+    {
+      "label": "raf-21x21x21x21",
+      "sizesBytes": [
+        21504,
+        21504,
+        21504,
+        21504
+      ],
+      "delayMs": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "accepted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        21504,
+        21504,
+        21504,
+        21504
+      ],
+      "elapsedMs": 53
+    },
+    {
+      "label": "delay0-21x4",
+      "sizesBytes": [
+        21504,
+        21504,
+        21504,
+        21504
+      ],
+      "delayMs": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "accepted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        21504,
+        21504,
+        21504,
+        21504
+      ],
+      "elapsedMs": 64
+    },
+    {
+      "label": "delay10-21x4",
+      "sizesBytes": [
+        21504,
+        21504,
+        21504,
+        21504
+      ],
+      "delayMs": [
+        10,
+        10,
+        10,
+        10
+      ],
+      "sync": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "accepted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        21504,
+        21504,
+        21504,
+        21504
+      ],
+      "elapsedMs": 45
+    },
+    {
+      "label": "delay25-21x4",
+      "sizesBytes": [
+        21504,
+        21504,
+        21504,
+        21504
+      ],
+      "delayMs": [
+        25,
+        25,
+        25,
+        25
+      ],
+      "sync": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "accepted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        21504,
+        21504,
+        21504,
+        21504
+      ],
+      "elapsedMs": 104
+    },
+    {
+      "label": "delay50-21x4",
+      "sizesBytes": [
+        21504,
+        21504,
+        21504,
+        21504
+      ],
+      "delayMs": [
+        50,
+        50,
+        50,
+        50
+      ],
+      "sync": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "accepted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        21504,
+        21504,
+        21504,
+        21504
+      ],
+      "elapsedMs": 204
+    },
+    {
+      "label": "cap4-32x4",
+      "sizesBytes": [
+        32768,
+        32768,
+        32768,
+        32768
+      ],
+      "delayMs": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        true,
+        false,
+        false
+      ],
+      "arrivedBytes": [
+        32768,
+        32768
+      ],
+      "elapsedMs": 3
+    },
+    {
+      "label": "cap4-24x4",
+      "sizesBytes": [
+        24576,
+        24576,
+        24576,
+        24576
+      ],
+      "delayMs": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        true,
+        false,
+        false
+      ],
+      "arrivedBytes": [
+        24576,
+        24576
+      ],
+      "elapsedMs": 5
+    },
+    {
+      "label": "cap4-21x4",
+      "sizesBytes": [
+        21504,
+        21504,
+        21504,
+        21504
+      ],
+      "delayMs": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "arrivedBytes": [
+        21504,
+        21504,
+        21504
+      ],
+      "elapsedMs": 6
+    },
+    {
+      "label": "cap4-16x4",
+      "sizesBytes": [
+        16384,
+        16384,
+        16384,
+        16384
+      ],
+      "delayMs": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        16384,
+        16384,
+        16384,
+        16384
+      ],
+      "elapsedMs": 5
+    },
+    {
+      "label": "cap4-12x4",
+      "sizesBytes": [
+        12288,
+        12288,
+        12288,
+        12288
+      ],
+      "delayMs": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "sync": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "accepted": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "arrivedBytes": [
+        12288,
+        12288,
+        12288,
+        12288
+      ],
+      "elapsedMs": 7
+    }
+  ]
+}

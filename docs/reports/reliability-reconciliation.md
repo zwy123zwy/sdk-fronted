@@ -112,7 +112,7 @@
 | chromium | `tests/e2e/results/d004-chromium.json` | 2026-10-14T09:27:33.471Z | `454fbb9008176f86` | `npx-cache-playwright-core-1.60.0` |
 | webkit | `tests/e2e/results/d004-webkit.json` | 2026-10-14T09:16:59.442Z | `26c232e4112442c6` | `npx-cache-playwright-core-1.60.0` |
 
-> **读表前必读：`exposure_window_ms` 的语义不等于 D004 的"暴露窗口"**（本任务实测发现，见缺口 6）。
+> **读表前必读：`exposure_window_ms` 的语义不等于 D004 的"暴露窗口"**（本任务实测发现，见缺口 2）。
 > 实现里 `commitLostWindowMs` 来自 `reconcileCommitLoss()` 的 `windowMs = now() - first_pending_at`，
 > 源码注释写明"窗口时长是**上界**：会话死亡时刻不可观测，只能给到对账时刻"
 > （`packages/transport/src/offline/offline-store.ts:318`）。因此它**包含强杀 + 重启 + 探测页打开**的耗时，
@@ -197,6 +197,31 @@ node tests/e2e/lib/d004-run.mjs --browser chromium --out tests/reliability/resul
 - **D-1 子窗口的计数装置可重复**：`preflush-small`（默认配置、最贴近生产的那一格）两次都是「存活 0 + 计数 100 = 期望 100」与「存活 0 + 计数 100 = 期望 100」——第二次独立复现了"计数锚点覆盖到该子窗口"这一结论。
 - **不可重复（绝对值）**：暴露窗口时长在两次运行间的相对偏离为 12% / 8% / 28% / 38% / 8%（各捕获格）；`durable` 格的"杀在发出后"从 17 ms 变到 52 ms。**因此本报告不把任何单次窗口时长当作分布或 SLA 输入**（D004 引用的 p50 1–4.1 ms / p95 3–17 ms 是 POC-1 的批写提交延迟，不是这里的端到端窗口时长）。
 - **仍不能说明的事**：两次运行都是 Chromium、都是单次、都是 headless；**WebKit 没有第二次运行**（本任务不允许覆写 T29 的 webkit 产物），Firefox 未测。
+
+### 3.3 暴露窗口的夹逼读数（CR-008 追加，只增不改）
+
+> **口径**（CR-008）：D004 的真实暴露窗口 W 的右端点（进程死亡时刻）客户端不可观测，
+> 因此契约只承诺两个端点，不承诺任何叫「真实窗口」的字段：
+> `exposure_window_lower_bound_ms`（`事件产生 → 最后一次「会话仍存活」证据`，**低估**）与
+> `exposure_window_upper_bound_ms`（`事件产生 → 重启后对账`，**高估**，与 `exposure_window_ms` 同源同值）。
+> 本节**不改动** 3.0–3.2 的任何判定，只把两个端点成对列出：`lower ≤ W ≤ upper`；
+> 没有捕获到窗口的格子**没有**夹逼区间（JSON 的 `0` 是初值，不是窗口 0 ms）。
+
+数据源：`tests/reliability/results/d004-chromium-observed-window.json`（chromium，2026-10-14T10:25:53.751Z）
+
+| 格子 | 下界 `observedWindowMs` | 上界 `windowMs`（= `exposure_window_ms`） | 窗口捕获 | 杀在发出后 | 夹逼区间 |
+|---|---|---|---|---|---|
+| `durable` | — | — | 否 | 15 ms | —（未捕获窗口：`prewrite_commit_lost` = 0，无端点；**不得读作窗口 0 ms**） |
+| `pending-d0` | 1 ms | 1084 ms | 是 | 0 ms | [1, 1084] ms |
+| `pending-d5` | — | — | 否 | 6 ms | —（未捕获窗口：`prewrite_commit_lost` = 0，无端点；**不得读作窗口 0 ms**） |
+| `pending-d20` | — | — | 否 | 22 ms | —（未捕获窗口：`prewrite_commit_lost` = 0，无端点；**不得读作窗口 0 ms**） |
+| `pending-d60` | — | — | 否 | 62 ms | —（未捕获窗口：`prewrite_commit_lost` = 0，无端点；**不得读作窗口 0 ms**） |
+| `pending-d200` | — | — | 否 | 201 ms | —（未捕获窗口：`prewrite_commit_lost` = 0，无端点；**不得读作窗口 0 ms**） |
+| `bulk-d0` | 7 ms | 1247 ms | 是 | 12 ms | [7, 1247] ms |
+| `preflush-d0` | 2 ms | 953 ms | 是 | 0 ms | [2, 953] ms |
+| `preflush-small` | 1 ms | 1085 ms | 是 | 0 ms | [1, 1085] ms |
+
+> 本产物有 **4/9** 格给出夹逼区间（捕获到窗口的格子共 4 格）；未给出的格子已逐格标注原因，**不得**读成"窗口为 0"。
 
 <!-- END GENERATED -->
 
@@ -485,3 +510,40 @@ TypeError: Cannot read properties of undefined (reading 'snapshot')
 | `tests/e2e/lib/receiver.mjs` | 修改（去重 + 入库 + 计数 + 读接口） | 8.2 / 8.3 / 8.4 |
 | `tools/mock-receiver/src/e2e-receiver-reconciliation.acceptance.test.ts` | 新增（10 用例） | 8.4 |
 | `docs/reports/reliability-reconciliation.md` | 修改（本文第 6/7 行、2.1 表两行、缺口 5、第 8 节） | 本文件 |
+
+## 9. 补记（2026-10-14）：CR-008 落地——夹逼端点进契约、两个观测量有发出点
+
+本节由 CR-008 的执行补写（**只补能力与证据，不修改本报告第 1–8 节的任何口径与数字**）。
+
+### 9.1 契约侧（CR-008，已批准 2026-10-14，0.2 兼容追加、不升版本号）
+
+`sdk_health.schema.json` 的 `metrics` 只追加 4 个键（既有键名/类型/取值口径一律未动）：
+
+| 键 | 语义 |
+|---|---|
+| `exposure_window_lower_bound_ms` | 暴露窗口的**下界**（`事件产生 → 最后一次「会话仍存活」证据`；`minimum: 0`，时长不是计数） |
+| `exposure_window_upper_bound_ms` | 暴露窗口的**上界**（与 `exposure_window_ms` 同源同值，只是名字显式标注为上界） |
+| `flush_skipped_due_to_budget` | CR-001 §5.2 第 3 条裁定的**观测量**：离开 burst 内首次因预算用尽而停手的次数 |
+| `leader_lost` | 同上：本标签页从 leader 变为非 leader 的次数 |
+
+夹逼端点必须成对，且与 `exposure_window_events`、`exposure_window_ms` 同现（`dependentRequired`）。
+**契约里没有**任何叫「真实窗口」的字段——W 的右端点客户端不可观测，只能夹逼（对应第 5 节缺口 2 的落地表第 ② 支）。
+
+### 9.2 对账脚本（只增不改）
+
+`tests/reliability/reconcile.mjs` 新增第 **3.3 节**（暴露窗口的夹逼读数）：从 T33 产物
+`tests/reliability/results/d004-chromium-observed-window.json` 读两个端点并成对列出
+（`pending-d0 [1,1084]`、`bulk-d0 [7,1247]`、`preflush-d0 [2,953]`、`preflush-small [1,1085]`）。
+**3.0–3.2 的判定与口径一行未改**；未捕获窗口的格子继续按既有口径标注（JSON 的 `0` 是初值，**不得**读成窗口 0 ms）。
+同一次 `--write` 顺带修正了生成器里一处已知笔误：读表提示的交叉引用 `见缺口 6` → `见缺口 2`
+（缺口 2 的落地表原本就写明应为缺口 2，见该表末行「已知残留」）。
+
+### 9.3 缺口 5 的「没有发出点」已闭合，但缺口 1 的数据仍然缺
+
+- `flush_skipped_due_to_budget`：发出点＝`sender/page-leave.ts` 的 `LeaveStats.budgetStops`；
+- `leader_lost`：发出点＝`leader/leader.ts` 的 `LeaderElection.leaderLost()`；
+- `beacon_rejected` / `recovery_duplicate`：按 CR-001 的裁定用既有 `count_retry_network` / `count_replayed`（`page-leave` / `replay` 已在计数）。
+
+因此 **①「优雅路径按因归类」在口径与发出点上已经完整**：四类①事件各自有观测量或既有原因码承载。
+**但缺口 1 不变**：优雅路径（页面离开 / 断网 1–30 min / 2–5 标签页 / 优雅关闭）仍**没有任何可对账的实测数据**，
+本仓库依然给不出 critical ≤0.1% / normal ≤1% 的证据——缺的是测量 harness 与样本，不是口径。
