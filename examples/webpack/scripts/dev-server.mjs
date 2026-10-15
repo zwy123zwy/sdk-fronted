@@ -8,6 +8,9 @@
  * 3. 把 `/main.js` 的内容喂给 `verify-bundle.mjs` 沙箱 → `SDK_VERSION` / `createAssembly` /
  *    最小路径 `createAssembly → init → track → flush → 接收方收到批次`；
  * 4. 可选：用真实 Chromium 打开页面，断言 DOM 里出现 `web-report-sdk <版本>`。
+ *    浏览器一栏失败会让整体结论转红；缺 Chromium 记为 `skipped`（**合法豁免，但不计 pass**，
+ *    见 `checks.browserEvidenceAccounted` 与结果里的 `skipped` 字段，判据在 #2 统一到
+ *    `classifyBrowserEvidence`）。
  *
  * 运行：`node examples/webpack/scripts/dev-server.mjs`
  * 证据：`tests/compat/results/webpack-dev-server.json`
@@ -18,7 +21,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { expectedSdkVersion, runBundleInSandbox } from './lib/verify-bundle.mjs';
+import { classifyBrowserEvidence, expectedSdkVersion, runBundleInSandbox } from './lib/verify-bundle.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const resultsDir = join(repoRoot, 'tests/compat/results');
@@ -91,7 +94,15 @@ async function main() {
     checks.sandboxStatusPass = sandbox.status === 'pass';
 
     const browser = await browserCheck(origin);
-    checks.browserStatusPass = browser.status !== 'fail';
+    // #2（2026-10-15）：此前这里是 `checks.browserStatusPass = browser.status !== 'fail'`，
+    // 于是 `skipped`（本机没有 Chromium）**以及任何未知状态**都进了 pass 判据。
+    // 现在只接受共用白名单判据（`classifyBrowserEvidence`：`pass` 或**带理由**的 `skipped`），
+    // 且把 skipped **显式记账**到 `skipped` 字段——它是合法豁免，但不是"通过"。
+    const evidence = classifyBrowserEvidence(browser);
+    checks.browserEvidenceAccounted = evidence.accounted;
+    if (evidence.skipped) {
+      console.warn(`⚠ 浏览器复核已跳过（**不计入 pass 判据**，显式记账）：${evidence.reason}`);
+    }
 
     const result = {
       task: 'T30',
@@ -109,11 +120,13 @@ async function main() {
       },
       sandbox,
       browser,
+      // #2：跳过项逐一列出（本脚本只有浏览器一项可跳过）。
+      skipped: evidence.skipped ? ['browser'] : [],
       status: Object.values(checks).every(Boolean) ? 'pass' : 'fail',
     };
     mkdirSync(resultsDir, { recursive: true });
     writeFileSync(resultsFile, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
-    console.log(JSON.stringify({ origin, checks, sandbox: sandbox.checks, browser, status: result.status, resultsFile }, null, 2));
+    console.log(JSON.stringify({ origin, checks, sandbox: sandbox.checks, browser, skipped: result.skipped, status: result.status, resultsFile }, null, 2));
     if (result.status !== 'pass') exitCode = 1;
   } finally {
     await server.stop();
@@ -121,7 +134,7 @@ async function main() {
   return exitCode;
 }
 
-/** 真实浏览器复核（可选；缺 Chromium 记为 skipped）。 */
+/** 真实浏览器复核（可选；缺 Chromium 记为 skipped，并带理由——由 #2 的白名单判据处置）。 */
 async function browserCheck(origin) {
   const chromePath = join(
     process.env['HOME'] ?? '',

@@ -63,6 +63,19 @@ export function runBundleInSandbox(
   options?: BundleSandboxOptions,
 ): Promise<BundleSandboxResult>;
 
+/** #2：浏览器复核证据的分类结果（`accounted` 是白名单：`pass` 或**带理由**的 `skipped`）。 */
+export interface BrowserEvidenceClassification {
+  readonly status: string;
+  readonly accounted: boolean;
+  readonly skipped: boolean;
+  readonly reason: string | null;
+}
+
+/** #2：`skipped` 是合法豁免（环境不支持）但**不算 pass**；未知状态一律 `accounted: false`。 */
+export function classifyBrowserEvidence(
+  browser: { readonly status?: string; readonly reason?: string } | undefined,
+): BrowserEvidenceClassification;
+
 /** 装配根的最小投递路径（四个例子共用的唯一实现）。 */
 export interface MinimalPathOptions {
   /** 参数用 `never` 是为了让任意签名更窄的 `createAssembly` 都能传进来（不变性规避）。 */

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node -e \"process.exit(0)\"",
+    "build": "node scripts/verify-build.mjs",
     "test": "node check.mjs"
   },
   "dependencies": {

@@ -494,6 +494,84 @@ webpack 沙箱 `bundleEvaluated` / `batchPassesContractSchema` / `minimalPathRan
 
 ---
 
+### 派工复核（2026-10-15，第二轮 lane）：上表 6 条候选**逐条核实**后处置
+
+派工复述了上表 6 条，并明确要求"先核实是否仍成立，**不要照抄**"。核实方式只有读文件 + 跑判别命令
+（`git` 只读；不跑 e2e/浏览器，不 `pnpm install`）。**核实结果 5 条成立、1 条（⑥）我说错了位置**：
+
+| # | 核实结果 | 核实依据（命令/文件） |
+|---|---|---|
+| ① | **成立** | `examples/node-import/package.json:7`、`examples/script-tag/package.json:7` 都仍是 `node -e "process.exit(0)"`；根 `package.json` 的 `gates` 与 `.github/workflows/ci.yml` 的 gates job 都跑 `examples:build` |
+| ② | **成立，且不止一处** | `examples/webpack/scripts/build-production.mjs` 与 `…/dev-server.mjs:94` 各有一份 `browser.status !== 'fail'`；`skipped`（缺 Chromium）与**任何未知状态**都算 pass |
+| ③ | **成立** | 根 `package.json:19-20`：`--passWithNoTests` / `--pass-with-no-tests`；两者都是 CI 步骤（`ci.yml` 的 `test:contract`、e2e job 的 `test:e2e`）。**但派工给的判别方式（"不存在的 project 名"）无效**：vitest 5 对无效 project 名本身直接 **exit 1**，与 flag 无关。真实形态是"**收集到 0 个用例**"（用不存在的文件名过滤复现） |
+| ④ | **成立** | `tests/e2e/leave-slice.spec.mjs` 头注释仍写"全量送达（无丢失、保序、无重复…）"、`real-browser.spec.mjs` 仍写"经真实 `createBeaconSender` 送到本地接收端"，均无"**手写信封、只证传输层**"限定；上一轮只补了**探针**（`probes/*.js`）与本文档。属 e2e lane 文件 → **只报告** |
+| ⑤ | **成立（建议维持只报告）** | `tests/e2e/lib/receiver.mjs` 的 `/beacon` 既收手写信封批次（`real-browser-driver.js::leaveBeaconProbe`）又收二进制哨兵（`…::sendBeaconProbe`：`i % 251` 的 `Uint8Array` + `Blob{text/plain}`）→ 一条路径两种语义。**风险**：`/beacon` 上的"不可解析"永远无法判死（现按 `RAW_SENTINEL_PATHS` 豁免），且将来把真批次发到 `/beacon` 的用例也拿不到结构校验 |
+| ⑥ | **我说错了位置 / 基本已不成立** | `unparsable_batches` **不是** `tools/mock-receiver` 的字段，而是 `tests/e2e/lib/receiver.mjs` 的 `counters.snapshot()` 字段；断言它的用例在 `tools/mock-receiver/src/e2e-receiver-reconciliation.acceptance.test.ts:348-359`（该文件测的是 e2e 侧 receiver，不是 mock-receiver）。而且上一轮（`ccb8855`）已给 receiver 加了 `assertNoUnparsableBatches`，`startReceiver` 默认 `strictUnparsableBatches = true`、`close()` 里调用 → **e2e 侧已经在断言**（按路径）。另：`tools/mock-receiver` 在 `tests/` 里**零消费者**（`grep -rn mock-receiver tests/ tools/ examples/ scripts/` 只命中它自己）→ "在 e2e 侧也断言它"这件事**没有对象**，故不改 |
+
+#### 改法（原则：让检查**真的能失败**；能复用就不重造）
+
+| # | 改法 |
+|---|---|
+| ① | 新增 `examples/node-import/scripts/verify-build.mjs` 与 `examples/script-tag/scripts/verify-build.mjs`，两个 `build` 脚本改为 `node scripts/verify-build.mjs`。**复用** `examples/webpack/scripts/lib/verify-bundle.mjs` 的 `expectedSdkVersion()` / `createBrowserSandbox()`（不另造验证库）。两种产物形态各自贴合：**node-import（包导入）**用 `import.meta.resolve('@web-report-sdk/browser')` 按真实条件解析 → 断言入口在 `dist/` 下、存在且非空 → 用**裸包名** `import` 真加载 → 断言 `SDK_VERSION` 与包清单一致、`createAssembly` 是函数；**script-tag（IIFE）**从 `index.html` 解析出接入方唯一会加载的 `<script src>` → 断言该文件存在/非空/与包 `exports` 的 `./iife` **是同一个 realpath**（HTML 与包出口防漂移）→ 用 `node:vm` + 同一份最小浏览器面**真解析** IIFE → 断言 `WebReportSDK.SDK_VERSION` 与包清单一致、`createAssembly` 是函数。**行为级**验证（最小投递路径 + Ajv 契约校验）仍只由各自的 `test` 负责，本节不重造。**不**在这里重跑 `packages/browser` 的构建：`gates`/CI 都先跑 `pnpm build`，重跑会把"产物缺失"变成"我刚建出来"，检查失去判别力（产物缺失时脚本 exit 1 并提示先跑 `pnpm build`） |
+| ② | 在 `verify-bundle.mjs` 新增**唯一实现** `classifyBrowserEvidence()`（白名单判据）：`pass` / **带非空 reason** 的 `skipped` 才算"已交代"（`accounted: true`），`fail`、未知状态、无理由的 skipped 一律 `accounted: false`。两个 webpack 脚本改为：`checks.browserEvidenceAccounted = evidence.accounted`（dev-server）/ `evidence.accounted`（build-production 的整体 status），并把跳过项**显式记账**到结果 `skipped: ['browser']` + `browser.accounted/reason`，同时在 stdout 打一行 `⚠ 浏览器复核已跳过…`。同步更新 `verify-bundle.d.mts` 声明与两处头注释 |
+| ③ | 根 `package.json`：`test:contract` 去掉 `--passWithNoTests`、`test:e2e` 去掉 `--pass-with-no-tests`（**仅此两处脚本改动**）。**判断依据**：两者的用例都来自 **committed 固定路径**（`tests/contract/**` 9 文件 / `tests/e2e` 4 spec，`playwright test --list` 实测 **45 用例**），且**都不存在"本环境合法为空"的情形**——e2e 缺浏览器时 `lib/browsers.mjs::resolveBrowser` 是**显式抛错**（不是跳过），contract 的 include 是写死的目录。所以"收集到 0 个用例"只可能是 include/project/testDir 被改坏 → **对契约测试与端到端测试，0 用例都应当是失败**。（本仓没有"按平台条件生成用例"的 project，因此 `--passWithNoTests` 在这里没有任何合法用途；它唯一的实际作用是掩盖配置损坏） |
+| ④ | **只报告**（`tests/e2e/**` 不在本轮可写范围）。建议 e2e lane 在两个 spec 的头注释补一句"探针**手写信封**（固定 `batch_id`/`device_id`/`session_id`）、**只证 transport 层**" |
+| ⑤ | **只报告 + 写清风险**（不扩大改动）：若要拆分，建议给浏览器层哨兵单独端点（如 `/beacon-raw`），让 `/beacon` 回到"只承载批次"并从 `RAW_SENTINEL_PATHS` 里摘掉 |
+| ⑥ | **不改**（核实结论：位置说错 + e2e 侧已有断言 + mock-receiver 无 e2e 消费者） |
+
+#### 判别性证明（每处都人为制造它应当捕获的失败 → **必须红** → 已恢复）
+
+| 针对 | 注入的失败 | 结果 |
+|---|---|---|
+| ①（node-import） | 移走 `packages/browser/dist/index.js`（构建产物） | `entryExists=false`、`entryNonEmpty=false`、`status=fail`、**exit 1**；`sha256` 恢复并校验 `OK`；恢复后 exit 0 |
+| ①（script-tag） | 移走 `packages/browser/dist/web-report-sdk.iife.js` | `packageIifeExportResolves=false`、`htmlScriptExists=false`、**exit 1**；`sha256` 恢复 `OK`；恢复后 exit 0 |
+| ①（script-tag 防漂移） | 把 `index.html` 的 `<script src>` 指向 IIFE 的**副本**（内容相同、路径不同） | `htmlScriptMatchesPackageExport=false`、`htmlScriptIsDistArtifact=false`、**exit 1**（内容相同也拦住"HTML 与包出口漂移"）；`index.html` 按 `sha256` 恢复 `OK`、副本已删 |
+| ②（判据白名单） | 用**真实导出**的 `classifyBrowserEvidence` 跑 `pass / skipped+reason / skipped 无 reason / error / skiped（拼写错） / undefined / fail` 七种输入，与旧判据 `status !== 'fail'` 对照 | 旧判据 6/7 判过（只有 `fail` 拦得住）；新判据只放行 `pass` 与带理由的 `skipped`，其余 4 种全部 `accounted:false` |
+| ②（集成·无理由的豁免） | 临时把 `build-production.mjs` 的 skipped 返回值去掉 `reason`，用不含 Chromium 的 `HOME` 跑 | `accounted=false`、`skipped=[]`、`status=fail`、**exit 1**；按 `sha256` 恢复 `OK`；恢复后同一 `HOME` exit 0 |
+| ②（集成·运行且失败） | 在 `HOME` 下放一个**坏掉的** Chromium 可执行文件（`exit 1`），让 `browserCheck` 真的跑到 launch | `browser.status=fail`、`accounted=false`、`status=fail`、**exit 1**（证明这条检查不是"没跑也不会红"） |
+| ②（集成·skipped 显式记账） | 用不含 Chromium 的 `HOME` 跑两个脚本 | exit 0，但结果里 `browser.status=skipped` / `browser.accounted=true` / `reason` 有值 / `skipped=["browser"]`，且 dev-server 的 `checks` 里**不再有** `browserStatusPass: true`（该字段已不存在） |
+| ③（contract） | `vitest run --project contract no-such-file.test.ts`（0 用例） | 带 flag 时 **exit 0**（改前，实测）→ 去掉 flag 后 **exit 1**；正常 `pnpm test:contract` = 9 文件 / 191 用例 / **exit 0** |
+| ③（e2e） | `playwright test --grep "no-such-title-xyz"`（0 用例） | 带 flag 时 **exit 0**（改前，实测）→ 去掉 flag 后 `Error: No tests found`、**exit 1**；正常用例数用 `playwright test --list` 实测 **45 tests in 4 files**（未跑浏览器） |
+
+#### 回归与报备
+
+- `pnpm examples:build` → **exit 0**；`pnpm examples:test` → **exit 0**（详见下方"本轮回归实测"）。
+- `eslint examples` **不是有效信号**：`examples/**` 在 `eslint.config.js:13` 里是**既有** ignore，`eslint examples` 会以
+  "all of the files matching the glob pattern are ignored" **exit 2**——这与本次改动无关，也不是失败。
+  本轮改动的 `.mjs` 全在 ignore 面内；`docs/**` 同样是既有 ignore。
+- 根 `tsc -p tsconfig.json` → **exit 0**（覆盖 `verify-bundle.d.mts` 的新增声明；`tests/**` 在根程序 include 内）。
+- 根 `package.json` **只改了两行脚本**：`test:contract` 去掉 `--passWithNoTests`、`test:e2e` 去掉 `--pass-with-no-tests`；其余未动。
+- `tests/compat/results/webpack-production.json` / `webpack-dev-server.json` 被 `pnpm examples:*` 覆写。
+  **本轮没有用 `git show HEAD:<path>` 恢复**：这两份文件在本轮**开始前就已是修改态**（上一批 lane 的 `pnpm examples:*` 留下的，
+  与 HEAD 的差异是 `generatedAt`/端口/`bundleBytes` 等易变字段）。为**不覆盖别人未提交的工作**，改成"运行前快照 → 运行后按 `sha256` 还原回**运行前**内容"，
+  效果等价于"本轮不留易变字段痕迹"。**注意**：因此这两份文件相对 HEAD 仍是修改态（那是继承来的状态，不是本轮产生的）。
+
+#### 本轮**额外**发现的"永远不会失败的检查点"（**只报告，未扩大改动范围**）
+
+1. **`tests/compat/**/*.test.ts` 5 个文件从未被执行**——这是本轮最大的一处。`vitest.config.ts` 只定义
+   `unit` / `contract` / `security` 三个 project，`vitest list` 实测收集结果：unit **1205** / contract **61** / security **30**，
+   `tests/compat` **0 条**；`grep tests/compat /tmp/vitest-list.txt` 零命中。CI 也没有任何步骤跑它们
+   （`pnpm test` 只跑那三个 project，`test:contract` 只跑 contract）。**后果**：兼容矩阵的登记守卫
+   （`webpack-matrix.test.ts` 断言 `production.status === 'pass'`、`receiver-contract-gate.test.ts` 的 D-06 接收端清单守卫、
+   `import-matrix.test.ts`、`apm-coexistence.test.ts`、`degradation.test.ts`）**全部不在门禁里**——
+   "证据文件缺失 = 不得下结论"这条守卫今天不会红。（修复需要动 `vitest.config.ts`，属门禁配置变更，未越界改）
+2. `scripts/gate-selftest.mjs`（`pnpm gates:selftest`，T08 验收）只覆盖 `lint` / `typecheck` / `size` / `api:check`
+   四个门禁；`examples:build` / `examples:test` / `test:contract` / `test:e2e` **没有自检**——本轮修的 3 处恰好都藏在这四个里。
+3. 两个 webpack 脚本的 `browserCheck` 探测的是**写死的 macOS 路径**（`$HOME/Library/Caches/ms-playwright/chromium-1223/...`），
+   而 CI 的 gates job **不装浏览器** → 兼容矩阵里"Chromium 复核"这一栏在 CI 上**永远是 skipped**。
+   本轮只做到"如实记账"；若要真在 CI 上有浏览器证据，需要改成按平台解析（或让 gates job 也装浏览器）——建议单独派工。
+4. `examples/event-registry` **没有 `package.json`**，因此 `pnpm -r --filter "./examples/**" run build|test` 对它没有任何覆盖
+   （它是纯样例/数据目录）。不是"假检查"，而是"**没有检查**"，登记在此以免被 `examples:*` 的全绿误读为"所有 example 都被验过"。
+5. `tests/e2e/leave-slice.spec.mjs:76` 的 `test.skip(({ browserName }) => browserName !== 'chromium' && browserName !== 'webkit', '本机只支持 Chromium / WebKit')`
+   是**按浏览器名写死**的跳过，而不是"本机跑不起来就跳过"：在 CI（`playwright install --with-deps`，Firefox 可用）上它**照样跳过**，
+   于是 C07-AC-03 的 8 个用例在 Firefox 上**到处都不执行**，而整轮仍然绿。建议改成环境判定（或 `playwright.config.ts` 的
+   `testIgnore`/project 级别），别把"本机沙箱限制"固化成"永久豁免"——属 e2e lane，只报告。
+6. `eslint.config.js:72` 的"不得跳过测试"规则只覆盖 `**/*.test.ts` / `**/*.spec.ts` / `tests/**/*.ts`，
+   **不覆盖 `.mjs` 的 e2e 用例**（`tests/e2e/*.spec.mjs`）——所以上面第 5 条的 `test.skip(...)` 不会被 lint 拦住。
+   若认同"也禁止在 `.mjs` 用例里写死跳过"，需要改 `eslint.config.js`（门禁配置，未越界改）。
+
+---
+
 ## D-07（低·文档）：`flush()` 后立刻查计数会读到 0
 
 `integration.md` 第 8.3 节把「`track` 后 `flush`」与「查 M01 计数」写成相邻两步（第 3、4 步），

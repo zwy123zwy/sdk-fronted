@@ -17,10 +17,15 @@
  * ## 复用（#1/#2，2026-10-15）
  *
  * `runBundleInSandbox` 只做"**bundle 文本**喂沙箱"，因此 bundler 无关：vite 的生产产物
- * （`examples/vite/scripts/verify-build.mjs`）与 script-tag 的 IIFE（`examples/script-tag/check.mjs`）
- * 都用它，只通过 `options` 换"入口把符号挂在哪个全局键上"。`installBrowserGlobals()` 是同一份
- * 最小浏览器面的"装到宿主 `globalThis`"版本，给 node-import 示例（真实 `import` 产物、没有
- * bundle 文本）用。**最小投递路径只实现一次**，四个例子共用同一套断言（含 Ajv 契约校验）。
+ * （`examples/vite/scripts/verify-build.mjs`）与 script-tag 的 IIFE（`examples/script-tag/check.mjs`、
+ * `examples/script-tag/scripts/verify-build.mjs`）都用它，只通过 `options` 换"入口把符号挂在哪个
+ * 全局键上"。`installBrowserGlobals()` 是同一份最小浏览器面的"装到宿主 `globalThis`"版本，
+ * 给 node-import 示例（真实 `import` 产物、没有 bundle 文本）用。
+ * `expectedSdkVersion()` 给"版本必须与包清单一致"这条断言用（五个例子共用同一份真值）。
+ * **最小投递路径只实现一次**，四个例子共用同一套断言（含 Ajv 契约校验）。
+ *
+ * `classifyBrowserEvidence()`（#2，2026-10-15）也是**唯一实现**：两个 webpack 脚本此前各自写
+ * `browser.status !== 'fail'`，等于把 `skipped` 与任何未知状态算成 pass；现在两处共用一份白名单判据。
  */
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
@@ -310,6 +315,42 @@ export async function runAssemblyMinimalPath(options) {
       checks.batchContainsProbeEvent === true;
   }
   return { checks, batch, minimalPathError };
+}
+
+/**
+ * 浏览器复核证据的分类（#2，2026-10-15）。两个 webpack 脚本共用这一份判据。
+ *
+ * 背景：两个脚本此前都写 `checks.browserStatusPass = browser.status !== 'fail'`（或同义的
+ * `browser.status !== 'fail'`）——于是 `skipped`（本机没有 Chromium）与**任何未知状态**
+ * （`undefined`、拼写错误、将来新增的状态）都算 pass。"真实浏览器复核过"这句话因此
+ * 在缺浏览器的机器上变成了"没跑"，而且**永远不会失败**。
+ *
+ * 为什么**不**把 skipped 判成 fail：缺 Chromium 是"本环境不支持该检查"的**合法**状态——
+ * `examples:build` / `examples:test` 是 CI gates job 的步骤（`.github/workflows/ci.yml`），
+ * 而那个 job **不装浏览器**（只有 e2e job 装 `playwright install`），且这里探测的是 macOS
+ * 固定路径，在 Linux CI 上必然不存在。判 fail 会把门禁在 CI 上弄红，且红的原因是环境而非 SDK。
+ *
+ * 正确处置 = **显式记账**（白名单，不是"非 fail 即过"）：
+ *   - `pass`：跑了且通过；
+ *   - `skipped`：环境不支持，**必须带非空 `reason`**（没有理由的豁免不可审计，按未交代处理）；
+ * 其余（`fail`、未知状态、无理由的 skipped）→ `accounted: false`，调用方**必须**让整体结论转红。
+ */
+export function classifyBrowserEvidence(browser) {
+  const status = browser?.status;
+  const reason =
+    typeof browser?.reason === 'string' && browser.reason.length > 0 ? browser.reason : null;
+  if (status === 'pass') {
+    return { status: 'pass', accounted: true, skipped: false, reason };
+  }
+  if (status === 'skipped' && reason !== null) {
+    return { status: 'skipped', accounted: true, skipped: true, reason };
+  }
+  return {
+    status: typeof status === 'string' && status.length > 0 ? status : 'missing',
+    accounted: false,
+    skipped: false,
+    reason,
+  };
 }
 
 /** 从 webpack 的 `stats` 里摘出解析到 SDK 的真实文件路径（证明裸包名被解析了）。 */
