@@ -318,6 +318,7 @@ console.log(seen);                           // 两条事件；每条含 event_i
 > | `init({ appId, consent: 'granted' })` | **2** `["before_init","after_init"]` |
 >
 > **位置也有讲究**：`createClient({ consent: 'granted' })` 目前被**静默忽略**（只有 `init(...)` 里的 `consent`
+  > **2026-10-15 更正**：该缺陷**已修**（`packages/core/src/api/client.ts` 现在会读 `options.consent`，并用与 `performInit` 同一套外部输入归一化）。**原文保留仅为记录**。另：`consent` 与 `consent_mode` 是**两条独立轴**（`state==='granted' || mode==='full'` 即放行），无覆盖关系；同属初始化参数时 `init({consent})` 覆盖 `createClient({consent})`（实现事实，已用正反两向用例锁定）。
 > 生效；已作为 SDK 缺陷单独上报），所以这一行必须写在 `init(...)` 里。`init` 之前 `track` 的那条在回放时已能看到 `granted`。
 
 逐项期望（都可以在 `packages/core/README.md` 第 11–17 节找到出处）：

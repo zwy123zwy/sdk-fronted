@@ -247,9 +247,13 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   let finished = false;
   let appId: string | undefined;
   let currentPageId: string | undefined;
-  // Q5 一致性修正（2026-10-13 负责人签字）：初始同意态为 `unknown`，不是 `granted`。
+  // Q5 一致性修正（2026-10-13 负责人签字）：初始同意态**缺省**为 `unknown`，不是 `granted`。
   // 默认「已授权」意味着未经同意即采集（合规问题）；`unknown` 下是否采集/持久化由 `consent_mode` 决定。
-  let consent: ConsentState = 'unknown';
+  // Q5 第 2 条：接入方可以在**初始化参数**中传入已知状态；`ClientOptions extends ClientInitOptions`，
+  // 因此 `createClient({ consent })` 与 `init({ consent })` 都是这个入口。**缺陷修复（D-09）**：
+  // 此前这里硬编码 `'unknown'`、从不读 `options.consent`，导致「看起来设了、实际没设」。
+  // 与 `performInit` 同一套外部输入归一化：非法值按「未传」处理，不把契约外的值写进状态。
+  let consent: ConsentState = isConsentState(options.consent) ? options.consent : 'unknown';
   // 旧的 `contexts` Map 仅用于 C01 的阅读路径（`state().contexts` 现在由 C04 store 提供），
   // 保留它只为兼容既有 C01 测试的读取口径；写入以 C04 store 为准。
   const contexts = new Map<string, string>();

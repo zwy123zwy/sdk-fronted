@@ -23,6 +23,7 @@
 | **D-05** | 中（文档） | 指南称"webpack 与开发服务器未在本仓库验证"，**已过期**（T30 已实测通过） | T34（文档）· **已修 2026-10-15** |
 | **D-06** | 中（方法论） | 既有"端到端验证"用的是**不校验结构的自定义接收端**，让 D-01 逃过多轮验收 | T30/T29 的口径 · **已固化为守卫 + 证据 2026-10-15** |
 | **D-07** | 低（文档） | 指南的 flush 后立刻查计数会读到 0（异步投递未说明） | T34（文档）· **已修 2026-10-15** |
+| **D-09** | 高（SDK） | `createClient({ consent })` 被**静默忽略**（D-08 现象的 API 层根因）→ 非必要事件全被同意门丢掉 | SDK（C01/C04）· **已修 2026-10-15** |
 
 ---
 
@@ -420,6 +421,77 @@ D-06 的盘点暴露的不止一个接收端，而是**同一个模式**：**声
 "无法解析的正文不使服务失败，只计入 `unparsable_batches`"。所以要么加断言让它不静默，要么如实降级口径，
 不允许把 202 语义偷偷改掉。
 
+### 处置（2026-10-15，执行方；逐处"加断言"或"如实降级" + 判别性证据）
+
+**原则**：让**声称与验证对齐**，不是"把断言加严到过不去"。**最小投递路径只实现一次**：
+`examples/webpack/scripts/lib/verify-bundle.mjs` 的 `runAssemblyMinimalPath`（`SDK_VERSION` 必须与包版本一致 →
+`createAssembly` 是函数 → `init/track/flush` → 接收方真收到**通过 `batch.schema.json` Ajv 校验**的批次），
+四个例子共用，不各写一套。
+
+| # | 处置 | 具体改法 |
+|---|---|---|
+| 1 | **加真实验证（换掉空测试）** | `examples/vite/package.json` 的 `test` 改为 `node scripts/verify-build.mjs`（新增）：真跑 `vite build` → 从 `dist/index.html` 解析带 hash 的入口脚本 → 交给共用的 `runBundleInSandbox(..., { exposedKey: '__VITE_EXAMPLE__' })`。`examples/vite/src/main.ts` 相应暴露 `__VITE_EXAMPLE__ = { SDK_VERSION, createAssembly }`（与 webpack 入口同一形态） |
+| 2 | **加真实验证** | `examples/node-import` 的 Vitest 与 Jest 用例、`examples/script-tag/check.mjs` 都改为调用**同一个** `runAssemblyMinimalPath`。node-import 用 `installBrowserGlobals()`（同一份最小浏览器面装到宿主 `globalThis`，`try/finally` 还原）跑**真实 `import` 来的**产物；script-tag 用 `createBrowserSandbox()` 求值 IIFE 后再跑最小路径 |
+| 3 | **改成真实检查（不删、不留恒真）** | `checks.bundleEvaluated` 由字面量 `true` 改为 **`vm.runInContext` 是否成功求值**：失败时该检查转 `false`、`status=fail`，并把 `evaluationError` 记进结果（此前是恒真常量；求值抛错则整条逃逸为无结构的异常） |
+| 4 | **如实降级口径（不改断言）** | 探针**故意**手写信封，且 4/5 本来口径就对（`beacon-quota-driver.js` 连信封都不写、`durability-driver.js` 明写被测对象是 `packages/transport/dist`）。只在**过声称处**补口径：`leave-slice-driver.js` 文件头 + `sliceSend` 注释（"SDK 侧观测量" → **transport 侧**，并写明"没有 `createAssembly` 参与"）、`real-browser-driver.js::leaveBeaconProbe`、`durability-driver.js`、`beacon-quota-driver.js` 各加一段"证明的是传输层、不是 SDK 组批"。**没有**为了好看去改 202 语义或加空校验 |
+| 5 | **加断言** | `tests/e2e/lib/receiver.mjs`：新增 `assertNoUnparsableBatches`（导出）+ `close()` **默认**调用它；`BATCH_ONLY_PATHS = ['/ingest','/gzip']` 上 `unparsable === 0`，`/beacon` 按 `RAW_SENTINEL_PATHS` 豁免（理由写在文件头：`real-browser.spec.mjs:120-131` 故意发二进制哨兵）。同时新增 `unparsableByPath()` / `unparsableSamples()` 与 `counters.unparsable_by_path`，失败信息带前 120 字符正文 |
+
+**为什么 #5 不是"全局 `unparsable === 0`"**：全局断言会在 `/beacon` 的**故意**二进制哨兵上造出与 SDK 无关的假失败。
+豁免是**按路径**给的、且计数照样逐条可查——这是如实降级，不是放水。
+
+**判别性证明（每处都人为制造它应当捕获的失败 → 该验证必须红 → 已恢复）**：
+
+| 针对 | 注入的失败 | 结果 |
+|---|---|---|
+| #1 | 临时从 `examples/vite/src/main.ts` 的 `__VITE_EXAMPLE__` 里**去掉 `createAssembly`**（"产物缺必需符号"） | `createAssemblyIsFunction=false`、`minimalPathError="TypeError: createAssembly is not a function"`、`status=fail`、**exit 1**；恢复后 exit 0 |
+| #2（node-import） | 临时给 `packages/browser/dist/index.js`（**构建产物**，非 `src`）追加模块级 `throw` | vitest **exit 1**、jest **exit 1**；按 sha256 恢复并校验 `OK` |
+| #2（script-tag） | 临时给 `packages/browser/dist/web-report-sdk.iife.js` 追加模块级 `throw` | `check.mjs` **exit 1**；按 sha256 恢复并校验 `OK` |
+| #1/#2 共用最小路径 | (a) 装配的 `track` 是空操作（不投递）；(b) 真实批次后把 `common.page_id` 改成 `null`（D-01 形态）再喂接收替身 | (a) `uploadStubReceivedRequest=false`、`minimalPathRan=false`；(b) 合法批次 200、违约批次 **400** + `rejections=[invalid_structure]`、`allAccepted=false` —— 证明 D-06 的 Ajv 门在复用路径里是活的 |
+| #3 | 给真实产物代码追加模块级 `throw` 再喂 `runBundleInSandbox` | `bundleEvaluated` true→**false**、`status` pass→**fail**、`evaluationError="Error: injected-eval-failure"` |
+| #5 | 往 `/ingest` POST 不可解析正文 | 仍回 **202**（语义未变），但 `close()` 抛"接收端在'只应承载批次'的路径上收到不可解析正文：`/ingest×1`；样本=[…]"；同一正文发到豁免的 `/beacon` **不误报**；合法批次保持绿 |
+| #4 | ——（只改口径、不加断言，故无"应当捕获的失败"可造） | 注释改动不改变任何判定；`eslint tests/e2e` exit 0 |
+
+**回归（2026-10-15）**：`pnpm examples:build` **exit 0**、`pnpm examples:test` **exit 0**
+（script-tag/vite 的 `status=pass`；node-import vitest `1 passed`、jest `1 passed`；
+webpack 沙箱 `bundleEvaluated` / `batchPassesContractSchema` / `minimalPathRan` 全 true）；
+`--project security` **32/32 绿**（D-06 的接收端清单守卫没有被新增的
+`examples/vite/scripts/verify-build.mjs` 打破）；`eslint tests/e2e` exit 0
+（`examples/**` 与 `docs/**` 在 `eslint.config.js` 里是**既有** ignore，不在 lint 面）；
+根 `tsc -p tsconfig.json` exit 0、`example-vite` 的 `typecheck` exit 0。
+
+**已知偏差（必须记住，不是"已通过"）**：
+1. `pnpm exec vitest run --coverage.enabled=false --project unit` 本次**未全绿**：2 文件/3 用例红，
+   全部在 `packages/transport/src/sender/page-leave.test.ts` 与一个**运行中途消失**的
+   `packages/core/src/api/zz-probe-options.test.ts`。这两处**不是本批改动**：本批只动
+   `examples/**`、`tests/e2e/lib/receiver.mjs`、`tests/e2e/probes/*.js` 的注释与本文档，而
+   `packages/*/src` 里**没有任何 import 指向这些路径**；且工作区在本 lane 之外**被并发修改**
+   （同一测试文件的失败数在两次运行间从 3 变 1，且出现了本 lane 从未创建/删除的文件）。
+   复核步骤：等 `packages/transport` / `packages/core` 的在途改动落地后重跑完整 unit。
+2. `tests/compat/results/webpack-*.json` 被 `pnpm examples:*` 覆写，已按 `git show HEAD:<path>` 恢复
+   （内容回到 HEAD 版本；因此这两份证据文件里的 `checks` **不含** `evaluationError` 字段，
+   与新代码的产出形状有一个字段的差异，下次正常跑门禁时会自然刷新）。
+3. 复核提示：`runAssemblyMinimalPath` 的 `probeEventName` 必须满足 `hasValidEventName`
+   （≥2 段小写下划线），否则 SDK 按 `invalid_event_name` **正确丢弃**该事件、批次为空——那是预期行为，不是缺陷。
+
+### 同类候选（**只报告，未扩大改动范围**）
+
+1. `examples/node-import` 与 `examples/script-tag` 的 `build` 仍是 `node -e "process.exit(0)"`——
+   与 #1 的 `test` 是**同一个空脚本模式**。`pnpm examples:build` 是门禁步骤，但它对这两个例子
+   实际上什么都不构建（"examples 全部构建通过"这句话对它们仍然是弱的）。
+2. `examples/webpack/scripts/build-production.mjs` / `dev-server.mjs` 的 `browserCheck`：解析不到
+   Chromium 时返回 `status:'skipped'`，而 `checks.browserStatusPass = browser.status !== 'fail'`
+   → **skipped 也算 pass**。于是"真实浏览器复核过"在缺浏览器的机器上是**没跑**而不是**失败**。
+3. `package.json` 的 `test:contract` / `test:e2e` 带 `--passWithNoTests` / `--pass-with-no-tests`：
+   收集到 0 个用例时 **exit 0**。若 include 写错或环境缺失，门禁会"绿着什么都没测"。
+4. `tests/e2e/leave-slice.spec.mjs` / `real-browser.spec.mjs` 的**头注释**仍写着"全量送达"、
+   "经真实 `createBeaconSender` 送到本地接收端"，没有"手写信封、只证传输层"的限定语。
+   本批只在**探针**与本文档里补了口径（spec 属 e2e lane 的文件，未越界改）。
+5. `tests/e2e/lib/receiver.mjs` 对 `/beacon` 的不可解析正文仍回 202——本批按 #5 只让它在
+   `BATCH_ONLY_PATHS` 上不静默；`/beacon` 混装真批次与二进制哨兵的语义，建议由 e2e lane
+   决定是否拆分端点。
+6. `tools/mock-receiver` 的 `unparsable_batches` 只在**它自己的**验收用例里被断言为 1；
+   任何经它跑的集成路径仍可能把不可解析正文静默计成 202——同类问题在 M01 侧的处置值得单独确认。
+
 ---
 
 ## D-07（低·文档）：`flush()` 后立刻查计数会读到 0
@@ -456,6 +528,108 @@ flush() 返回类型:             undefined, 非 Promise（同步返回 undefine
 
 **回归**：修订后的片段实跑 → `exit 0`，`stored_events=1`、`rejected_invalid_structure=0`，
 片段在 50 ms 轮询内等到 `received_batches=1`。
+
+---
+
+## D-09（高·SDK）：`createClient({ consent })` 被静默忽略
+
+> 与 D-08 同源：D-08 是**指南片段**少了 `consent: 'granted'`；D-09 是**公共 API 读不到**这个参数。
+> 被本缺陷影响的调用方即使按类型提示写了 `createClient({ consent: 'granted' })`，也仍然 `seen = 0`。
+
+### 现象（实测）
+
+- `createClient({ consent: 'granted' }) + init({ appId })` → 未登记（`priority: 'normal'`）事件
+  全部被同意门 `deny(consent_denied)` 丢掉，**不报错、不告警**，`seen = 0`；
+- 改传 `init({ consent: 'granted' })` → `seen = 2`；
+- 对照：同一处的 `createClient({ consent_mode: 'full' })` **是生效的** → 典型的"看起来设了、实际没设"。
+
+### 根因
+
+`packages/core/src/api/client.ts` 把初始同意态**硬编码**为 `'unknown'`、**从不读 `options.consent`**；
+而 `ClientOptions extends ClientInitOptions`，`consent` 在该接口里声明为「初始同意状态，缺省 `unknown`」。
+
+### 契约依据（SDK 是错的一方，不需要改契约）
+
+- Q5（`docs/decisions/Q5-consent.md` 第 2 条）：「接入方可以在**初始化参数**中传入已知状态」；
+- `ClientInitOptions.consent`（`packages/core/src/api/types.ts:214`）同口径；
+- `consent_mode` 的独立来源见 `docs/contracts/remote-config.md` 2.1（与 `consent` 不冲突）。
+
+### 修法（2026-10-15）
+
+```ts
+let consent: ConsentState = isConsentState(options.consent) ? options.consent : 'unknown';
+```
+
+与 `performInit` 同一套外部输入归一化：非法值按「未传」处理，不把契约外的值写进状态；
+`consentMode` 一行未动。
+
+### `consent` 与 `consent_mode` 的关系（回答派工里的问题；未新定口径）
+
+- **两者是两条独立的轴**（同意状态 × 采集/发送策略），不是覆盖关系。判定在
+  `packages/core/src/privacy/consent-policy.ts:51`：`state === 'granted' || mode === 'full'` → 放行；
+  即"任一满足放行条件即放行"，**两者都传时没有谁优先**，`granted` 与 `full` 效果同为放行。
+  `full` **不重写**状态快照（`state().consent` 仍是传入的 `denied`）。
+- **同属初始化参数时的先后**：`init({ consent })` **覆盖** `createClient({ consent })`
+  （`performInit` 读 `initOptions.consent` 覆盖闭包变量）；`init` 未传时保留 `createClient` 的值。
+  这一条**契约没有明文**——本轮**只固化既有实现事实**，未新增口径、未改行为，正反两个方向各有一条用例锁定。
+  若负责人认为应当反过来（`createClient` 为准），那是另一个决策，需要改 `performInit`，本轮未动。
+
+### 证据
+
+**用例**（新增，照 `packages/core` 既有测试形态）：`packages/core/src/api/client-consent-option.test.ts`（7 条）
+——"granted → 两条 normal 事件都上报"、"denied → `consent_denied` 判定路径与必要事件放行不变"、
+`consent` × `consent_mode` 组合、`init` 覆盖 `createClient` 的正反两向。
+
+**fail-first 原文**（修实现之前实跑，`pnpm exec vitest run --coverage.enabled=false --project unit packages/core/src/api/client-consent-option.test.ts`）：
+
+```
+× 复现实测形态：createClient({ consent:'granted' }) + init({ appId }) → 两条 normal 事件都上报
+    AssertionError: expected [] to have a length of 2 but got +0
+× consent 与 consent_mode 是两条独立的轴：consent='granted' + essential_only 仍放行
+    AssertionError: expected [] to have a length of 1 but got +0
+× consent='denied' + consent_mode='full'：full 是放行条件（OR），但不重写状态快照
+    AssertionError: expected 'unknown' to be 'denied'
+× init 未传 consent 时不覆盖 options.consent（granted 保留）
+    AssertionError: expected 'unknown' to be 'granted'
+Tests  4 failed | 3 passed (7)
+```
+
+**变异验证**：把 `options.consent` 的读取删回 `let consent = 'unknown'` →
+`Tests 4 failed | 3 passed (7)`（上表 4 条全红）；恢复后 `7 passed`。
+三要素：**变异**＝`client.ts` 的 `options.consent` 读取点；**用例**＝`client-consent-option.test.ts`；
+**判别性断言**＝`expected [] to have a length of 2`（不是"计数变化"这类弱断言）。
+
+**回归**（2026-10-15）：
+- `pnpm exec vitest run --coverage.enabled=false --project unit packages/core packages/browser packages/plugins packages/transport`
+  → `Tests 1 failed | 1048 passed`；`packages/core` 单独跑 `61 files / 603 tests` **全绿**。唯一红是
+  `packages/transport/src/sender/page-leave.test.ts`（"预算不足的尾部仍要计数: expected 2 to be 4"），
+  该测试与 `page-leave.ts` 在本轮**开始前就已是工作区里的他人改动**（`git status` 可见），与本缺陷无关，单跑同样红。
+- `pnpm exec tsc -p packages/core` → `exit 0`；`pnpm exec eslint packages/core/src` → `exit 0`。
+- 未动公共导出面（只读 `options.consent`，无新导出），故未跑 `scripts/api-check.mjs`。
+
+### 顺带核实（只报告、未改）：`options` 里还有哪些"声明了但没读"的字段
+
+静态核对 `grep -n "options\." packages/core/src/api/client.ts` + `performInit` 的读取清单 +
+两个**跑完即删**的临时探针（`zz-probe-options` / `zz-probe-init-options`）：
+
+| 字段 | `createClient({…})` | `init({…})` | 证据 |
+|---|---|---|---|
+| `appId` | **未读** | 读（必填） | 探针：`createClient({ appId:'app-a' }).init({})` → `invalid_args=1`、`initialized=false`、`app_id=undefined` |
+| `endpoint` / `token` | **未读**（core `client.ts` 内零读取点） | **未读** | 消费点在装配根 `AssemblyOptions.endpoint/token`（`packages/browser/src/assembly.ts:380`），`createAssembly()` 时求值；`init({ endpoint })` 不会生效 |
+| `env` / `release` | 读（批次头） | **未读** | 探针：`init({ env:'prod-x', release:'9.9.9' })` → 批次头仍是 `production`/`0.0.0`；`createClient({env:'prod-x'})` → `prod-x` |
+| `extra_mask_rules` | 读（探针：`SECRETVALUE` → `***`） | **未读** | 探针：`init({ extra_mask_rules:[…] })` → 维度仍是 `SECRETVALUE` |
+| `consent` | **修前未读 → 已修** | 读 | 本条 D-09 |
+| 其余：`consent_mode`、`context`、`url_query_allowlist`、`pageId`、`location`、`debug`、`dictionary`、`onEvent`、`target`、`registry`、`storage`、`erase` | 读 | 读（后四项只属 `ClientOptions`，`init` 不接受） | `grep` 逐字段读取点 |
+
+**结论**：同类（"声明了但没读"）还剩 **`appId` / `endpoint` / `token`（`createClient` 侧）** 与
+**`env` / `release` / `extra_mask_rules` / `endpoint` / `token`（`init` 侧）**。性质与 D-09 完全相同
+（看起来设了、实际没设、不报错），建议单独立项；本轮**只报告、未改**。
+
+### 文档跟进（`docs/guides/**` 不在本轮可写范围，归 T34）
+
+`docs/guides/integration.md` 第 8.2 节的新注记仍写着「`createClient({ consent: 'granted' })` 目前被**静默忽略**
+（只有 `init(...)` 里的 `consent` 生效…）」——**修复后这句已过期**：两种写法现在都生效，
+`init({ consent })` 覆盖 `createClient({ consent })`。该句应由 T34 更新。
 
 ---
 
