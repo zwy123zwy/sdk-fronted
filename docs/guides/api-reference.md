@@ -214,7 +214,7 @@ submitButton.addEventListener('click', () => {
 });
 ```
 
-命令队列的 `flush` 只是"把队列交给实例执行"；批次层面的冲刷（条数/体积/空闲/最长等待）属 C06/C07，**尚未装配**。
+命令队列的 `flush` 只是"把队列交给实例执行"；批次层面的冲刷（条数 `max_batch_events`、体积 `max_batch_bytes`、空闲 `idle_flush_ms`、最长等待 `max_wait_ms`）由 C06/C07 实现，**已由装配根 `createAssembly()` 接线**（`createTransportQueue(...)` + `createDelivery(...)` + `delivery.attachQueue(...)` + `delivery.start()`，见 `packages/browser/src/assembly.ts`；触发条件见 `packages/transport/src/queue/transport-queue.ts` 文件头）。只用 `createClient()` 时没有传输层，也就不会有批次冲刷。
 
 ### 2.10 `destroy()`
 

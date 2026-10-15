@@ -293,7 +293,10 @@ const client = createClient({ onEvent: (event) => { seen.push(event); } });
 
 // 1) init 之前调用会进命令队列（上限 200），init 后按序回放
 client.track('before_init');                 // 进队列
-client.init({ appId: 'your-app-id' });
+client.init({
+  appId: 'your-app-id',
+  consent: 'granted',                        // ← 必须显式：缺省 unknown + essential_only 会丢弃全部非必要事件
+});
 client.track('after_init', { dimensions: { task_id: 't-1' }, metrics: { duration_ms: 12 } });
 client.flush();                              // 立即回放命令队列
 client.destroy();
@@ -301,6 +304,21 @@ client.destroy();
 console.log(COMMAND_QUEUE_CAPACITY);         // 200
 console.log(seen);                           // 两条事件；每条含 event_id/event_name/.../priority
 ```
+
+> **前提（实测，2026-10-15）：必须显式传 `consent: 'granted'`，而且必须传在 `init(...)` 里。**
+> 缺省同意态是 `unknown`（Q5），缺省 `consent_mode` 是 `essential_only`；两者组合下**非必要事件被同意门丢弃**
+> （`deny(consent_denied)`，`packages/core/src/privacy/consent-policy.ts`），而本片段的 `before_init` /
+> `after_init` 都未在字典中登记（`priority: 'normal'`）→ 不补这一行时 **`seen` 恒为 `0`，且不抛错、不告警**
+> ——一个"看起来在验证 SDK"的片段实际什么都没收到（D-08）。
+> 逐字执行本片段的实测对照（`node` 直接跑 `packages/browser/dist`；脚本 `temp/d08-probe.mjs`、判别性脚本 `temp/d08-regression.mjs`）：
+>
+> | 初始化写法 | `seen` |
+> |---|---|
+> | `init({ appId })`（缺省同意态） | **0**（同步读 / `setTimeout(0)` / 等 500 ms 全为 0） |
+> | `init({ appId, consent: 'granted' })` | **2** `["before_init","after_init"]` |
+>
+> **位置也有讲究**：`createClient({ consent: 'granted' })` 目前被**静默忽略**（只有 `init(...)` 里的 `consent`
+> 生效；已作为 SDK 缺陷单独上报），所以这一行必须写在 `init(...)` 里。`init` 之前 `track` 的那条在回放时已能看到 `granted`。
 
 逐项期望（都可以在 `packages/core/README.md` 第 11–17 节找到出处）：
 

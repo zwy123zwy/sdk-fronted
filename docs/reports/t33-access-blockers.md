@@ -320,7 +320,7 @@ TypeError: assembly.track is not a function
 
 ## D-05（中·文档）：指南的"webpack 与开发服务器未验证"已过期
 
-`docs/guides/integration.md:14`：
+`docs/guides/integration.md:12`（引的是修订前的原文；该行现已按本节末「已修」改写）：
 
 > …本仓库 `examples/` 覆盖 Vite、IIFE、Vitest、Jest，**webpack 与开发服务器未在本仓库验证**。
 
@@ -402,10 +402,23 @@ T30 的真实 Chromium 核心路径脚本，其接收端是脚本内自建的 no
    `pnpm examples:build`、`pnpm examples:test` 均 pass 且沙箱 `batchPassesContractSchema=true`；
    `eslint tests/compat tests/security` 干净；根 `tsc -p tsconfig.json` 干净。
 
-**同族残留（未在本任务范围，值得后续处理）**：`examples/vite/package.json` 的 `test` 是
-`node -e "process.exit(0)"`（**永远绿的空测试**）、`examples/node-import` 只断言 `SDK_VERSION`
-是字符串、`examples/script-tag/check.mjs` 同理——"examples 验证"里仍有几处只证"导入得到常量"，
-不证"装配与投递链路活着"；`verify-bundle.mjs` 的 `checks.bundleEvaluated` 是**恒真常量**。
+### 同族残留：一批"验证声称比结论弱"的守卫（2026-10-15 核实 → 已修）
+
+D-06 的盘点暴露的不止一个接收端，而是**同一个模式**：**声称验证了某件事、实际没有**。
+下面 5 处在当前 HEAD（`c931a73`）上**逐条核实**（先核实后动手；核实方式只有 `grep` 与读文件）：
+
+| # | 位置 | 核实结果 | 核实依据 |
+|---|---|---|---|
+| 1 | `examples/vite/package.json` 的 `test` | **成立**：就是 `node -e "process.exit(0)"`；而 `examples:test` 是 `pnpm gates` 的一步 | 读文件 + 根 `package.json` 的 `gates` 脚本 |
+| 2 | `examples/node-import`（`vitest.test.ts` / `jest.test.mjs`）、`examples/script-tag/check.mjs` | **成立，但三处强弱不同**：node-import 两个用例都只断言 `typeof SDK_VERSION === 'string'`；`script-tag` 确实**求值了 IIFE 产物**（比 node-import 强），但同样只断言 `typeof sdk.SDK_VERSION === 'string'`，不跑装配、不跑投递 | 逐个读文件 |
+| 3 | `examples/webpack/scripts/lib/verify-bundle.mjs` 的 `checks.bundleEvaluated` | **成立**：仍是字面量 `true`。**但同一函数里的 `checks.batchPassesContractSchema`（D-06 加的）是真的**——由 `inspectBatchText` 的 Ajv 校验驱动、且要求"至少收到一次请求且零拒收"，能因注入违约批次转红。所以 `status` 不是恒绿，问题只是"多了一个恒真的检查项" | 读文件 + 读 `tests/compat/receiver-contract-gate.test.ts:185-188` 的既有判别性断言 |
+| 4 | `tests/e2e/probes/*.js` 手写信封 | **成立，但探针侧 4/5 口径已经是对的**：`beacon-quota-driver.js` **完全不加载 SDK**（头注释写明"与 SDK 实现无关"）；`beacon-quota.spec.mjs` 写明"断言只覆盖浏览器特性本身"；`durability-driver.js` 写明被测对象是 `packages/transport/dist`；`real-browser-driver.js::leaveBeaconProbe` 用 `envelope(...)` 手写信封走 transport 的 `submit`。**唯一过声称**的是 `leave-slice-driver.js` 的内联注释把返回值叫"**SDK 侧观测量**"（实际是 transport 侧） | 逐个读探针 + spec 头注释 |
+| 5 | `tests/e2e/lib/receiver.mjs` 把不可解析批次计成 202 | **成立**：`parseBatchBody` 失败 → `onUnparsableBatch` 只加计数，随后对 `LEDGER_PATHS` 的 POST **统一写 202**；且 `unparsable_batches` 在 `tests/e2e/**` 的任何 spec 里**都没有被读过**（`grep -rn unparsable tests/` 只命中 receiver.mjs 自身） | `grep` 全仓 + 读文件 |
+
+**补充核实（防"改错地方"）**：`#5` 的正确处置**不是**"让 receiver 拒收"——`tools/mock-receiver` 的验收
+用例 `tools/mock-receiver/src/e2e-receiver-reconciliation.acceptance.test.ts:348-359` **明确要求**
+"无法解析的正文不使服务失败，只计入 `unparsable_batches`"。所以要么加断言让它不静默，要么如实降级口径，
+不允许把 202 语义偷偷改掉。
 
 ---
 
