@@ -33,21 +33,32 @@ export const COMPRESS_THRESHOLD_BYTES = 4 * 1024;
 export const BEACON_MAX_BYTES = 60 * 1024;
 
 /**
- * 信标切片的目标片大小（AC-03 修复）。
+ * 信标切片的目标片大小（AC-03；第 3 步**未改这个值**）。
  *
- * 依据 `tests/e2e/results/beacon-quota-{chromium,webkit}.json` 与
- * `docs/reports/e2e-real-browser.md` 的实测：浏览器除单次上限外，还有**同一同步回合的
- * 累计在途额度 ≈ 64 KiB**（`sync-32x32 → [true,true]` 被接受、`sync-40x40 → [true,false]`
- * 被拒）。≈60 KB 的片贴着该额度，80 KB 载荷的**后一片会被静默拒绝**，因此片大小降到
- * **32 KiB**：两片（≤64 KiB）装得下一个同步回合，离该额度留出余量。
+ * 依据 `tests/e2e/results/beacon-quota-{chromium,webkit}.json` 的两引擎实测（数字完全相同）：
+ * - 单次上限：`single-64K → true`，`single-80K → false`；
+ * - **同一同步回合的累计额度**：`sync-32x32`(65536 B) `→ [true,true]` 被接受、
+ *   `sync-24x24x24x24` 第 3 片(73728 B) 被拒 → 额度 ∈ [65536, 73728)；
+ * - **跨任务后额度重置**：`raf-28x28x28 → [true,true,true]`、`delay0-21x4 → [true,true,true,true]`。
+ *
+ * 32 KiB 保持不变：AC-03 第 3 步的根因是**估算器虚高 24%**（923 B vs 实测 743 B/事件），
+ * 不是片太大——按旧口径 32 KiB 只装下 26391 B、80 KB 溢出成 4 片；换成校准口径
+ * （`beacon-size.ts`）后 32 KiB 装 43 条 / 32323 B，112 条正好 **3 片**。
+ * 实测（`page-leave.test.ts` 的真机载荷用例）：两个满片正文 32397 B × 2 = **64794 B**，
+ * 落在**实测被接受**的 65536 B 之内（余量 742 B）。
  */
 export const BEACON_SLICE_BYTES = 32 * 1024;
 
 /**
- * 一个同步回合允许写入的**累计在途额度**（AC-03 修复；实测 ≈ 64 KiB 的保守取整）。
+ * 一个同步回合允许写入的**累计在途额度**（AC-03；第 3 步**未改这个值**）。
  *
- * 离开通道按此让出主线程：写入量再增加一片就会超过它时，先 `schedule()` 让出，
- * 下一回合再写。`BEACON_SLICE_BYTES * 2 ≤ BEACON_INFLIGHT_BYTES` 是切片参数的自洽约束。
+ * 取 64 KiB：实测被接受的**最大同回合累计写入**恰是 65536 B（`sync-32x32 → [true,true]`、
+ * `sync-16x16x16x16 → [true,true,true,true]`，两引擎一致），因此 65536 B 是**已被验证接受**
+ * 的口径；`BEACON_SLICE_BYTES * 2 ≤ BEACON_INFLIGHT_BYTES` 的自洽约束在等号上成立。
+ *
+ * 离开通道按此让出主线程：本回合写入量再增加一片就会超过它时先让出（宏任务），下一回合再写
+ * （实测让出后额度重置：`raf-28x28x28`、`delay0-21x4` 全被接受）。让出**只**发生在额度已满
+ * 之后，第一个回合仍然同步写完（离页语义见 `page-leave.ts` 的 `schedule` 说明）。
  */
 export const BEACON_INFLIGHT_BYTES = 64 * 1024;
 

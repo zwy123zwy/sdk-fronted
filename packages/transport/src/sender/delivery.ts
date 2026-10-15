@@ -410,6 +410,9 @@ export function createDelivery(options: DeliveryOptions): Delivery {
       if (disposed) return;
       disposed = true;
       queueControl = null;
+      // AC-03 第 3 步④：dispose 必须**停手**，且丢掉的待发波次计进 `leave.stats().skipped`
+      // （否则被让出的片会静默消失，或在该实例已作废后仍发出信标）。
+      leave.dispose();
       offline.dispose();
     },
   };

@@ -240,3 +240,50 @@
 - `c931a73` 之后，AC-03 的 **#1、#3、#4、#5、#6、#7 全部通过**；**#2 仍不通过**：
   两个引擎都只有 3 片 / 77 条到达，稳定丢失尾部区间 `ac03-0070`–`ac03-0104`（35 条 / 26391 B），
   丢失形态为「第 4 片被浏览器拒绝且不重试」（`retry_network=1`）。默认配置与预算放宽两种情形的数字完全相同。
+
+## 追加节（第 3 步 · 单元层）：**已改** —— 按同步回合约束 + 估算器校准 + 默认让出 + 丢失自报
+
+- 执行：2026-10-15，**只改单元层，未跑任何 e2e / 浏览器**（浏览器复测见下一节的确切命令与判据）。
+- 改动（四处，逐条对应上文四条根因；`BEACON_SLICE_BYTES` / `BEACON_INFLIGHT_BYTES`
+  两个常量**未改**（32 KiB / 64 KiB），因为根因是估算器而不是片大小）：
+  1. **按同步回合约束累计写入**：`sender/page-leave.ts` 新增 `turnBytes`（本回合写入的**真实正文
+     体积**），再写一片就会超过 `BEACON_INFLIGHT_BYTES` 时把该片**与后续片**（保序）交给
+     `schedule`，新任务里继续写；`dispose()` / `resetBudget()` 丢弃待发片一律计入 `skipped`。
+  2. **估算器校准**：新增 `sender/beacon-size.ts`（数字按 `String(value).length` 计，与 JSON 逐字符
+     一致）。真机载荷（`tests/e2e/probes/leave-slice-driver.js` 的 112 条）单事件 **923 B → 745 B**
+     （实际 743 B），事件数组合计 103600 → **84383 B**（实际 83329 B）。于是 32 KiB 的片由
+     26391 B 变成 **32323 B**，112 条由 **4 片回到 3 片**。
+  3. **默认让出真的生效**：未注入 `schedule` 时缺省 `setTimeout(flush, 0)`（**新任务**；微任务不重置
+     额度）。**权衡**：`send()` 仍**同步写满第一个回合**（实测被接受的额度内），只把超出额度的尾部
+     让出；旧实现把尾部同步写出去换来的是浏览器拒绝 + 静默丢弃，同步性并未换来送达；让出后若页面
+     已销毁，尾部计入 `skipped`（可见），不再谎报成 `sent`。
+  4. **丢失自报**：被 `sendBeacon` 拒绝的**整片事件计入 `skipped`**（不再计 `sent`）并记一次
+     `budgetStops`（复用 CR-008 的 `flush_skipped_due_to_budget` 出口；**未新增字段、未改指标名、
+     未改 `prewrite_commit_lost` 口径**）。不变量：`sent + skipped + 待发 = 提交总数`。
+- 单元层可见数字（`node` 直接跑 `packages/transport/dist`，同一 `createDelivery` 离页路径，
+  非浏览器）：`syncTurnBytes=64676`（2 片 32338 B，**≤ 实测被接受的 65536 B**）→ 让出后
+  **3 片 [32338, 32338, 19690]**，`leave.stats={"sent":112,"skipped":0,"bytes":84366,"requests":3,"budgetStops":0}`，
+  `counters={}`（**无 `retry_network`**）。旧产物同一路径是 4 片 / `requests=4` / 第 4 片被拒。
+
+### 下一轮（第 4 步 · 浏览器）确切命令与判据
+
+```bash
+pnpm --filter @web-report-sdk/transport run build   # 必须先 build：e2e 加载 packages/transport/dist
+pnpm test:e2e --project=chromium --grep "C07-AC-03"
+pnpm test:e2e --project=webkit tests/e2e/leave-slice.spec.mjs
+```
+
+- 沿用既有判据 #1–#7（≥2 个真实信标请求；重组 `event_id` 序列 = 原始 112 条、无重复无缺失；
+  每片 < 60 KB；`text/plain`；令牌在 body `auth`、URL/请求头无令牌；单次 80 KB=false / 32 KB=true；
+  探针读到 `leaveBudget.maxBytes=98304`），**并加一条**：
+  **#8 `leave.stats` 必须能看出丢失的条数** —— 若全部被接受，则 `sent=112`、`skipped=0`、
+  `budgetStops=0`、`requests=3`（不应再是 4）；**若仍有请求被拒，则 `skipped` 必须等于接收端缺失的
+  条数，且 `sent + skipped = 112`**（`sent` 不得大于接收端重组到的条数）。
+- 预期：`requests=3`、接收端 3 片、重组 112/112、`retry_network=0`、`leave.stats.skipped=0`。
+  若第 3 片仍出现拒绝（本机额度 ∈ [65536, 73728)），它会**出现在 `skipped` 里**而不是消失。
+- **需编排方按流程处理的两处契约/CR 文字（本 lane 未改 `docs/contracts/**`）**：
+  1. `reason-codes.md` §4 的 `flush_skipped_due_to_budget` 语义枚举了「字节上限 / ≤200 条 / ≤4 批 /
+     时间窗」四个维度，**未含**本轮新增的触发「浏览器同一同步回合的累计额度（`sendBeacon` 拒绝）」；
+     本轮的复用是指令要求（丢失必须从这条出口可见），如需写进契约请走 CR-009 的兼容澄清；
+  2. `CR-009` §4 第 84 行写「`schedule` 为可注入钩子，**缺省立即执行**以保持离页同步语义」——
+     这正是根因③的缺陷描述，本轮已改为缺省**宏任务让出**（第一回合仍同步写满，权衡见上）。

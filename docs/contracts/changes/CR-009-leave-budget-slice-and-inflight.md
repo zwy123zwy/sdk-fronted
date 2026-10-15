@@ -81,7 +81,7 @@ CR-008 落地 `flush_skipped_due_to_budget` 时，把它的语义写成「因预
 | `LEAVE_BUDGET.maxBytes` | `96 KiB` | 同上；必须 ≥ AC-03 的 80 KB 载荷，留 ≈16 KB 余量（auth / 批头 / JSON 开销） |
 | `LEAVE_BUDGET.maxEvents` / `maxBatches` / `maxMs` | `200` / `4` / `50` | 沿用 POC-1，不放宽 |
 | 超预算的片 | **二次切片（头部优先）**，不整片丢弃 | `packages/transport/src/sender/page-leave.ts` |
-| 累计在途控制 | 再写一片就会超过 `BEACON_INFLIGHT_BYTES` 时先 `schedule()` 让出主线程 | 同上（`schedule` 为可注入钩子，缺省立即执行以保持离页同步语义） |
+| 累计在途控制 | 再写一片就会超过 `BEACON_INFLIGHT_BYTES` 时先 `schedule()` 让出主线程 | 同上（`schedule` 为可注入钩子，缺省改为**宏任务让出**（`setTimeout(flush,0)`）——**实测同一任务内累计写入超 ~64 KiB 后会被 `sendBeacon` 拒绝，而新任务会重置该额度（微任务不会）**；`send()` 仍**同步写满第一个回合**（在实测接受额度内），只把超额度尾部让出到新任务） |
 | 丢失出口 | 被跳过的事件数进 `LeaveStats.skipped`；预算停手进 `LeaveStats.budgetStops` → `flush_skipped_due_to_budget` | **复用 CR-008 的现成观测量，不新增码** |
 
 ## 5. 批准记录
