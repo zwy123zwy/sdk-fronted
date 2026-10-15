@@ -40,6 +40,18 @@ export function createSessionTracker(options: SessionTrackerOptions): SessionTra
   let persistent =
     options.persistentStorage !== undefined && isAuthorized(consentState, options.mode ?? 'essential_only');
 
+  /**
+   * 只在尚未生成时补一次会话标识（**内存**物化；不推进活动时间、不因空闲轮换）。
+   *
+   * 与 `ensureSession` 的区别：本函数**不写** `sessionStorage`——`current()` 是读路径，
+   * 不应产生存储写入（读批头不算活动，也不该在同意前落任何键）；`touch()` 才是「有活动」
+   * 的路径，由它落盘 `SESSION_ID_KEY` 并推进空闲轮换。
+   */
+  function ensureSessionId(): string {
+    if (sessionId === undefined) sessionId = options.createId();
+    return sessionId;
+  }
+
   function ensureSession(nowMs: number): string {
     if (sessionId === undefined) {
       sessionId = options.createId();
@@ -100,10 +112,17 @@ export function createSessionTracker(options: SessionTrackerOptions): SessionTra
 
     current(): SessionState {
       // 只读：不刷新活动时间，也不因空闲而作废（轮换只由 touch 推进）。
-      const currentSession = sessionId ?? '';
+      //
+      // 但必须**惰性物化**标识（2026-10-15 定向诊断的实现修复）：批头 provider 的唯一接线就是
+      // `current()`（`touch()` 在生产路径无调用点），若这里只回放 `undefined`/空串：
+      // ① 已授权实例从不落盘，批头声称 `device_id_persistent: true` 而存储里没有 `DEVICE_ID_KEY`；
+      // ② `header.ts` 现场 `createUuid()` 兜底 ⇒ 连续取批头得到**不同**的 `device_id`/`session_id`
+      //   （逐批漂移，且 `session_id` 与交付层用的会话标识不是同一个）。
+      // 惰性物化不改「只读」语义：不推进活动时间、不轮换 `session_id`、不写 `sessionStorage`；
+      // 只是把标识补出来（设备标识在授权时由 `ensureDevice` 顺带落盘）。
       return {
-        sessionId: currentSession,
-        deviceId: deviceId ?? '',
+        sessionId: ensureSessionId(),
+        deviceId: ensureDevice(),
         deviceIdPersistent: persistent,
       };
     },

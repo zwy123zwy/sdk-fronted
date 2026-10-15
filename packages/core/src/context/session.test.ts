@@ -230,6 +230,48 @@ describe('C04-F1 / Q5 设备标识的持久化策略', () => {
 });
 
 /**
+ * `current()` 的**惰性物化**（2026-10-15 定向诊断：批头唯一接线就是 `current()`，而它此前
+ * 既不生成也不落盘 ⇒ 已授权接入方的存储为空、批头逐次换 `device_id`）。
+ *
+ * 口径：`current()` 仍然**只读**——不刷新活动时间、不因空闲轮换 `session_id`；它只在标识尚未
+ * 物化时补一次生成（授权时顺带落盘），因此「读一次批头」不会被算成一次活动。
+ */
+describe('current() 惰性物化标识（读批头不得算活动）', () => {
+  it('授权时 current() 生成并落盘设备标识，无需先 touch，且重复读取稳定', () => {
+    const { instance, persistent } = tracker({ authorized: true });
+    const state = instance.current();
+    expect(state.deviceId).toMatch(SCHEMA_UUID_PATTERN);
+    expect(state.deviceIdPersistent).toBe(true);
+    expect(persistent.dump()[DEVICE_ID_KEY]).toBe(state.deviceId);
+    expect(instance.current().deviceId).toBe(state.deviceId);
+  });
+
+  it('未授权时 current() 也生成页面级标识但不落盘（Q5）', () => {
+    const { instance, persistent } = tracker({ authorized: false });
+    const state = instance.current();
+    expect(state.deviceId).toMatch(SCHEMA_UUID_PATTERN);
+    expect(state.deviceIdPersistent).toBe(false);
+    expect(persistent.dump()).toEqual({});
+  });
+
+  it('current() 不刷新活动时间：31 分钟后仍不轮换 session_id，轮换只由 touch 推进', () => {
+    const { instance, advance } = tracker({ authorized: false });
+    const before = instance.current();
+    advance(31 * 60 * 1000);
+    expect(instance.current().sessionId).toBe(before.sessionId);
+    expect(instance.touch(start + 31 * 60 * 1000).sessionId).not.toBe(before.sessionId);
+  });
+
+  it('物化后的标识与后续 touch 一致（不得出现内存标识与落盘标识两套）', () => {
+    const { instance, persistent } = tracker({ authorized: true });
+    const fromCurrent = instance.current().deviceId;
+    const fromTouch = instance.touch(start + 1000).deviceId;
+    expect(fromTouch).toBe(fromCurrent);
+    expect(persistent.dump()[DEVICE_ID_KEY]).toBe(fromTouch);
+  });
+});
+
+/**
  * `device_id` 的**格式校验**（与 `view_id` 同族）。
  *
  * `batch.schema.json` 把 `device_id` 声明为 `$ref #/$defs/uuid`，且它在 C04 的协议字段排除

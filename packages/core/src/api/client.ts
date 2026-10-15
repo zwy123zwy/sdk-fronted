@@ -776,7 +776,6 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     }
     if (initialized) return;
     appId = initOptions.appId;
-    const previousConsent = consent;
     if (isConsentState(initOptions.consent)) consent = initOptions.consent;
     if (isNonEmptyString(initOptions.pageId)) currentPageId = normalizePageId(initOptions.pageId) ?? currentPageId;
     if (initOptions.debug !== undefined) diagnosticsSink = resolveDiagnostics(initOptions.debug);
@@ -804,12 +803,21 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     }
     if (initOptions.pageId !== undefined && command.url === undefined) pageTracker.setPage(initOptions.pageId);
     if (initOptions.context !== undefined) contextStore.setInitialContext(initOptions.context);
-    // 同意状态在初始化参数里显式给出时，同步到状态机与会话追踪器（缺省保持 `unknown`）。
-    // 注意：上面对 `consent` 的赋值会覆盖旧值，因此这里必须与**赋值前**的值比较。
-    if (consent !== previousConsent) {
-      consentManager.setState(consent);
-      sessionTracker.onConsentChange(consent, consentMode);
-    }
+    // 同意状态同步到状态机与会话追踪器：**无条件**调用（D-09 副作用的修复，2026-10-15）。
+    //
+    // 此前是 `if (consent !== previousConsent)`：`consent` 有两个等价入口——`createClient({ consent })`
+    // 与 `init({ consent })`（`ClientOptions extends ClientInitOptions`）。装配根把 `consent` 放进
+    // `clientOptions` 再 `init({ ...clientOptions })`；D-09 让构造时就读了 `options.consent`，于是
+    // 这里 `previousConsent === consent`、守卫被跳过 ⇒ `sessionTracker.onConsentChange` 不执行 ⇒
+    // 已授权实例**从不落盘**设备标识，批头却声称 `device_id_persistent: true`（T31「设备标识腿」红）。
+    //
+    // 为什么选「无条件」而不是「本次是否提供了 consent/consent_mode」：后者会把「同意从哪个入口传入」
+    // 重新变成语义差异（正是本缺陷的形状），且 `consent_mode` 单独传入时的分支同样难穷举。两个被调方
+    // 都是**幂等**的：`consentManager.setState` 同值直接返回；`sessionTracker.onConsentChange` 对
+    // `granted` 补写、`denied` 清除、`unknown` 仅置 `persistent=false`。重复 `init` 的语义也不变——
+    // 上面 `if (initialized) return;` 已让第二次 `init` 整体成为无副作用。
+    consentManager.setState(consent);
+    sessionTracker.onConsentChange(consent, consentMode);
     // C04 的管线处理器：validate（字段约束 + 16 KB）→ enrich（上下文）→ filter（同意门）。
     kernel.registerProcessor(
       'validate',

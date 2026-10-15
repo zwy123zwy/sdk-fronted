@@ -30,6 +30,10 @@ export function createBatchHeaderProvider(
     const session = options.session();
     const clock = options.clock();
     const user = options.user();
+    // `session_id` / `device_id` 是必填 + `$ref uuid` 字段，不能是空串。正常情况下会话追踪器
+    // （`current()` 惰性物化）一定给得出值；下面的 `createUuid()` 是**最后防线**（例如接入方
+    // 自定义的 `session` 来源给不出标识），保证协议字段始终是合法 uuid。注意它每次调用都会生成
+    // **新的**值，因此**绝不可**与「已持久化」一起声称（见下面的 `device_id_persistent`）。
     const sessionId = session.sessionId.length > 0 ? session.sessionId : createUuid();
     const deviceId = session.deviceId.length > 0 ? session.deviceId : createUuid();
     const header: C04BatchHeader = {
@@ -40,7 +44,11 @@ export function createBatchHeaderProvider(
       sdk_name: options.sdkName,
       sdk_version: options.sdkVersion,
       device_id: deviceId,
-      device_id_persistent: session.deviceIdPersistent,
+      // 「声称」必须与实际同源（2026-10-15 硬化）：`device_id_persistent` 只在会话层**确实提供了**
+      // 标识时才跟随其声明。会话层给不出标识时上面走的是 `createUuid()` 兜底（一个从未读过/写过
+      // 存储的临时值），此时一律不得声称已持久化——否则「永远 claim true + 存储为空」的那类
+      // 声称强于事实的缺陷会再次出现（本次 T31 设备标识腿的根因）。
+      device_id_persistent: session.deviceId.length > 0 && session.deviceIdPersistent,
       session_id: sessionId,
       clock_offset: clock.offsetMs,
       clock_calibrated: clock.calibrated,

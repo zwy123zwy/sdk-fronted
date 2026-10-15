@@ -104,6 +104,22 @@ async function waitForAsync(predicate: () => Promise<boolean>, timeoutMs = 2000)
 }
 
 describe('T31 撤回同意：生产接线端到端（createAssembly + client.setConsent("denied")）', () => {
+  test('对照：已授权（granted）⇒ 设备标识真的落盘，且与批头 device_id 同源（既有 13 条不注入持久化存储，结构上发现不了本缺陷）', () => {
+    // `t31-security.test.ts` 的 13 条不注入持久化存储、只覆盖未授权方向，因此「已授权 ⇒ 落盘」
+    // 这条方向此前**没有任何用例覆盖**——本缺陷（声称 persistent=true 而存储为空）正是在这个
+    // 结构性缺口里长期为绿。本用例与那条缺口互补：注入存储，断言「声称」与「实际」一致。
+    const recorder = createRecordingStorage();
+    const assembly = buildAssembly({ storage: recorder.storage });
+    const header = headerReader(assembly);
+
+    const value = header();
+    expect(value.device_id_persistent).toBe(true);
+    // 声称 persistent 必须与实际落盘一致：存储值与批头值同源。
+    expect(recorder.values.get(DEVICE_ID_KEY)).toBe(value.device_id);
+    // 连续取头稳定：同一存储下不得逐批换标识。
+    expect(header().device_id).toBe(value.device_id);
+  });
+
   test('设备标识腿：C04 purge 后不再持久化，且已落盘的 device_id 被删除', () => {
     const recorder = createRecordingStorage();
     const assembly = buildAssembly({ storage: recorder.storage });

@@ -147,9 +147,9 @@
 5. ~~裁定 1.3.2 上报的同族路径（`clampAllStringValues` 只截断、从不脱敏）是否需要补一次脱敏~~ → **已裁定并修复**（2026-10-14）：补一次脱敏，证据见 1.3.3；
 6. 剩余项（第 3 条、以及第 2 节的审计式复查与低危处置计划）完成前，本任务保持"未完成"，不签发。
 
-## 5. 2026-10-15 定向诊断：T31「设备标识腿」红是**实现缺陷**，不是测试前提失效
+## 5. 2026-10-15 定向诊断：T31「设备标识腿」红是**实现缺陷**，不是测试前提失效（**同日已修复，见 5.6**）
 
-（本节只报告，**未改实现、未改测试**。）
+（5.1–5.5 是当日**诊断阶段**的原始记录，该阶段**未改实现、未改测试**；**5.6 是随后另派工单的修复实施与验证**，改了实现、加了测试。）
 
 现象：`tests/security/t31-consent-withdrawal.test.ts:115` 红——批头声称 `device_id_persistent === true`（:114 绿），而注入的持久化存储里没有 `DEVICE_ID_KEY`。
 
@@ -179,9 +179,40 @@
 - **根治（首选）**：让批头路径真正执行一次 `ensureDevice()`——把 `client.ts:323` 的 `session: () => sessionTracker.current()` 改为 `touch(...)`，或让 `current()` 惰性补 `ensureDevice()`（授权时顺带落盘）。改完后 `header.ts` 的 `createUuid()` 兜底成为不可达代码，`device_id` 稳定、`device_id_persistent` 与实际一致。
 - **同时修守卫**：`performInit` 里 `if (consent !== previousConsent)` 改为**无条件**（或按「本次是否提供了 consent/consent_mode」）调用 `onConsentChange`——该方法幂等（`granted` → 补写、`denied` → 清除、`unknown` → 仅置 `persistent=false`）。
 - **加固**：`header.ts` 不应在 `session.deviceId === ''` 时声称 `device_id_persistent: true`（两个字段必须同源），否则「声称」永远可能强于「事实」。
-
 ### 5.5 验证与顺带核实
 
 - `pnpm exec vitest run --coverage.enabled=false --project security` → **1 failed | 31 passed**（仅本腿红）；`--project unit packages/core` → **61 files / 603 tests 全绿**（core 无回退）。
 - **其他 security 用例是否依赖同一前提**：`tests/security/**` 里只有本用例引用 `DEVICE_ID_KEY`/`device_id_persistent`（`guard-e2e-receivers-validate-contract.test.ts` 的提及只是说明文字）。`t31-security.test.ts` 13 条**全绿**是因为它**不注入持久化存储、也不断言已授权下的落盘**（只覆盖未授权方向），因此**结构上无法发现**本缺陷——**这个区别本身是「永远绿」的线索**，建议后续为它补一条「已授权 ⇒ 落盘」的对照。
-- 纪律：本任务**未改任何实现**（`packages/*/src` 未动）、**未改任何测试**（`tests/security/**` 的 `git diff` 为空）。
+- 纪律：本任务**未改任何实现**（`packages/*/src` 未动）、**未改任何测试**（`tests/security/**` 的 `git diff` 为空）。（**诊断阶段**的事实；随后的修复见 5.6。）
+
+### 5.6 修复实施与验证（2026-10-15 同日；本缺陷状态：**已修**）
+
+三处修法（`packages/core/src`；**未回退任何隐私/校验修复**——`ensureDevice` 的 uuid 校验、`view_id`/`stub event_id` 的校验、D-09 的 `options.consent` 读取全部保留）：
+
+| # | 文件 | 改动 | 选型与理由 |
+|---|---|---|---|
+| 1 | `context/session.ts` `current()` | 惰性补 `ensureDevice()`（并让 `current()` 也在**内存**里物化 `session_id`） | 选「惰性补 `ensureDevice()`」而不是把接线改成 `touch(...)`：`touch()` 会更新 `last_activity_at`，等于「读一次批头就算一次活动」，会让健康/监控类定时取头无限推迟 30 分钟的 `session_id` 轮换（契约外副作用）。惰性物化不推进活动时间、不轮换、不写任何存储键（设备标识只在授权时由 `ensureDevice` 落盘） |
+| 2 | `api/client.ts` `performInit` | `if (consent !== previousConsent)` → **无条件**调用 `setState` + `onConsentChange` | 两个等价入口（`createClient({consent})` / `init({consent})`）**同效**；被调方**幂等**（`setState` 同值早返回；`onConsentChange` granted 补写 / denied 清除 / unknown 仅置 `persistent=false`）。**重复 `init` 语义不变**：`performInit` 开头的 `if (initialized) return;` 已使第二次 `init` 整体无副作用。选「无条件」而非「按本次是否提供 consent」是为了不让「同意从哪个入口传入」再次成为语义差异（正是本缺陷的形状） |
+| 3 | `context/header.ts` | `device_id_persistent: session.deviceId.length > 0 && session.deviceIdPersistent` | 两个字段**同源**：会话层给不出标识时，`createUuid()` 兜底产生的临时值一律不得声称已持久化（该兜底保留为**最后防线**并已加注释） |
+| 3b | `context/session.ts` + `context/header.ts` | `session_id` 也改为从 tracker 物化（核查中发现的**同族第二处**） | 同根：`header.ts` 对 `session_id` 也现场 `createUuid()` 兜底 ⇒ 未 `touch` 过的实例每次取头换一个 `session_id`，且不等于交付层 `assembly.ts:396` 用的会话标识。物化后 `header.ts` 的**两处**兜底都不可达 |
+
+**测试先行（fail-first，修复前实测原文）**：
+
+- 新增 `packages/core/src/api/client-device-id.test.ts`（9 条），修复前 `5 failed | 2 passed`：`AssertionError: expected undefined to be '3a7666bb-…'`（存储无 `DEVICE_ID_KEY`）、`expected '705783f1-…' to be '60fd484c-…'`（连续取头漂移）、`expected '/user/13800138000' to be 'f252a1d1-…'`（非法值未写回）、`expected '4a2720e4-…' to be 'eeeeeeee-…'`（合法值未复用）、`expected true to be false`（空 deviceId 仍声称 persistent）。
+- `context/session.test.ts` 新增 4 条（`current()` 惰性物化）：修复前 3 条红，原文 `expected '' to match /^[0-9a-f]{8}-…/`、`expected '00000000-…-000000000002' to be ''`。
+- `context/header.test.ts` 新增 2 条（同源 + 未 touch 稳定）：修复前 2 条红，原文 `expected true to be false`、`expected '7f007604-…' to be '315b5764-…'`。
+- `tests/security/t31-consent-withdrawal.test.ts` **新增 1 条对照**「已授权 ⇒ 落盘」（断言 `stored === header.device_id` 且连续取头稳定）——既有 13 条不注入持久化存储、只覆盖未授权方向，**结构上发现不了本缺陷**，这条对照补的正是那个缺口。
+
+**变异验证（三处各「临时回退 → 对应用例红 → 恢复」）**：
+
+| 变异 | 临时改动 | 变红的用例与断言 | 恢复后 |
+|---|---|---|---|
+| 1 | `session.ts` `current()` 的 `deviceId: ensureDevice()` 改回 `deviceId ?? ''` | `client-device-id.test.ts`「未授权时批头 device_id 是页面级稳定值」→ `expected '29d78b3c-…' to be 'b11781c5-…'`；`session.test.ts` current() 组 3 条（`expected '' to match /^[0-9a-f]{8}-…/`、`expected '00000000-…-000000000002' to be ''`） | 全绿 |
+| 2 | `client.ts` 还原 `const previousConsent` + `if (consent !== previousConsent)` 守卫 | `client-device-id.test.ts`「入口一在 init 完成时即已落盘（不依赖随后是否读批头）」→ `expected false to be true`（其余 17 条绿——见下方冗余说明） | 全绿 |
+| 3 | `header.ts` 还原 `device_id_persistent: session.deviceIdPersistent` | 同源用例 2 条 → `expected true to be false` | 全绿 |
+
+补充：变异 1 与变异 2 对「已授权 ⇒ 落盘」**互为冗余**（任一条单独在位即可让探针 B 转绿），但各有**独有**判别点——修法 2 独有「init 完成即落盘（未读批头）」，修法 1 独有「未授权/init 前取头的页面级稳定 + 让 `header.ts` 兜底不可达」。两者都保留。
+
+**回归（修复后全绿）**：`--project security` **5 files / 33 tests 全绿**（含新对照；原 `t31-consent-withdrawal` 设备标识腿已绿）；`--project unit packages/core packages/browser packages/transport packages/plugins` **122 files / 1067 tests 全绿**；`tsc -p packages/core`、`tsc -p packages/browser`、根 `tsc -p tsconfig.json`、`eslint packages/core/src packages/browser/src`、`node scripts/api-check.mjs`（公共导出面未变）均通过。构建只做允许的单包 `pnpm --filter @web-report-sdk/core run build`（security 用例打 `dist`）。
+
+**本次核查结论：还有没有别的字段也是「声称与实际不同源」？** 有，就是同节的 `session_id`（修法 3b）——与 `device_id` 完全同形：`header.ts` 现场 `createUuid()` 兜底，而真实来源 `current()` 从不物化，因此同一实例每批的 `session_id` 都不同，且不等于交付层 `assembly.ts:396` 用的会话标识。已一并修复。其余批头字段核查：`consent` 由 `consentManager` 单源映射（`buffer`/`unknown` → `unknown`，与状态同源）；`clock_offset`/`clock_calibrated` 由时钟状态机单源提供；`user_id`/`user_id_hashed` 由 `contextStore` 单源提供（`hashed` 是调用方声明，不构成「声称强于事实」）；`app_id` 取 `appId ?? ''`，未 `init` 时为空串但此时本不该发批次（既有用例锁定）。**未发现第三处同族缺陷。** 另记一条**未修**（超出本次范围、属另一缺陷类）：`touch()` 在生产路径零调用点 ⇒ `session_id` 的 30 分钟空闲轮换实际上从不发生；本次只让 `current()` 物化标识，未把轮换接进生产路径。

@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { createBatchHeaderProvider } from './header';
 import { createClockCalibration } from './clock';
 import { createSessionTracker } from './session';
-import type { ContextStoragePort } from './ports';
+import type { C04BatchHeader, ContextStoragePort, SessionState } from './ports';
 import type { ConsentMode, ConsentState } from '../privacy/types';
 
 /** 内存存储（测试替身）。 */
@@ -173,6 +173,66 @@ describe('用户标识只进批次头', () => {
     const value = header();
     expect(value.user_id).toBe('user-b');
     expect('user_id_hashed' in value).toBe(false);
+  });
+});
+
+/**
+ * 「同一来源」硬化（2026-10-15 定向诊断，T31 设备标识腿的根）。
+ *
+ * 本缺陷的形状是：`device_id_persistent` 取「授权意图」（`session.deviceIdPersistent`），
+ * 而 `device_id` 在 `session.deviceId === ''` 时由 `header.ts` **现场 `createUuid()` 兜底**
+ * ——两者来源不同，于是出现「永远声称 `persistent: true` + 存储为空 + 每次取头换一个 uuid」。
+ * 因此这里钉住两条：
+ * 1. 会话层给不出标识时**不得**声称已持久化（两个字段描述同一个值）；
+ * 2. 批次头的标识**唯一来源是会话追踪器**：未 touch 过也要稳定，不得逐次现场另造。
+ */
+describe('device_id / session_id 与 device_id_persistent 必须同源（2026-10-15 硬化）', () => {
+  const constantClock = (): { readonly offsetMs: number; readonly calibrated: boolean } => ({
+    offsetMs: 0,
+    calibrated: false,
+  });
+
+  function providerFor(session: () => SessionState): () => C04BatchHeader {
+    return createBatchHeaderProvider({
+      appId: 'app-a',
+      sdkName: '@web-report-sdk/core',
+      sdkVersion: '0.0.0',
+      session,
+      user: () => undefined,
+      consent: () => 'granted',
+      clock: constantClock,
+    });
+  }
+
+  it('会话层给不出标识（空串）时不得声称 persistent: true —— 兜底生成合法 uuid，但 persistent 为 false', () => {
+    const provider = providerFor(() => ({ sessionId: '', deviceId: '', deviceIdPersistent: true }));
+    const header = provider();
+    expect(header.device_id).toMatch(UUID_RE);
+    expect(header.device_id_persistent).toBe(false);
+  });
+
+  it('未 touch 过的 tracker：连续取头 session_id / device_id 稳定（唯一来源是 tracker）', () => {
+    const session = createSessionTracker({
+      createId: (() => {
+        let counter = 0;
+        return () => {
+          counter += 1;
+          return `00000000-0000-4000-8000-${String(counter).padStart(12, '0')}`;
+        };
+      })(),
+      now: () => 1_700_000_000_000,
+      state: 'granted',
+      mode: 'essential_only',
+      persistentStorage: memoryStorage(),
+      sessionStorage: memoryStorage(),
+      limits: { sessionIdleMs: 1_800_000 },
+    });
+    const provider = providerFor(() => session.current());
+    const first = provider();
+    expect(first.session_id).toMatch(UUID_RE);
+    expect(first.device_id).toMatch(UUID_RE);
+    expect(provider().session_id).toBe(first.session_id);
+    expect(provider().device_id).toBe(first.device_id);
   });
 });
 

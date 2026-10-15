@@ -104,7 +104,12 @@ export interface SessionState {
 export interface SessionTracker {
   /** 记一次活动；超过 30 分钟空闲时轮换 `session_id`。 */
   touch(nowMs: number): SessionState;
-  /** 只读当前状态（不刷新活动时间、不因空闲作废）。 */
+  /**
+   * 只读当前状态：**不刷新活动时间、不因空闲作废**（轮换只由 `touch` 推进）。
+   *
+   * 首次调用会**惰性物化**会话/设备标识（设备标识在已授权时顺带落盘），以保证批头字段稳定、
+   * `device_id_persistent` 与实际落盘同源；仍不写 `sessionStorage`、不推进活动时间。
+   */
   current(): SessionState;
   /** 同意状态变化：决定是否持久化设备标识；`denied` 时清除。 */
   onConsentChange(state: ConsentState, mode: ConsentMode): void;
