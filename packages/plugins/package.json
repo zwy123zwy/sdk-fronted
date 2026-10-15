@@ -1,6 +1,6 @@
 {
   "name": "@web-report-sdk/plugins",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "采集插件与第三方 APM 双写适配器（C05）",
   "private": true,
   "license": "UNLICENSED",

@@ -18,7 +18,7 @@
 - **真实浏览器 E2E 未验证（T29 未就绪）**：信标通道、真实 `visibilitychange`、真机 IndexedDB 落盘、Web Locks 选主等只在单测/注入替身下验证过。
 - **调试 URL 参数门禁（`?wr_debug=1`）尚未接线**（见第 7.2 节）；请用 `createAssembly`/`createClient` 的 `debug` 选项。
 - **远程配置的真实签名链路**（K02 发布物 + 真实公钥）未在浏览器验证；`createAssembly({ configEndpoint, configPublicKeys })` 的接线已完成，但真实签名的浏览器侧验证归 T29。
-- 包尚未发布：全部 `private: true`、`version: 0.0.0`，所以第 3 节的安装命令目前只能在**本地联调**形态下使用（`link:`）。
+- 包尚未发布：全部 `private: true`、`version: 0.1.0`，所以第 3 节的安装命令目前只能在**本地联调**形态下使用（`link:`）。
 
 ## 2. 环境与前置
 
@@ -277,7 +277,7 @@ pnpm examples:test      # <script>/IIFE、Vitest、Jest 三条导入路径
 ```ts
 import { SDK_VERSION, PUBLIC_METHODS } from '@web-report-sdk/browser';
 
-console.log(SDK_VERSION);           // 期望：'0.0.0'（未发布工作区版本）
+console.log(SDK_VERSION);           // 期望：'0.1.0'（未发布工作区版本）
 console.log(PUBLIC_METHODS);        // 期望：12 个公共方法名
 ```
 
@@ -381,7 +381,7 @@ const assembly = createAssembly({
   endpoint: `${M01}/v1/batch`,         // ← 契约路径：docs/contracts/ingest-protocol.md 第 1 节
   token: 'placeholder-write-token-0000', // M01 的固定占位令牌，见 tools/mock-receiver/README.md
   env: 'staging',
-  release: '0.0.0',
+  release: '0.1.0',
   consent: 'granted',                  // essential_only + unknown 下非必要事件不发送
   consentMode: 'full',
   target: null,                        // 在本脚本里没有原生事件目标

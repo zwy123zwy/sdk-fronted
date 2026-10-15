@@ -336,7 +336,7 @@ await receiver.stop();          // 释放端口；可重复调用
 | `pnpm --filter @web-report-sdk/core run build` | exit 0（`dist/index.js` 96.61 KB、`dist/index.d.ts` 48.94 KB） |
 | `pnpm --filter @web-report-sdk/browser run build` | exit 0（IIFE 20.59 KB、ESM 483 B） |
 | `pnpm examples:build` | exit 0（vite 构建成功） |
-| `pnpm examples:test` | exit 0（script-tag：`WebReportSDK.SDK_VERSION = 0.0.0`；node-import：Vitest 1 passed、Jest 1 passed） |
+| `pnpm examples:test` | exit 0（script-tag：`WebReportSDK.SDK_VERSION = 0.1.0`；node-import：Vitest 1 passed、Jest 1 passed） |
 | `pnpm --filter @web-report-sdk/event-registry run build` | exit 0 |
 | `node tools/event-registry/dist/cli.js check --registry examples/event-registry/events` | exit 0：`12 个事件定义文件，12 个事件`、`critical 配额：1/10（10.0%）`、兼容性未提供基线已跳过 |
 | `node tools/event-registry/dist/cli.js generate --registry examples/event-registry/events` | exit 0（写 stdout；**未**写入 `examples/`，以免改动不在可写范围内的文件） |

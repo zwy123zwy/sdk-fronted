@@ -55,7 +55,7 @@
 | K01 事件注册表与类型生成（T22） | 已验收（main `407f871`） | `docs/tasks/board.md` T22 行 |
 | K02 配置签名 CLI（T25） | 已合入 main `f18355c`，**评审中**；`K02-AC-03` 的浏览器侧验签**属部分实现** | 同上 T25 行；`tools/config-signer/README.md`「未完全覆盖的验收条目」 |
 | M01 本地 mock 接收服务（T09） | 已验收（main `e8e1486`）；**只用于测试，不得用于生产** | 同上 T09 行；`tools/mock-receiver/README.md` |
-| 包的可安装性 | 全部包 `version: 0.0.0`、`private: true`，**尚未发布到任何源**；接入方目前只能用本地 `link:` 联调 | 各 `packages/*/package.json`；指南第 3、4.1 节 |
+| 包的可安装性 | 全部包 `version: 0.1.0`、`private: true`，**尚未发布到任何源**；接入方目前只能用本地 `link:` 联调 | 各 `packages/*/package.json`；指南第 3、4.1 节 |
 
 ### 装配根交付后的体积预算重推（T18 交付物，**待负责人定案**）
 

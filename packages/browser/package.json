@@ -1,6 +1,6 @@
 {
   "name": "@web-report-sdk/browser",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "接入方安装的汇总入口包",
   "private": true,
   "license": "UNLICENSED",

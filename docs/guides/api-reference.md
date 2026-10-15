@@ -410,7 +410,7 @@ client.track('task_complete', { dimensions: { task_id: 't-1', channel: 'web' }, 
 
 | 常量 | 值 | 说明 |
 |---|---|---|
-| `SDK_VERSION` | `"0.0.0"` | 当前版本（未发布工作区版本；首个对外版本号由 T35 决定） |
+| `SDK_VERSION` | `"0.1.0"` | 当前版本（未发布工作区版本；首个对外版本号由 T35 决定） |
 | `COMMAND_QUEUE_CAPACITY` | `200` | 命令队列上限；溢出每次计数一次 `command_queue_overflow` |
 | `MAX_DIMENSION_VALUE_LENGTH` | `256` | 维度值长度上限 |
 | `RESERVED_EVENT_PREFIXES` | `["sdk_", "web_"]` | 事件名保留前缀 |
