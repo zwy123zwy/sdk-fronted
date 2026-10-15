@@ -60,7 +60,9 @@ const cases = [
     name: 'version:check 拦截包清单与 SDK_VERSION 漂移',
     replace: {
       file: 'packages/core/package.json',
-      from: '"version": "0.0.0"',
+      // 用正则而不是字面量：版本号每次发布都会变，字面量会让本用例**静默空转**
+      // （替换不命中 → 门禁照常通过 → 自检报"门禁没拦住"或更糟：改成恒绿的假通过）。
+      from: /"version": "\d+\.\d+\.\d+"/u,
       to: '"version": "9.9.9"',
     },
     gate: 'pnpm version:check',
@@ -78,7 +80,15 @@ for (const c of cases) {
   }
   if (c.replace) {
     replaced = readFileSync(join(root, c.replace.file), 'utf8');
-    writeFileSync(join(root, c.replace.file), replaced.replace(c.replace.from, c.replace.to));
+    const patched = replaced.replace(c.replace.from, c.replace.to);
+    // 空转守卫：替换没命中说明用例已经失效（典型原因是版本号变了）。**不得**继续跑门禁并
+    // 把它当成"通过"——那正是本仓库反复出现的"验证声称比结论弱"。
+    if (patched === replaced) {
+      console.log(`FAIL ${c.name}：违规样例没有命中（用例空转，需同步 c.replace.from）`);
+      ok = false;
+      continue;
+    }
+    writeFileSync(join(root, c.replace.file), patched);
   }
   const passed = run(c.gate);
   if (c.file && existsSync(join(root, c.file))) rmSync(join(root, c.file));

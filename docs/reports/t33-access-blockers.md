@@ -745,10 +745,10 @@ Tests  4 failed | 3 passed (7)
 | `init({ env })` / `init({ release })` | **(a) 生效**：init 覆盖构造值；未传保留构造值，都缺省仍是 `production` / `0.0.0` | 同上；批头 provider 改为读可变来源（映射类型去 `readonly`，不改公共类型） |
 | `init({ extra_mask_rules })` | **(a) 生效且只能追加**：追加到构造面规则集，不覆盖、不关闭内置 7 条；重建 masker 后由字段约束处理器与 `clampAndTrack` 共用 | 脱敏取保守方向（只能加掩码）；与契约「内置规则不可整体关闭」一致 |
 | `createClient({ endpoint })` / `init({ endpoint })` | **(b) 显式拒绝**：计 `invalid_args` + 发 `dropped:'field'` / `field:'endpoint'` 诊断（`ASSEMBLY_ONLY_FIELDS`）；`endpoint` 唯一生效入口是 `AssemblyOptions.endpoint` | core 没有网络，不可能消费；真正消费点是装配根凭据端口 → C07 发送器 |
-| `createClient({ token })` / `init({ token })` | **暂缓（待裁定）**：仍按「接受但不使用」处理 | `api/public-api.test.ts` 的 C01-AC-12 三条既有断言以「init 传 token」为样本锁死诊断记录序列/console 行数，纳入拒绝清单会红，而既有断言只加不改 |
+| `createClient({ token })` / `init({ token })` | **(b) 显式拒绝**（编排方 2026-10-15 裁决 A，与 `endpoint` 一致）：计 `invalid_args` + 发 `dropped:'field'` / `field:'token'` 诊断（**只带字段名，不带令牌值**）；唯一的生效入口是 `AssemblyOptions.token` | 同 `endpoint`；「token 绝不进入诊断/日志」的既有意图原样保留，只更新「token 会被拒绝」带来的计数与序列期望 |
 
 **判别性证明（三要素，2026-10-15 实跑）**：变异点均为 `packages/core/src/api/client.ts` 的读取点，
-用例为 `api/client-declared-options.test.ts`（13 条）与 `browser/src/assembly-init-options.test.ts`（2 条）：
+用例为 `api/client-declared-options.test.ts`（15 条）与 `browser/src/assembly-init-options.test.ts`（2 条）：
 
 | 变异 | 判别性断言（红） |
 |---|---|
@@ -757,15 +757,26 @@ Tests  4 failed | 3 passed (7)
 | 去掉 `init` 读 `release` | `expected '0.0.0' to be '9.9.9'` |
 | 去掉 `init` 追加 `extra_mask_rules` | `expected 'value=SECRETVALUE' to be 'value=***'`；二次施加用例 `expected 'x' to be 'xx'` |
 | 清空 `ASSEMBLY_ONLY_FIELDS` | `expected +0 to be 1`（invalid_args）；装配路径同断言 |
+| 把 `token` 移出拒绝清单 | `client-declared-options`：`expected +0 to be 2`；`public-api.test.ts`：`expected [ 'invalid_event_name', …(2) ] to deeply equal [ Array(5) ]`、`expected [ …(2) ] to have a length of 3 but got 2` |
+| 让诊断记录带上令牌值 | `expected '[{"reason_code":"invalid_args",…' not to contain 'placeholder-write-token-0002'` 与 `expected 'token=top-secret-token' to be 'token'` —— 证明「不泄漏」断言**仍可失败**（没有被改宽成空转） |
 
 恢复后 `sha256` 逐字一致；回归：`vitest --project unit packages/{core,browser,transport,plugins}` =
 124 files / 1082 tests 全绿；`tsc -p packages/core`、`tsc -p packages/browser`、`eslint packages/core/src packages/browser/src`、
 `node scripts/api-check.mjs`（4 包 ok，未动导出面）全部 exit 0。
 
+**被授权修改的既有断言（裁决 A；逐条说明"事实变了"而非"标准松了"）**——
+`api/public-api.test.ts` 的两条 C01-AC-12 用例（`token` 现在会被拒绝，故诊断流多出 `invalid_args`）：
+
+| 位置 | 改前期望 | 改后期望 | 为什么是事实变了 |
+|---|---|---|---|
+| `:492` 记录序列 | `['invalid_event_name','non_finite_metric','invalid_args']`，且 `records[0/1]` 指后两条 | `['invalid_args','invalid_args','invalid_event_name','non_finite_metric','invalid_args']`，`records[0/1]` 为两条 `field:'token'`、`records[2/3]` 为原来的两条 | 新增两条记录是**新事实**（`createClient({token})` 与 `init({token})` 各拒绝一次），不是把旧期望改宽 |
+| `:516` console 行数 | `toHaveLength(2)` | `toHaveLength(3)`，并**新钉** `lines[0]` 含 `invalid_args` / `field=token`，`lines[1/2]` 仍是原来的两条 | 多出的一行是 `init({token})` 的字段级拒绝告警 |
+| 两者共同的"不泄漏"断言 | `not.toContain('top-secret-token')` | **原样保留**（未放宽、未删除），并由上表最后一行变异证明仍可失败 | 意图（token 值不得进入诊断/日志）不变 |
+
 **顺带核查（⑥，只报告；`packages/plugins/src/**` 不在本 lane 可写范围）**——按接口归属包限定作用域
 静态核对 `ClientInitOptions`（15）/`ClientOptions`（19）/`AssemblyOptions`（25）的每个字段，另加探针实测：
 
-- `ClientInitOptions` 只剩 `endpoint` / `token` 在 core 无读取点 → 已按上表处置（`token` 待裁定）；
+- `ClientInitOptions` 只剩 `endpoint` / `token` 在 core 无读取点 → **两者均已按上表显式拒绝**（不再是静默忽略）；
 - `AssemblyOptions` 25 个字段**全部**有读取点；
 - **新增发现（C05 配置面，建议单独立项）**：
   1. `ErrorPluginOptions.reportRepeats`（`plugins/src/error/plugin.ts:41`）零读取点，探针 true/false 结果逐字相同；

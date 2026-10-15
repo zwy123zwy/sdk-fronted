@@ -10,7 +10,9 @@
  * - `init({ env | release })`：init 生效并覆盖构造值，两处都缺省时仍是 `production` / `0.0.0`；
  * - `init({ extra_mask_rules })`：**追加**到构造面的规则集（不覆盖、不关闭内置 7 条、不二次施加）；
  * - `createClient({ endpoint })` / `init({ endpoint })`：core 面无消费点 → **显式拒绝**
- *   （计 `invalid_args` + `dropped: 'field'` 诊断），不再静默忽略。
+ *   （计 `invalid_args` + `dropped: 'field'` 诊断），不再静默忽略；
+ * - `createClient({ token })` / `init({ token })`：同 `endpoint` 显式拒绝；诊断记录只带字段名
+ *   `token`，**绝不带令牌值**（C01-AC-12 的意图原样保留）。
  *
  * 测试数据全部是格式合法的伪造值（非真实个人信息）。
  */
@@ -200,6 +202,30 @@ describe('`endpoint` 属装配根：core 面显式拒绝，不静默忽略', () 
     client.init({ appId: 'app-a' });
 
     expect(client.kernel.counters.get('invalid_args')).toBe(0);
+    client.destroy();
+  });
+});
+
+describe('`token` 属装配根：core 面显式拒绝，且绝不泄漏令牌值', () => {
+  it('createClient({ token }) 与 init({ token }) 各计一次 invalid_args、各留一条 field=token 诊断', () => {
+    const records: DiagnosticsRecord[] = [];
+    const client = open({ token: 'placeholder-write-token-0002', debug: (record) => records.push(record) });
+    client.init({ appId: 'app-a', token: 'placeholder-write-token-0002' });
+
+    expect(client.kernel.counters.get('invalid_args')).toBe(2);
+    expect(records.map((record) => record.field)).toEqual(['token', 'token']);
+    expect(records.map((record) => record.kind)).toEqual(['init', 'init']);
+    expect(records.map((record) => record.dropped)).toEqual(['field', 'field']);
+    client.destroy();
+  });
+
+  it('诊断记录只带字段名、不带令牌值（C01-AC-12 的意图不变）', () => {
+    const records: DiagnosticsRecord[] = [];
+    const client = open({ token: 'placeholder-write-token-0002', debug: (record) => records.push(record) });
+    client.init({ appId: 'app-a', token: 'placeholder-write-token-0002' });
+
+    expect(records).toHaveLength(2);
+    expect(JSON.stringify(records)).not.toContain('placeholder-write-token-0002');
     client.destroy();
   });
 });

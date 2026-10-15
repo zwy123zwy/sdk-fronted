@@ -489,16 +489,28 @@ describe('C01 参数校验与调试输出', () => {
     };
     looseTrack('task_complete', { dimensions: 'nope' });
 
+    // 2026-10-15（编排方裁决 A）：`token` 属装配根字段（消费点是 `AssemblyOptions.token`），
+    // 在 core 的构造/init 面改为**显式拒绝** —— 计 `invalid_args` 并发
+    // `dropped: 'field'` / `field: 'token'` 诊断，不再静默忽略。因此序列多了两条前导
+    // `invalid_args`（createClient 一次、init 一次）。**「token 值绝不出现」的意图与断言原样保留**
+    // （见本用例最后一行）：诊断记录只带字段名 `token`，不带值。
     expect(records.map((record) => record.reason_code)).toEqual([
+      'invalid_args',
+      'invalid_args',
       'invalid_event_name',
       'non_finite_metric',
       'invalid_args',
     ]);
-    expect(records[0]?.event_name).toBe('sdk_health');
-    expect(records[0]?.kind).toBe('track');
-    expect(records[0]?.dropped).toBe('event');
-    expect(records[1]?.dropped).toBe('field');
-    expect(records[1]?.field).toBe('metrics.duration_ms');
+    expect(records[0]?.kind).toBe('init');
+    expect(records[0]?.dropped).toBe('field');
+    expect(records[0]?.field).toBe('token');
+    expect(records[1]?.kind).toBe('init');
+    expect(records[1]?.field).toBe('token');
+    expect(records[2]?.event_name).toBe('sdk_health');
+    expect(records[2]?.kind).toBe('track');
+    expect(records[2]?.dropped).toBe('event');
+    expect(records[3]?.dropped).toBe('field');
+    expect(records[3]?.field).toBe('metrics.duration_ms');
     expect(JSON.stringify(records)).not.toContain('top-secret-token');
     client.destroy();
   });
@@ -513,11 +525,15 @@ describe('C01 参数校验与调试输出', () => {
       client.track('task_complete', { metrics: { duration_ms: Number.NaN } });
 
       const lines: string[] = warn.mock.calls.map((call) => JSON.stringify(call));
-      expect(lines).toHaveLength(2);
-      expect(lines[0]).toContain('invalid_event_name');
-      expect(lines[0]).toContain('sdk_health');
-      expect(lines[1]).toContain('non_finite_metric');
-      expect(lines[1]).toContain('metrics.duration_ms');
+      // 同上裁决：`init({ token })` 现在先产生一条字段级拒绝告警（`field=token`），因此行数为 3。
+      // 逐行精确对应，不改宽为"包含任意原因码"；token 值仍不得出现（最后一行）。
+      expect(lines).toHaveLength(3);
+      expect(lines[0]).toContain('invalid_args');
+      expect(lines[0]).toContain('field=token');
+      expect(lines[1]).toContain('invalid_event_name');
+      expect(lines[1]).toContain('sdk_health');
+      expect(lines[2]).toContain('non_finite_metric');
+      expect(lines[2]).toContain('metrics.duration_ms');
       expect(lines.join('\n')).not.toContain('top-secret-token');
       client.destroy();
     } finally {
