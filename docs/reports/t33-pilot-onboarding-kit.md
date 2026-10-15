@@ -1,7 +1,7 @@
 # T33 试点接入方清单 / 模板（「给出应用名就能立刻跑」）
 
 - 产出任务：T33（试点）中不依赖 Q2 的部分
-- 日期：2026-10-16
+- 日期：2026-10-15
 - 读者：**试点接入方的前端对接人**（照做即可，不必再来问本项目）、项目负责人（Q2 交接）
 - 配套可执行脚本：`tests/pilot/00-connectivity.mjs`、`10-three-leg-reconcile.mjs`、`20-receiver-selfcheck.mjs`
 - 配套事实清单：`docs/reports/t33-readiness.md`（验收项盘点）、`docs/reports/t33-access-blockers.md`（阻塞点）

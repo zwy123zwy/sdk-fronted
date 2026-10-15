@@ -390,7 +390,7 @@ console.log('恒等式:', counters.received_events - counters.stored_events === 
 assembly.destroy();
 ```
 
-**当前状态：以上步骤可执行**（本仓库实测 2026-10-16：`received_batches=1, received_events=1,
+**当前状态：以上步骤可执行**（本仓库实测 2026-10-15：`received_batches=1, received_events=1,
 stored_events=1, rejected_invalid_structure=0`，恒等式成立，脚本 exit 0）。`createAssembly({…})` 后调用
 `assembly.init()`，事件经 C04 管线 → C06 队列 → C07 发送器发到 `endpoint`。仓库里注入传输替身的端到端
 用例见 `packages/browser/src/assembly.test.ts`（不需要真实网络）。

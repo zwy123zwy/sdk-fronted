@@ -1,5 +1,5 @@
 /**
- * C07-AC-03（离开通道切片路径）真实浏览器验证 —— T29 之后补的**未验证**验收项。
+ * C07-AC-03（离开通道切片路径）真实浏览器验证。
  *
  * 验收口径（`tests/acceptance/C07.md` 第 9 行，原文，不得改写）：
  *   | C07-AC-03 | C07-F1 | 页面离开时冲刷 80 KB 数据 |
@@ -9,15 +9,21 @@
  * 在 Chromium 与 WebKit 上都返回 `false`，所以 AC-03 只能按**切片路径**验证，而 T29 只测了
  * 5 个事件的 1112 B 单请求（`leave.requests=1`）——切片路径此前**没有被测过**。
  *
- * 复用 T29 的 harness（`lib/browsers.mjs` / `lib/static-server.mjs` / `lib/harness.mjs`），
- * 只在 `tests/e2e/**` 内新增文件；不改既有断言、不改各包的 `src`。
+ * 本文件既是 fail-first 证据（修复前默认配置只发出 1 片 34575 B / 46 事件，前 66 条被整片丢弃），
+ * 也是修复后的回归判据：**默认配置**下 ≥2 片、每片 ≤60 KB、**逐请求核对**片数/事件原文/字节合计，
+ * 全量送达（无丢失、保序、无重复、`Content-Type: text/plain`、令牌在 `auth`、无 `retry_network`）。
+ * 两引擎都跑：Chromium 与 WebKit 的累计在途额度实测都是 64 KiB（`tests/e2e/beacon-quota.spec.mjs`）。
  *
- * 四个用例：
+ * 复用 T29 的 harness（`lib/browsers.mjs` / `lib/static-server.mjs` / `lib/harness.mjs`），
+ * 只在 `tests/e2e/**` 内改动；不改各包 `src`、不改验收原文。
+ *
+ * 五个用例：
  *   1. 对照组：单次 80 KB `sendBeacon` 返回 `false`（复现 T29）、单次 32 KB 被接受；
- *   2. AC-03 原文判定：**默认配置**下页面离开冲刷 80 KB —— 实测口径见报告，本用例按原文断言；
+ *   2. AC-03 原文判定：**默认配置**下页面离开冲刷 80 KB —— 全量送达 + 逐请求字节核对；
  *   3. 切片机制隔离：把既有公开选项 `leaveBudget` 放宽（不动实现），验证 ≥2 片、每片 ≤60 KB、
  *      顺序/无重复/无丢失、令牌在 `auth`；
- *   4. 变异自检：把切片阈值调大的**变异体**必须被同一判据判为不合格（证明用例有判别力）。
+ *   4. 根因对照：连续多次真实 `sendBeacon` 的浏览器累计额度（与实现无关）；
+ *   5. 变异自检：把切片阈值调大的**变异体**必须被同一判据判为不合格（证明用例有判别力）。
  */
 import fs from 'node:fs';
 import http from 'node:http';
@@ -41,11 +47,18 @@ const PAYLOAD = { count: 112, padBytes: 520, numericFields: 8 };
 /** 放宽后的离开预算：只改「预算」这一个变量，切片逻辑不动（不是改实现）。 */
 const WIDE_BUDGET = { maxBytes: 4 * 1024 * 1024, maxEvents: 20_000, maxBatches: 64, maxMs: 5_000 };
 
-/** 变异体：只把 `BEACON_MAX_BYTES` 调大 → `sliceForBeacon` 只产出一片（等价于关掉切片）。 */
+/**
+ * 变异体：只把**切片阈值**调大 → `sliceForBeacon` 只产出一片（等价于关掉切片）。
+ * 产物里的常量名随实现演进，故按候选顺序匹配**当前产物里真实存在的那一个**；
+ * 候选全不命中就报错（不静默退化成"没有变异"）。
+ */
 const MUTANT_GENERATED = path.join(HERE, 'probes', 'mutant-transport.js');
 const MUTANT_SOURCE = path.join(REPO_ROOT, 'packages', 'transport', 'dist', 'index.js');
-const MUTATION_FROM = 'var BEACON_MAX_BYTES = 60 * 1024;';
-const MUTATION_TO = 'var BEACON_MAX_BYTES = 10 * 1024 * 1024;';
+const MUTATIONS = [
+  ['var BEACON_SLICE_BYTES = 32 * 1024;', 'var BEACON_SLICE_BYTES = 10 * 1024 * 1024;'],
+  ['var BEACON_MAX_BYTES = 60 * 1024;', 'var BEACON_MAX_BYTES = 10 * 1024 * 1024;'],
+];
+let MUTATION = null;
 
 const REAL_TRANSPORT = '/transport/index.js';
 const MUTANT_TRANSPORT = '/probes/mutant-transport.js';
@@ -58,8 +71,9 @@ const VARIANT = process.env['AC03_TRANSPORT_VARIANT'] ?? 'real';
 
 test.setTimeout(5 * 60_000);
 
-// AC-03 的浏览器行为项本次只在 Chromium 上验证（任务范围；Firefox 在本机沙箱内起不来）。
-test.skip(({ browserName }) => browserName !== 'chromium', 'C07-AC-03 切片路径本次只验 Chromium');
+// 两引擎都跑：Chromium 与 WebKit 的累计在途额度实测都是 64 KiB（见 beacon-quota 用例）。
+// Firefox 在本机沙箱内起不来（T29 已记录），不在本项目范围内。
+test.skip(({ browserName }) => browserName !== 'chromium' && browserName !== 'webkit', '本机只支持 Chromium / WebKit');
 
 let server = null;
 let receiver = null;
@@ -107,12 +121,15 @@ async function startAc03Receiver() {
 test.beforeAll(async () => {
   // 变异体：从真实产物**复制 + 一处替换**（改完不碰 src；每次运行重新生成，不会过期）。
   const source = fs.readFileSync(MUTANT_SOURCE, 'utf8');
-  if (!source.includes(MUTATION_FROM)) {
+  const found = MUTATIONS.find(([from]) => source.includes(from));
+  if (found === undefined) {
     throw new Error(
-      `变异体生成失败：真实产物里找不到 ${JSON.stringify(MUTATION_FROM)}（产物已变？先跑 pnpm --filter @web-report-sdk/transport run build）`,
+      `变异体生成失败：真实产物里找不到任何候选切片常量（${MUTATIONS.map(([from]) => from).join(' / ')}）；` +
+        '产物已变？先跑 pnpm --filter @web-report-sdk/transport run build',
     );
   }
-  fs.writeFileSync(MUTANT_GENERATED, source.replace(MUTATION_FROM, MUTATION_TO));
+  MUTATION = { from: found[0], to: found[1] };
+  fs.writeFileSync(MUTANT_GENERATED, source.replace(MUTATION.from, MUTATION.to));
 
   server = await startStaticServer({
     repoRoot: REPO_ROOT,
@@ -130,9 +147,9 @@ test.afterAll(async () => {
 });
 
 const profiles = [];
-async function withContext(fn) {
-  const info = await resolveBrowser('chromium');
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ac03-slice-'));
+async function withContext(browserName, fn) {
+  const info = await resolveBrowser(browserName);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `ac03-slice-${browserName}-`));
   profiles.push({ info, dir });
   const context = await launchPersistent(info, dir);
   try {
@@ -189,7 +206,8 @@ async function measureLeave(page, options = {}) {
   await settleAc03();
   const slices = receiver.requests.slice(before).map((request) => {
     const body = JSON.parse(request.raw);
-    const ids = (body.events ?? []).map((event) => event.event_id);
+    const events = body.events ?? [];
+    const ids = events.map((event) => event.event_id);
     const firstIndex = ids.length > 0 ? Number(ids[0].split('-')[1]) : Number.POSITIVE_INFINITY;
     return {
       bytes: request.bytes,
@@ -199,6 +217,8 @@ async function measureLeave(page, options = {}) {
       authWriteToken: body.auth?.write_token ?? null,
       batchId: body.batch_id ?? null,
       ids,
+      // 逐条事件的**原文**：用来独立核对「总字节与原始一致」（不依赖 event_id 计数）。
+      eventTexts: events.map((event) => JSON.stringify(event)),
       firstIndex,
       eventBytes: ids.length,
     };
@@ -252,8 +272,19 @@ function describeSlices(slices) {
     .join('；');
 }
 
-test('C07-AC-03 对照：单次 80 KB 信标返回 false（复现 T29），单次 32 KB 被接受', async () => {
-  const result = await withContext(async (context) => {
+/**
+ * 用**逐条事件原文**按片序重组原始事件数组文本（AC-03「总字节与原始一致」的独立核对）：
+ * 事件顺序与原文都由接收端原始正文决定，与 `event_id` 计数无关。
+ */
+function rebuiltEventsJson(slices) {
+  const texts = [...slices]
+    .sort((left, right) => left.firstIndex - right.firstIndex)
+    .flatMap((slice) => slice.eventTexts);
+  return `[${texts.join(',')}]`;
+}
+
+test('C07-AC-03 对照：单次 80 KB 信标返回 false（复现 T29），单次 32 KB 被接受', async ({ browserName }) => {
+  const result = await withContext(browserName, async (context) => {
     const page = await openProbe(context, 'real');
     const config = await page.evaluate(() => globalThis.window.__ac03.config());
     const large = await page.evaluate(
@@ -282,20 +313,22 @@ test('C07-AC-03 对照：单次 80 KB 信标返回 false（复现 T29），单�
   });
 });
 
-test('C07-AC-03 默认配置：页面离开冲刷 80 KB（验收项原文判定）', async () => {
-  const { measured, slices } = await withContext(async (context) => {
+test('C07-AC-03 默认配置：页面离开冲刷 80 KB 全量送达（验收项原文判定）', async ({ browserName }) => {
+  const { measured, slices } = await withContext(browserName, async (context) => {
     const page = await openProbe(context, 'real');
     return await measureLeave(page, {});
   });
 
   const problems = ac03Violations(measured, slices);
+  const receivedBytes = slices.reduce((sum, item) => sum + item.bytes, 0);
+  const rebuilt = rebuiltEventsJson(slices);
   test.info().annotations.push({
     type: 'measurement',
     description:
-      `默认预算：原始批次 ${measured.eventCount} 事件 / 序列化 ${measured.wholeBatchJsonBytes} B` +
+      `浏览器=${browserName} 默认预算：原始批次 ${measured.eventCount} 事件 / 序列化 ${measured.wholeBatchJsonBytes} B` +
       `（估算 ${measured.eventsEstimateBytes} B，单事件估算 ${measured.oneEventEstimateBytes} B ≥ 实际 ${measured.oneEventActualBytes} B）；` +
       `接收端 ${slices.length} 片：${describeSlices(slices)}；` +
-      `接收字节合计 ${slices.reduce((sum, item) => sum + item.bytes, 0)} B；` +
+      `接收字节合计 ${receivedBytes} B（事件原文合计 ${rebuilt.length} B，原始事件数组 ${measured.eventsJson.length} B）；` +
       `SDK 侧 leave.stats=${JSON.stringify(measured.leave)}（sent/skipped 为**事件数**）counters=${JSON.stringify(measured.counters)}；` +
       `AC-03 不合格项：${problems.length === 0 ? '无' : problems.join(' / ')}`,
   });
@@ -311,19 +344,22 @@ test('C07-AC-03 默认配置：页面离开冲刷 80 KB（验收项原文判定�
     '实现口径：单事件估算字节必须 ≥ 实际序列化字节',
   ).toBeGreaterThanOrEqual(measured.oneEventActualBytes);
 
-  // 按 AC-03 原文判定（全部以软断言列出，便于一次看清所有不合格项）。
-  // 本用例在 T29 之后首次执行；若为红，说明该验收项**不满足**（见报告追加节），不是用例写错。
+  // 按 AC-03 原文逐请求判定（全部以软断言列出，便于一次看清所有不合格项）。
+  // 本用例在修复前是红：默认配置只发出 1 片、前 66 条被预算整片丢弃（见报告追加节）。
   expect.soft(slices.length, 'AC-03：必须拆成至少两个信标请求').toBeGreaterThanOrEqual(2);
   for (const [index, slice] of slices.entries()) {
     expect.soft(slice.bytes, `AC-03：第 ${index + 1} 片不得超过 60 KB`).toBeLessThanOrEqual(BEACON_BODY_LIMIT);
     expect.soft(slice.contentType, `AC-03：第 ${index + 1} 片必须是 text/plain`).toContain('text/plain');
     expect.soft(slice.authWriteToken, `AC-03：第 ${index + 1} 片令牌必须在 auth 字段`).toBe('tok-ac03');
   }
+  // 「总字节与原始一致」：逐条事件原文按片序重组后必须与原始事件数组**逐字节相等**。
+  expect.soft(rebuilt.length, 'AC-03：重组事件字节必须与原始一致（总字节）').toBe(measured.eventsJson.length);
+  expect.soft(rebuilt, 'AC-03：重组事件原文必须与原始完全一致（无丢失/保序/无重复）').toBe(measured.eventsJson);
   expect.soft(problems, 'AC-03 原文判定：不得有不合格项').toEqual([]);
 });
 
-test('C07-AC-03 SDK 侧切片形状：放宽离开预算后 `leave.requests` ≥ 2、无跳过（机制本身）', async () => {
-  const { measured, slices } = await withContext(async (context) => {
+test('C07-AC-03 SDK 侧切片形状：放宽离开预算后 `leave.requests` ≥ 2、无跳过（机制本身）', async ({ browserName }) => {
+  const { measured, slices } = await withContext(browserName, async (context) => {
     const page = await openProbe(context, VARIANT === 'mutant' ? 'mutant' : 'real');
     return await measureLeave(page, { budget: WIDE_BUDGET });
   });
@@ -348,17 +384,18 @@ test('C07-AC-03 SDK 侧切片形状：放宽离开预算后 `leave.requests` ≥
   expect(measured.leave.sent, 'SDK 侧计数必须覆盖全部事件').toBe(measured.eventCount);
 });
 
-test('C07-AC-03 接收端送达：放宽预算后每片 ≤60 KB、顺序/无重复/无丢失（AC-03 原文判定）', async () => {
-  const { measured, slices } = await withContext(async (context) => {
+test('C07-AC-03 接收端送达：放宽预算后每片 ≤60 KB、顺序/无重复/无丢失（AC-03 原文判定）', async ({ browserName }) => {
+  const { measured, slices } = await withContext(browserName, async (context) => {
     const page = await openProbe(context, VARIANT === 'mutant' ? 'mutant' : 'real');
     return await measureLeave(page, { budget: WIDE_BUDGET });
   });
 
   const problems = ac03Violations(measured, slices);
+  const rebuilt = rebuiltEventsJson(slices);
   test.info().annotations.push({
     type: 'measurement',
     description:
-      `预算放宽 + 变体 ${VARIANT}：接收端 ${slices.length} 片（${describeSlices(slices)}）；` +
+      `浏览器=${browserName} 预算放宽 + 变体 ${VARIANT}：接收端 ${slices.length} 片（${describeSlices(slices)}）；` +
       `接收字节合计 ${slices.reduce((sum, item) => sum + item.bytes, 0)} B / 原始事件序列 ${measured.eventCount} 条；` +
       `SDK 侧 leave.stats=${JSON.stringify(measured.leave)} counters=${JSON.stringify(measured.counters)}；` +
       `AC-03 不合格项：${problems.length === 0 ? '无' : problems.join(' / ')}`,
@@ -367,6 +404,8 @@ test('C07-AC-03 接收端送达：放宽预算后每片 ≤60 KB、顺序/无重
   // AC-03 原文：≥2 片、每片 ≤60 KB、text/plain、令牌在 auth，且顺序/无重复/无丢失。
   expect(slices.length, `AC-03：接收端必须收到至少两个信标请求（实测 ${describeSlices(slices)}）`).toBeGreaterThanOrEqual(2);
   expect(problems, `AC-03 切片路径不合格项（实测 ${describeSlices(slices)}）`).toEqual([]);
+  // 「总字节与原始一致」：逐条事件原文按片序重组后逐字节相等（独立于 event_id 计数）。
+  expect(rebuilt, '重组事件原文必须与原始完全一致').toBe(measured.eventsJson);
 
   // AC-03 的「总字节与原始一致」：分片各自带 envelope/auth，故按**事件字节合计**核对。
   const receivedEventBytes = slices.reduce(
@@ -378,14 +417,14 @@ test('C07-AC-03 接收端送达：放宽预算后每片 ≤60 KB、顺序/无重
   );
 });
 
-test('C07-AC-03 根因对照：连续多次真实 sendBeacon 的浏览器额度（与实现无关）', async () => {
+test('C07-AC-03 根因对照：连续多次真实 sendBeacon 的浏览器额度（与实现无关）', async ({ browserName }) => {
   const SEQUENCES = [
     [60 * 1024],
     [40 * 1024, 40 * 1024],
     [30 * 1024, 30 * 1024],
     [49 * 1024, 34 * 1024],
   ];
-  const result = await withContext(async (context) => {
+  const result = await withContext(browserName, async (context) => {
     const page = await openProbe(context, 'real');
     const observations = [];
     for (const sizes of SEQUENCES) {
@@ -422,8 +461,8 @@ test('C07-AC-03 根因对照：连续多次真实 sendBeacon 的浏览器额度�
   }
 });
 
-test('C07-AC-03 变异自检：把切片阈值调大的变异体必须被同一判据判为不合格', async () => {
-  const { measured, slices } = await withContext(async (context) => {
+test('C07-AC-03 变异自检：把切片阈值调大的变异体必须被同一判据判为不合格', async ({ browserName }) => {
+  const { measured, slices } = await withContext(browserName, async (context) => {
     const page = await openProbe(context, 'mutant');
     return await measureLeave(page, { budget: WIDE_BUDGET });
   });
@@ -432,7 +471,7 @@ test('C07-AC-03 变异自检：把切片阈值调大的变异体必须被同一�
   test.info().annotations.push({
     type: 'measurement',
     description:
-      `变异体（${MUTATION_FROM} → ${MUTATION_TO}）实测：接收端 ${slices.length} 片` +
+      `变异体（${MUTATION?.from ?? '?'} → ${MUTATION?.to ?? '?'}）实测：接收端 ${slices.length} 片` +
       `（${describeSlices(slices)}）；counters=${JSON.stringify(measured.counters)}；` +
       `判据给出的不合格项：${problems.length === 0 ? '无（判别力失效！）' : problems.join(' / ')}`,
   });

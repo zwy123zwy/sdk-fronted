@@ -157,6 +157,8 @@ globalThis.window.__ac03 = {
         resolve({
           expectedIds: events.map((event) => event.event_id),
           eventCount: events.length,
+          /** 原始事件数组的**原文**（判定「总字节与原始一致」用）。 */
+          eventsJson: JSON.stringify(events),
           oneEventActualBytes: JSON.stringify(events[0]).length,
           oneEventEstimateBytes: T.estimateEventBytes(events[0]),
           eventsActualBytes: events.reduce((sum, event) => sum + JSON.stringify(event).length + 1, 0),
