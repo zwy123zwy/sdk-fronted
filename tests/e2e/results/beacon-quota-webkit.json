@@ -1,6 +1,6 @@
 {
   "browser": "webkit",
-  "at": "2026-10-14T16:08:55.808Z",
+  "at": "2026-10-15T02:12:50.966Z",
   "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Safari/605.1.15",
   "rows": [
     {
@@ -20,7 +20,7 @@
       "arrivedBytes": [
         65536
       ],
-      "elapsedMs": 4
+      "elapsedMs": 6
     },
     {
       "label": "single-60K",
@@ -39,7 +39,7 @@
       "arrivedBytes": [
         61440
       ],
-      "elapsedMs": 2
+      "elapsedMs": 1
     },
     {
       "label": "single-56K",
@@ -96,7 +96,7 @@
       "arrivedBytes": [
         40960
       ],
-      "elapsedMs": 2
+      "elapsedMs": 0
     },
     {
       "label": "single-32K",
@@ -115,7 +115,7 @@
       "arrivedBytes": [
         32768
       ],
-      "elapsedMs": 2
+      "elapsedMs": 6
     },
     {
       "label": "single-24K",
@@ -134,7 +134,7 @@
       "arrivedBytes": [
         24576
       ],
-      "elapsedMs": 1
+      "elapsedMs": 6
     },
     {
       "label": "single-16K",
@@ -153,7 +153,7 @@
       "arrivedBytes": [
         16384
       ],
-      "elapsedMs": 2
+      "elapsedMs": 1
     },
     {
       "label": "sync-40x40",
@@ -176,7 +176,7 @@
       "arrivedBytes": [
         40960
       ],
-      "elapsedMs": 2
+      "elapsedMs": 25
     },
     {
       "label": "sync-32x32",
@@ -200,7 +200,7 @@
         32768,
         32768
       ],
-      "elapsedMs": 4
+      "elapsedMs": 2
     },
     {
       "label": "sync-32x32x32",
@@ -228,7 +228,7 @@
         32768,
         32768
       ],
-      "elapsedMs": 4
+      "elapsedMs": 1
     },
     {
       "label": "sync-28x28x28",
@@ -256,7 +256,7 @@
         28672,
         28672
       ],
-      "elapsedMs": 4
+      "elapsedMs": 2
     },
     {
       "label": "sync-24x24x24x24",
@@ -288,7 +288,7 @@
         24576,
         24576
       ],
-      "elapsedMs": 5
+      "elapsedMs": 3
     },
     {
       "label": "sync-21x21x21x21",
@@ -321,7 +321,7 @@
         21504,
         21504
       ],
-      "elapsedMs": 5
+      "elapsedMs": 2
     },
     {
       "label": "sync-16x16x16x16",
@@ -355,7 +355,7 @@
         16384,
         16384
       ],
-      "elapsedMs": 6
+      "elapsedMs": 2
     },
     {
       "label": "sync-12x12x12x12",
@@ -389,7 +389,7 @@
         12288,
         12288
       ],
-      "elapsedMs": 6
+      "elapsedMs": 14
     },
     {
       "label": "raf-40x40",
@@ -407,13 +407,12 @@
       ],
       "accepted": [
         true,
-        true
+        false
       ],
       "arrivedBytes": [
-        40960,
         40960
       ],
-      "elapsedMs": 32
+      "elapsedMs": 24
     },
     {
       "label": "raf-32x32",
@@ -437,7 +436,7 @@
         32768,
         32768
       ],
-      "elapsedMs": 17
+      "elapsedMs": 19
     },
     {
       "label": "raf-28x28x28",
@@ -466,7 +465,7 @@
         28672,
         28672
       ],
-      "elapsedMs": 31
+      "elapsedMs": 40
     },
     {
       "label": "raf-21x21x21x21",
@@ -500,7 +499,7 @@
         21504,
         21504
       ],
-      "elapsedMs": 53
+      "elapsedMs": 51
     },
     {
       "label": "delay0-21x4",
@@ -534,7 +533,7 @@
         21504,
         21504
       ],
-      "elapsedMs": 64
+      "elapsedMs": 69
     },
     {
       "label": "delay10-21x4",
@@ -568,7 +567,7 @@
         21504,
         21504
       ],
-      "elapsedMs": 45
+      "elapsedMs": 41
     },
     {
       "label": "delay25-21x4",
@@ -602,7 +601,7 @@
         21504,
         21504
       ],
-      "elapsedMs": 104
+      "elapsedMs": 102
     },
     {
       "label": "delay50-21x4",
@@ -636,7 +635,7 @@
         21504,
         21504
       ],
-      "elapsedMs": 204
+      "elapsedMs": 202
     },
     {
       "label": "cap4-32x4",
@@ -668,7 +667,7 @@
         32768,
         32768
       ],
-      "elapsedMs": 3
+      "elapsedMs": 1
     },
     {
       "label": "cap4-24x4",
@@ -700,7 +699,7 @@
         24576,
         24576
       ],
-      "elapsedMs": 5
+      "elapsedMs": 2
     },
     {
       "label": "cap4-21x4",
@@ -733,7 +732,7 @@
         21504,
         21504
       ],
-      "elapsedMs": 6
+      "elapsedMs": 2
     },
     {
       "label": "cap4-16x4",
@@ -767,7 +766,7 @@
         16384,
         16384
       ],
-      "elapsedMs": 5
+      "elapsedMs": 2
     },
     {
       "label": "cap4-12x4",
@@ -801,7 +800,7 @@
         12288,
         12288
       ],
-      "elapsedMs": 7
+      "elapsedMs": 1
     }
   ]
 }

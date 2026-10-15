@@ -94,6 +94,7 @@ import {
   createLatencyDecorators,
   createLatencyWindow,
   createOfflineExposureSource,
+  createObservableMetricsSource,
   createQueueMetricsSource,
   createRegistryTimer,
   createSessionSampler,
@@ -560,6 +561,13 @@ export function createAssembly(options: AssemblyOptions): Assembly {
     ),
     latency: latencyWindow,
     exposure: createOfflineExposureSource(delivery.offline),
+    // CR-008 的两个**观测量**（不是原因码）：累计读数经窗口差分后进 `sdk_health.metrics`。
+    // 读数都从交付层快照取——`leaderLost` 由 `delivery.metrics().leader` 暴露的累计次数提供，
+    // 离开预算停手次数复用同一快照的 `leave`（`LeaveStats.budgetStops`）。
+    observables: createObservableMetricsSource({
+      leave: { stats: () => delivery.metrics().leave },
+      leader: { leaderLost: () => delivery.metrics().leader.leaderLost },
+    }),
     timer: createRegistryTimer(kernel.registry),
     now,
   });

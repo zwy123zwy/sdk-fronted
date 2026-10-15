@@ -547,3 +547,26 @@ TypeError: Cannot read properties of undefined (reading 'snapshot')
 因此 **①「优雅路径按因归类」在口径与发出点上已经完整**：四类①事件各自有观测量或既有原因码承载。
 **但缺口 1 不变**：优雅路径（页面离开 / 断网 1–30 min / 2–5 标签页 / 优雅关闭）仍**没有任何可对账的实测数据**，
 本仓库依然给不出 critical ≤0.1% / normal ≤1% 的证据——缺的是测量 harness 与样本，不是口径。
+
+### 9.4 补记（第 2 步已接线）：两个观测量真的走生产装配路径发出
+
+§9.3 里两个观测量虽然有了**发出点**（`LeaveStats.budgetStops` / `LeaderElection.leaderLost()`），
+但**没有任何生产调用者**：`createObservableMetricsSource` 只在测试里被调用，
+`assembly.ts` 的 `createHealthReporter` 没有传 `observables`，`delivery.metrics().leader`
+也拿不到失去 leader 的次数。因此 `flush_skipped_due_to_budget` / `leader_lost`
+**在生产里永远不会出现在 `sdk_health.metrics`**。本次（CR-008 第 2 步）把这条接线补上：
+
+| 文件 | 变更 | 验证 |
+|---|---|---|
+| `packages/transport/src/sender/delivery.ts` | `DeliveryMetrics.leader` 追加 `leaderLost: number`（累计，取自 `LeaderElection.leaderLost()`）；快照仍是纯数据 | 公共 API 报告只多这一行 |
+| `packages/browser/src/assembly.ts` | `createHealthReporter` 传入 `observables: createObservableMetricsSource({ leave, leader })`；两个读数都从交付层快照取 | 新用例（见下） |
+| `packages/browser/src/assembly-cr008-observables.test.ts` | **新增**：只经 `createAssembly()`，不手工注入 `observables` | 2 用例 |
+| `eslint.config.js` | ignores 只追加 `tests/e2e/probes/mutant-transport.js`（`leave-slice.spec.mjs` 从 dist 现场生成的变异体） | lint |
+
+新用例的触发条件与断言位置都是**生产路径**：用真实 `pagehide`（走 C06 `page_leave` 通道 →
+C07 离开发送器预算用尽）与真实 `delivery.replay()`（选主从 leader 变为非 leader）触发，
+断言两个键出现在上报器产出的 `sdk_health.metrics`，并最终出现在注入传输替身**真正收到的批次正文**里。
+变异验证：删掉 `assembly.ts` 的 `observables` 接线 → 2/2 红；只删 `leader` 一腿 → 只见该用例红；
+恢复后 2/2 绿。回归：`packages/{transport,browser,core}` 单元 920 用例全绿；
+两个观测量与暴露窗口的其他口径（`prewrite_commit_lost` 计数、`oncomplete` durability、选主策略）未动。
+**缺口 1 仍然不变**：这补的是接线，不是测量 harness，① 的丢失率依然无数据。

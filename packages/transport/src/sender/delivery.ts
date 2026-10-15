@@ -118,8 +118,8 @@ export interface DeliveryMetrics {
   readonly leave: LeaveStats;
   /** 重试观测量：`attempts` 是**发送尝试次数**（含重试），`ratio = 重试次数 / 尝试次数`。无对应契约指标。 */
   readonly retry: { readonly attempts: number; readonly ratio: number };
-  /** 选主观测量（模式与是否当选）。无对应契约指标。 */
-  readonly leader: { readonly mode: LeaderMode; readonly leader: boolean };
+  /** 选主观测量（模式与是否当选）。CR-008：`leaderLost` 是**累计**的"从 leader 变为非 leader"次数（首轮未当选不计）。 */
+  readonly leader: { readonly mode: LeaderMode; readonly leader: boolean; readonly leaderLost: number };
   /** 熔断器当前状态；契约里的 `state` 维度是**生命周期状态**，与它无关。 */
   readonly circuitOpen: boolean;
   /** 是否因 401/403 暂停。 */
@@ -371,7 +371,7 @@ export function createDelivery(options: DeliveryOptions): Delivery {
         exposure: offlineStats.exposure,
         leave: leave.stats(),
         retry: { attempts: senderStats.attempts, ratio: senderStats.retryRatio },
-        leader: { mode: leader.mode(), leader: leader.lastLeader() },
+        leader: { mode: leader.mode(), leader: leader.lastLeader(), leaderLost: leader.leaderLost() },
         circuitOpen: senderStats.circuitOpen,
         paused: senderStats.paused,
         lastReplayReason,

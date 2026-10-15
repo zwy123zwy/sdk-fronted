@@ -12,6 +12,9 @@ export default tseslint.config(
       // 接入示例模拟接入方环境，由各自的 build / test 验证
       'examples/**',
       'scripts/gate-fixtures/**',
+      // `tests/e2e/leave-slice.spec.mjs` 的 beforeAll 会从 dist 现场重新生成这个变异体
+      // （构建产物，不是手写源码）；一旦生成就会让 eslint 报错。仅忽略这一条路径。
+      'tests/e2e/probes/mutant-transport.js',
       'playwright-report/**',
       'test-results/**',
     ],

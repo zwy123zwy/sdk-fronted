@@ -470,6 +470,7 @@ export interface DeliveryMetrics {
     readonly leader: {
         readonly mode: LeaderMode;
         readonly leader: boolean;
+        readonly leaderLost: number;
     };
     readonly leave: LeaveStats;
     readonly offlineEvicted: number;
