@@ -1,6 +1,6 @@
 {
   "task": "T30",
-  "generatedAt": "2026-10-15T02:40:24.670Z",
+  "generatedAt": "2026-10-15T09:23:56.912Z",
   "engine": "webpack 5.104.1 / node v24.16.0",
   "command": "node examples/webpack/scripts/build-production.mjs",
   "entry": "/Users/spirit-ai/Desktop/sdk/examples/webpack/src/main.js",
@@ -12,8 +12,8 @@
     "assets": [
       {
         "name": "main.js",
-        "size": 120174,
-        "emitted": true
+        "size": 121934,
+        "emitted": false
       }
     ],
     "sdkModules": [
@@ -23,11 +23,11 @@
   },
   "sandbox": {
     "bundlePath": "/Users/spirit-ai/Desktop/sdk/examples/webpack/dist/main.js",
-    "bundleBytes": 120174,
+    "bundleBytes": 121934,
     "evaluatedMs": 2,
-    "sdkVersion": "0.0.0",
-    "expectedSdkVersion": "0.0.0",
-    "domText": "web-report-sdk 0.0.0",
+    "sdkVersion": "0.1.0",
+    "expectedSdkVersion": "0.1.0",
+    "domText": "web-report-sdk 0.1.0",
     "batchSummary": {
       "protocolVersion": 1,
       "appId": "webpack-compat",
@@ -36,6 +36,7 @@
       ]
     },
     "minimalPathError": null,
+    "evaluationError": null,
     "checks": {
       "bundleEvaluated": true,
       "entryExposedOnGlobal": true,
@@ -64,7 +65,7 @@
     "detail": {
       "status": "pass",
       "chromePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
-      "domText": "web-report-sdk 0.0.0",
+      "domText": "web-report-sdk 0.1.0",
       "pageErrors": [],
       "checks": {
         "domRenderedSdkVersion": true,
@@ -74,5 +75,6 @@
       }
     }
   },
+  "skipped": [],
   "status": "pass"
 }

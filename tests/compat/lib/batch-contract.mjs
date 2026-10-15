@@ -29,10 +29,11 @@ import addFormats from 'ajv-formats';
 /**
  * 解析冻结 Schema 的绝对路径。
  *
- * 不能只写 `fileURLToPath(new URL(..., import.meta.url))`：`apm-coexistence.test.ts` 跑在
- * happy-dom 下，全局 `URL` 被替换后 `fileURLToPath` 会报 "The URL must be of scheme file"。
- * 因此先按 `import.meta.url`（字符串形式）定位，失败再从 cwd 向上找（examples 脚本的 cwd 是
- * `examples/webpack`，不是仓库根）。
+ * 不能只写 `fileURLToPath(new URL(..., import.meta.url))`：本文件会被 `apm-coexistence.test.ts`
+ * 在 happy-dom 下加载，那里 `new URL(...)` 造出来的 href 会被沙箱改写成 `http://localhost:3000/…`，
+ * `fileURLToPath` 随即报 "The URL must be of scheme file"（根因的完整证据见 `lib/matrix.ts`）。
+ * 这里直接用 `import.meta.url` 的**字符串**形态（happy-dom 下也不经过 `new URL`，实测可用），
+ * 失败再从 cwd 向上找（examples 脚本的 cwd 是 `examples/webpack`，不是仓库根）。
  */
 function resolveBatchSchemaPath() {
   const relative = '../../../docs/contracts/schemas/batch.schema.json';
@@ -40,7 +41,7 @@ function resolveBatchSchemaPath() {
     const fromModule = join(dirname(fileURLToPath(import.meta.url)), relative);
     if (existsSync(fromModule)) return fromModule;
   } catch {
-    // 非 file: 的 import.meta.url（happy-dom）走下面的 cwd 回退
+    // 非 file: 的 import.meta.url 走下面的 cwd 回退
   }
   let directory = process.cwd();
   for (let depth = 0; depth < 8; depth += 1) {

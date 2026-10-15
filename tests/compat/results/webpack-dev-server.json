@@ -1,10 +1,10 @@
 {
   "task": "T30",
-  "generatedAt": "2026-10-15T02:40:27.226Z",
+  "generatedAt": "2026-10-15T09:23:59.163Z",
   "engine": "webpack 5.104.1 + webpack-dev-server / node v24.16.0",
   "command": "node examples/webpack/scripts/dev-server.mjs",
   "webpackResolvedFrom": "examples/webpack/node_modules",
-  "origin": "http://127.0.0.1:49793",
+  "origin": "http://127.0.0.1:63408",
   "checks": {
     "indexHtml200": true,
     "indexHtmlIsExample": true,
@@ -12,21 +12,21 @@
     "bundleNonEmpty": true,
     "bundleIsJs": true,
     "sandboxStatusPass": true,
-    "browserStatusPass": true
+    "browserEvidenceAccounted": true
   },
   "http": {
     "indexStatus": 200,
     "bundleStatus": 200,
-    "bundleBytes": 851501,
+    "bundleBytes": 863984,
     "bundleContentType": "text/javascript; charset=utf-8"
   },
   "sandbox": {
-    "bundlePath": "http://127.0.0.1:49793/main.js",
-    "bundleBytes": 851501,
-    "evaluatedMs": 16,
-    "sdkVersion": "0.0.0",
-    "expectedSdkVersion": "0.0.0",
-    "domText": "web-report-sdk 0.0.0",
+    "bundlePath": "http://127.0.0.1:63408/main.js",
+    "bundleBytes": 863984,
+    "evaluatedMs": 14,
+    "sdkVersion": "0.1.0",
+    "expectedSdkVersion": "0.1.0",
+    "domText": "web-report-sdk 0.1.0",
     "batchSummary": {
       "protocolVersion": 1,
       "appId": "webpack-compat",
@@ -35,6 +35,7 @@
       ]
     },
     "minimalPathError": null,
+    "evaluationError": null,
     "checks": {
       "bundleEvaluated": true,
       "entryExposedOnGlobal": true,
@@ -55,12 +56,13 @@
   "browser": {
     "status": "pass",
     "chromePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
-    "domText": "web-report-sdk 0.0.0",
+    "domText": "web-report-sdk 0.1.0",
     "pageErrors": [],
     "checks": {
       "domRenderedSdkVersion": true,
       "noPageErrors": true
     }
   },
+  "skipped": [],
   "status": "pass"
 }

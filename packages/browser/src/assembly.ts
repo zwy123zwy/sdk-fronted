@@ -72,6 +72,7 @@ import {
 } from '@web-report-sdk/plugins';
 import type {
   ErrorCapture,
+  ErrorPluginOptions,
   HttpCapture,
   HttpPluginOptions,
   NativeHttpRefs as PluginHttpRefs,
@@ -182,6 +183,14 @@ export interface AssemblyOptions {
   readonly nativeHttp?: TransportHttpRefs | undefined;
   /** HTTP 采集插件的配置（追踪范围与 `traceparent` 注入端口，CR-006）。 */
   readonly httpPlugin?: HttpPluginOptions | undefined;
+  /**
+   * 错误采集插件的配置（`captureResourceErrors` / `reportRepeats` / `sources` /
+   * `windowMs` / `now` / `onLeave`）。不传时全部走插件缺省。
+   *
+   * `globalContext` 例外：**未显式提供**时由装配根接 C04 的全局上下文（与面包屑合并）；
+   * 显式提供时以接入方的端口为准（避免"设了却不生效"）。
+   */
+  readonly errorPlugin?: ErrorPluginOptions | undefined;
   /** 路由采集插件的配置（模式与路由模板，AC-08/09）。 */
   readonly route?: RoutePluginOptions | undefined;
   /**
@@ -463,12 +472,16 @@ export function createAssembly(options: AssemblyOptions): Assembly {
   };
   const contextStore = readCapability(kernel, CONTEXT_CAPABILITY) as ContextStore | undefined;
 
+  const errorOptions = options.errorPlugin;
+  // 接入方显式给了 `globalContext` 就用它的，否则由装配根接 C04（不得静默顶掉接入方的端口）。
+  const errorGlobalContext =
+    errorOptions?.globalContext ??
+    (contextStore === undefined ? undefined : (): Readonly<Record<string, string>> => contextStore.state().contexts);
   const errorPlugin = createErrorPlugin((event) => {
     sink(toKernelEvent(event, now()));
   }, {
-    ...(contextStore === undefined
-      ? {}
-      : { globalContext: () => contextStore.state().contexts }),
+    ...(errorOptions ?? {}),
+    ...(errorGlobalContext === undefined ? {} : { globalContext: errorGlobalContext }),
   });
   const perfPlugin = createPerfPlugin({
     vitals: (event) => {

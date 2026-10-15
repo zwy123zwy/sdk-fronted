@@ -46,6 +46,43 @@ describe('C05-AC-08/09 模板匹配的边界', () => {
     const matcher = createMatcher(['/task/:id']);
     expect(matcher('/task/9')).toBe('/task/:id');
   });
+
+  it('options.match 自定义匹配器优先于 templates，且确实被调用', () => {
+    const seen: string[] = [];
+    const changes: string[] = [];
+    const capture = createRouteCapture({
+      now: () => 1_700_000_000_000,
+      currentUrl: () => ({ pathname: '/task/99', hash: '' }),
+      options: {
+        mode: 'manual',
+        templates: ['/task/:id'],
+        match: (path: string): string => {
+          seen.push(path);
+          return '/custom/:x';
+        },
+      },
+    });
+    capture.onRouteChange((change) => {
+      changes.push(change.template);
+    });
+    capture.setPage('/task/99');
+    expect(seen).toEqual(['/task/99']);
+    expect(changes).toEqual(['/custom/:x']);
+  });
+
+  it('未提供 options.match 时仍按 templates 匹配（对照）', () => {
+    const changes: string[] = [];
+    const capture = createRouteCapture({
+      now: () => 1_700_000_000_000,
+      currentUrl: () => ({ pathname: '/task/99', hash: '' }),
+      options: { mode: 'manual', templates: ['/task/:id'] },
+    });
+    capture.onRouteChange((change) => {
+      changes.push(change.template);
+    });
+    capture.setPage('/task/99');
+    expect(changes).toEqual(['/task/:id']);
+  });
 });
 
 describe('C05-AC-08/09 降级与手动路径', () => {

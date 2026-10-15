@@ -29,6 +29,7 @@ import { DimensionFields } from '@web-report-sdk/core';
 import { DimensionFieldsOf } from '@web-report-sdk/core';
 import { ErasePort } from '@web-report-sdk/core';
 import { ErrorCapture } from '@web-report-sdk/plugins';
+import { ErrorPluginOptions } from '@web-report-sdk/plugins';
 import { EventDefinitionShape } from '@web-report-sdk/core';
 import { EventDictionary } from '@web-report-sdk/core';
 import { EventInput } from '@web-report-sdk/core';
@@ -118,6 +119,7 @@ export interface AssemblyOptions {
     readonly endpoint?: string | undefined;
     // (undocumented)
     readonly env?: string | undefined;
+    readonly errorPlugin?: ErrorPluginOptions | undefined;
     readonly httpPlugin?: HttpPluginOptions | undefined;
     readonly location?: LocationSource | undefined;
     readonly locks?: LocksPort | null | undefined;

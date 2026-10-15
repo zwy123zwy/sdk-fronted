@@ -37,9 +37,26 @@ const FILTERED_BY_PLUGIN = 'filtered_by_plugin';
 export interface ErrorPluginOptions {
   /** 是否采集资源加载错误（默认 `false`；AC-01 只覆盖未捕获异常）。 */
   readonly captureResourceErrors?: boolean | undefined;
-  /** 同一指纹的重复错误是否也在窗口结算时逐条上报（默认 `false`：窗口内只上报一条）。 */
+  /**
+   * 同一指纹的重复错误是否也在窗口结算时**逐条**上报（默认 `false`：窗口内只上报一条）。
+   *
+   * - `false`（缺省，AC-03）：窗口结算时只上报一条，其 `metrics.count` 为窗口内总次数，
+   *   被折叠的重复计原因码 `filtered_by_plugin`；
+   * - `true`：窗口结算时对该指纹的每次出现各上报一条，第 `i` 条（从 1 数起）的
+   *   `metrics.count = i`（窗口内累计次数），因此**最后一条的 `count` 即窗口总次数**；
+   *   此时没有任何重复被折叠，故**不计** `filtered_by_plugin`。
+   *
+   * 口径依据：T18-plan §1「需要'重复也要看到'时由配置决定（默认只上报首条 + 计数）」
+   * 与 `web_js_error` Schema 对 `metrics.count`（"同一指纹在聚合窗口内的出现次数"，`minimum: 1`）的定义。
+   */
   readonly reportRepeats?: boolean | undefined;
-  /** 参与归一化的采集源；缺省全部内置源。 */
+  /**
+   * 参与归一化的采集源**白名单**；缺省（不传）表示全部采集源都参与。
+   *
+   * 取值是事件的 `source` 维度：内置源为 `window_error`（含资源加载错误）与
+   * `unhandled_rejection`；框架集成用 `capture(error, { source })` 显式上报时，
+   * 白名单要列出同一个字符串才会被采集。传入空数组表示**不采集任何源**。
+   */
   readonly sources?: readonly string[] | undefined;
   /** 当前时间源；缺省 `Date.now`。 */
   readonly now?: (() => number) | undefined;
@@ -145,6 +162,8 @@ function createCapture(
 ): { capture: ErrorCapture; attach(context: PluginContext): void } {
   const now = options?.now ?? ((): number => Date.now());
   const windowMs = options?.windowMs ?? DEFAULT_DEDUP_WINDOW_MS;
+  const reportRepeats = options?.reportRepeats === true;
+  const sources = options?.sources;
   const breadcrumbs = createBreadcrumbBuffer(now);
   const dedup = createDeduplicator<ReportInput>({ windowMs });
   const disposers: (() => void)[] = [];
@@ -182,16 +201,42 @@ function createCapture(
     sink(event);
   };
 
+  /**
+   * 结算一个窗口：缺省只上报一条（`count` = 窗口总次数）；
+   * `reportRepeats` 开启时逐条上报，第 `i` 条携带窗口内累计次数 `i`。
+   */
+  const settle = (payload: ReportInput, count: number): void => {
+    if (!reportRepeats) {
+      emit(payload, count);
+      return;
+    }
+    for (let index = 1; index <= count; index += 1) emit(payload, index);
+  };
+
   /** 结算到期窗口。 */
   const flushDue = (): void => {
     for (const fingerprint of dedup.due(now())) {
       const settled = dedup.take(fingerprint);
-      if (settled !== undefined) emit(settled.payload, settled.count);
+      if (settled !== undefined) settle(settled.payload, settled.count);
     }
   };
 
-  /** 观察一条错误：窗口内首条开启窗口；重复只累计并计数 `filtered_by_plugin`。 */
+  /**
+   * 该采集源是否参与归一化。缺省（未配置 `sources`）全部参与；
+   * 配置后是白名单：不在清单里的源**既不归一化也不上报**。
+   */
+  const isSourceEnabled = (source: string): boolean =>
+    sources === undefined || sources.includes(source);
+
+  /**
+   * 观察一条错误：窗口内首条开启窗口；重复只累计并计数 `filtered_by_plugin`
+   * （`reportRepeats` 开启时不折叠、因而不计该原因码）。
+   */
   const observe = (input: ReportInput): void => {
+    if (!isSourceEnabled(input.source)) {
+      counters?.count(FILTERED_BY_PLUGIN);
+      return;
+    }
     const fingerprint = normalizeError({
       message: input.message,
       source: input.source,
@@ -200,7 +245,7 @@ function createCapture(
       ...(input.column === undefined ? {} : { column: input.column }),
     }).dimensions.fingerprint;
     const observation = dedup.observe(fingerprint, input, now());
-    if (!observation.started) {
+    if (!observation.started && !reportRepeats) {
       collapsed += 1;
       counters?.count(FILTERED_BY_PLUGIN);
     }
@@ -242,7 +287,7 @@ function createCapture(
       });
     },
     flush(): void {
-      for (const settled of dedup.takeAll()) emit(settled.payload, settled.count);
+      for (const settled of dedup.takeAll()) settle(settled.payload, settled.count);
     },
     breadcrumbs(): BreadcrumbBuffer {
       return breadcrumbs;

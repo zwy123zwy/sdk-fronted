@@ -90,7 +90,8 @@ interface RouteState {
 function createRouteState(ports?: RoutePorts): RouteState {
   const options = ports?.options;
   const mode: RouteMode = options?.mode ?? 'history';
-  const matcher = createMatcher(options?.templates ?? []);
+  // 自定义匹配器优先（`RoutePluginOptions.match`）；未提供时按 `templates` 匹配。
+  const matcher = options?.match ?? createMatcher(options?.templates ?? []);
   const now = ports?.now ?? ((): number => Date.now());
   const currentUrl = ports?.currentUrl ?? defaultCurrentUrl;
   const listeners = new Set<RouteListener>();

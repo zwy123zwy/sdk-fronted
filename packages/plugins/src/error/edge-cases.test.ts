@@ -161,8 +161,62 @@ describe('C05-F1 配置分支', () => {
       plugin.capture.handleWindowError('Uncaught Error: repeated', 1, 2, new Error('repeated'));
     }
     plugin.capture.flush();
+    // 开启时**不再折叠**：窗口内的 3 次出现各上报一条，第 i 条 count=i（最后一条即总次数）。
+    expect(events.map((event) => event.metrics.count)).toEqual([1, 2, 3]);
+    // 开启时没有任何重复被过滤，故不得计 `filtered_by_plugin`，也不得计入 collapsed。
+    expect(plugin.capture.stats()).toEqual({ reported: 3, collapsed: 0 });
+  });
+
+  it('对照：reportRepeats 关闭（缺省）时同一输入只上报一条、count 为总次数', () => {
+    const events: JsErrorEvent[] = [];
+    const plugin = createErrorPlugin((event) => events.push(event));
+    plugin.install(createContext().context as unknown as Parameters<typeof plugin.install>[0]);
+    for (let index = 0; index < 3; index += 1) {
+      plugin.capture.handleWindowError('Uncaught Error: repeated', 1, 2, new Error('repeated'));
+    }
+    plugin.capture.flush();
+    expect(events.map((event) => event.metrics.count)).toEqual([3]);
+    expect(plugin.capture.stats()).toEqual({ reported: 1, collapsed: 2 });
+  });
+
+  it('sources 白名单：不在清单里的采集源既不归一化也不上报', () => {
+    const events: JsErrorEvent[] = [];
+    const plugin = createErrorPlugin((event) => events.push(event), {
+      sources: ['window_error'],
+    });
+    const harness = createContext();
+    plugin.install(harness.context as unknown as Parameters<typeof plugin.install>[0]);
+    plugin.capture.handleWindowError('Uncaught Error: kept', 1, 2, new Error('kept'));
+    plugin.capture.handleRejection(new Error('dropped by sources'));
+    plugin.capture.flush();
     expect(events).toHaveLength(1);
-    expect(events[0]?.metrics.count).toBe(3);
+    expect(events[0]?.dimensions.source).toBe('window_error');
+  });
+
+  it('sources 为空数组时不采集任何源（含自动监听路径）', () => {
+    const events: JsErrorEvent[] = [];
+    const plugin = createErrorPlugin((event) => events.push(event), { sources: [] });
+    const harness = createContext();
+    plugin.install(harness.context as unknown as Parameters<typeof plugin.install>[0]);
+    for (const handler of harness.listeners.get('error') ?? []) {
+      handler({ type: 'error', message: 'from listener', error: new Error('from listener') } as unknown as Event);
+    }
+    plugin.capture.capture(new Error('manual'));
+    plugin.capture.flush();
+    expect(events).toHaveLength(0);
+  });
+
+  it('sources 未配置时全部内置源都参与（window_error 与 unhandled_rejection）', () => {
+    const events: JsErrorEvent[] = [];
+    const plugin = createErrorPlugin((event) => events.push(event));
+    plugin.install(createContext().context as unknown as Parameters<typeof plugin.install>[0]);
+    plugin.capture.handleWindowError('Uncaught Error: a', 1, 2, new Error('a'));
+    plugin.capture.handleRejection(new Error('b'));
+    plugin.capture.flush();
+    expect(events.map((event) => event.dimensions.source).sort()).toEqual([
+      'unhandled_rejection',
+      'window_error',
+    ]);
   });
 
   it('globalContext 注入的全局上下文与面包屑合并在同一 context 上（不丢任一方）', () => {

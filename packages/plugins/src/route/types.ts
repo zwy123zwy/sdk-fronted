@@ -40,7 +40,7 @@ export interface RoutePluginOptions {
   readonly mode?: RouteMode | undefined;
   /** 路由模板清单（按顺序匹配，首个命中生效）；缺省回落到去查询参数的路径。 */
   readonly templates?: readonly string[] | undefined;
-  /** 自定义模板匹配器；未提供时按 `templates` 的首段字面量匹配。 */
+  /** 自定义模板匹配器（提供时**优先于** `templates`）；未提供时按 `templates` 匹配。 */
   readonly match?: RouteTemplateMatcher | undefined;
 }
 

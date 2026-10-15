@@ -1,6 +1,6 @@
 {
   "task": "T30",
-  "generatedAt": "2026-10-14T14:54:13.042Z",
+  "generatedAt": "2026-10-15T09:32:10.085Z",
   "cells": [
     {
       "id": "import.webpack.production",
@@ -10,7 +10,7 @@
       "status": "pass",
       "command": "node examples/webpack/scripts/build-production.mjs",
       "evidence": "tests/compat/results/webpack-production.json + examples/webpack/dist/main.js",
-      "notes": "沙箱 status=pass；checks=bundleEvaluated=true、entryExposedOnGlobal=true、sdkVersionIsString=true、sdkVersionMatchesPackage=true、createAssemblyIsFunction=true、domRenderedSdkVersion=true、assemblyCreated=true、assemblyClientHasTrack=true、uploadStubReceivedRequest=true、batchHasEvents=true、batchContainsProbeEvent=true、minimalPathRan=true；构建 hasErrors=false；浏览器复核=pass。"
+      "notes": "沙箱 status=pass；checks=bundleEvaluated=true、entryExposedOnGlobal=true、sdkVersionIsString=true、sdkVersionMatchesPackage=true、createAssemblyIsFunction=true、domRenderedSdkVersion=true、assemblyCreated=true、assemblyClientHasTrack=true、uploadStubReceivedRequest=true、batchPassesContractSchema=true、batchHasEvents=true、batchContainsProbeEvent=true、minimalPathRan=true；构建 hasErrors=false；浏览器复核=pass。"
     },
     {
       "id": "import.webpack.devServer",
@@ -20,7 +20,7 @@
       "status": "pass",
       "command": "node examples/webpack/scripts/dev-server.mjs",
       "evidence": "tests/compat/results/webpack-dev-server.json",
-      "notes": "checks=indexHtml200=true、indexHtmlIsExample=true、bundle200=true、bundleNonEmpty=true、bundleIsJs=true、sandboxStatusPass=true、browserStatusPass=true；沙箱 status=pass；浏览器复核=pass。"
+      "notes": "checks=indexHtml200=true、indexHtmlIsExample=true、bundle200=true、bundleNonEmpty=true、bundleIsJs=true、sandboxStatusPass=true、browserEvidenceAccounted=true；沙箱 status=pass；浏览器复核=pass。"
     }
   ]
 }

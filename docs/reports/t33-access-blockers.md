@@ -786,5 +786,7 @@ Tests  4 failed | 3 passed (7)
   3. `RoutePluginOptions.match`（`route/types.ts:44`）零读取点；route 插件只读 `mode` / `templates`。
   4. 装配根安装 error 插件时未接 `sources` / `reportRepeats`（`browser/src/assembly.ts:465`）→ 生产路径不可达。
 
+**→ 2026-10-15 后续（C05 采集插件 lane）已逐条核定 + 处置，见文末「十一、C05『声明了但没读』处置结果」。**
+
 **文档跟进（不在本 lane 可写范围）**：`endpoint` / `token` 的「属装配根、core 面会被拒绝」已写进
 `packages/core/src/api/types.ts` 与 `packages/browser/src/assembly.ts` 的字段注释；接入指南的对应说明归 T34。
