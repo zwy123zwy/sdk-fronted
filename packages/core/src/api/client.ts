@@ -38,6 +38,7 @@ import {
 import { isSchemaUuid } from '../context/schema-uuid';
 import { normalizePageId } from '../context/page';
 import type {
+  BatchHeaderProviderOptions,
   ConsentManager,
   ContextStoragePort,
   ContextStore,
@@ -45,7 +46,7 @@ import type {
   PageTracker,
   SessionTracker,
 } from '../context';
-import type { ConsentMode, Masker } from '../privacy/types';
+import type { ConsentMode, MaskRule, Masker } from '../privacy/types';
 import { SDK_VERSION } from '../version';
 import { createKernel } from '../kernel';
 import type { Kernel, KernelEvent } from '../kernel';
@@ -206,6 +207,30 @@ function byteLengthOf(event: KernelEvent): number {
   }
 }
 
+/**
+ * 去掉只读修饰的类型：只用于把 `BatchHeaderProviderOptions` 的**取值来源**在实例内保持可变。
+ *
+ * 为什么要它：`createBatchHeaderProvider` 的闭包在**每次取批头时**读 `options.env` /
+ * `options.release`，但这两个字段声明为 `readonly`。`init({ env | release })` 需要能在构造之后
+ * 覆盖它们（与 `consent` 同序：`init` 覆盖 `createClient`），用映射类型去掉 `readonly` 即可原地改，
+ * 既不新增依赖，也不改公共类型（`BatchHeaderProviderOptions` 的声明保持只读）。
+ */
+type Mutable<T> = { -readonly [K in keyof T]: T[K] };
+
+/**
+ * 装配根（`AssemblyOptions`）专属、在 core 面**显式拒绝**的字段。
+ *
+ * `endpoint` / `token` 的真正消费点是 `createAssembly` 的凭据端口与 C07 发送器（core 没有网络，
+ * 不可能消费它们）。此前 core 的构造/初始化面声明了这两个字段却**从不读取**（静默忽略），
+ * 与 D-09 同族；现在的口径是「计 `invalid_args` + 发 `dropped: 'field'` 诊断」，不再静默忽略。
+ *
+ * `token` 暂不在此列（已上报待裁定）：`api/public-api.test.ts` 的 C01-AC-12 三条既有断言以
+ * 「token 在 init 上传入但不泄漏」为样本锁定了诊断记录的**精确序列**（记录数组逐项相等、
+ * console 行数恰为 2），把 `token` 纳入本清单会让那三条红，而既有测试断言只加不改。
+ */
+const ASSEMBLY_ONLY_FIELDS = ['endpoint'] as const;
+
+
 /** 事件参数的公共部分。 */
 interface ReadEventInput {
   readonly dimensions: Record<string, string> | undefined;
@@ -245,7 +270,10 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   let ready = false;
   let initialized = false;
   let finished = false;
-  let appId: string | undefined;
+  // `appId` 两个入口等价（`ClientOptions extends ClientInitOptions`）：构造面给的先在**这里**生效，
+  // `init({ appId })` 覆盖它（与下面的 `consent` 同序，D-09 先例）。此前构造面传的 appId 从未被读取，
+  // `createClient({ appId }).init({})` 被计 `invalid_args` 且不生效——属「声明了但没读」同族。
+  let appId: string | undefined = isNonEmptyString(options.appId) ? options.appId : undefined;
   let currentPageId: string | undefined;
   // Q5 一致性修正（2026-10-13 负责人签字）：初始同意态**缺省**为 `unknown`，不是 `granted`。
   // 默认「已授权」意味着未经同意即采集（合规问题）；`unknown` 下是否采集/持久化由 `consent_mode` 决定。
@@ -264,7 +292,10 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   // 查询参数白名单与追加脱敏规则：来自初始化参数或 C03 的生效配置（装配根注入）；
   // 未装配时白名单为空 = 默认删除全部查询参数（比规则匹配更强的兜底）。
   const urlQueryAllowlist: string[] = [...(options.url_query_allowlist ?? [])];
-  const masker: Masker = createMasker(options.extra_mask_rules ?? []);
+  // 追加脱敏规则：构造面来自 `createClient({ extra_mask_rules })`；`init({ extra_mask_rules })`
+  // 在首次 `init` 时**追加**（脱敏只能保守方向：只能加掩码，永不覆盖、也永不关闭内置 7 条）。
+  let extraMaskRules: readonly MaskRule[] = options.extra_mask_rules ?? [];
+  let masker: Masker = createMasker(extraMaskRules);
   // 同意驱动的清理端口（装配根注入具体实现；未注入时三个口都是 `undefined`，什么都不做）。
   const erase: ErasePort = options.erase ?? {};
   const storage = resolveContextStorage(options.storage);
@@ -312,19 +343,21 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   }
 
   const clock = createClockCalibration();
-  const headerProvider = createBatchHeaderProvider({
+  // 用可变对象承接：provider 的闭包每次取批头都读 `env` / `release`，`init` 覆盖时只需改这里。
+  const headerOptions: Mutable<BatchHeaderProviderOptions> = {
     // 批次 Schema 要求 `app_id` 非空：取**当前**的 `appId`（init 之后才有值），
     // 不能在构造时把 `''` 固化进 provider（T18 装配根实测发现的缺陷）。
     appId: () => appId ?? '',
     sdkName: SDK_NAME,
     sdkVersion: SDK_VERSION,
-    ...(options.env === undefined ? {} : { env: options.env }),
-    ...(options.release === undefined ? {} : { release: options.release }),
+    env: options.env,
+    release: options.release,
     session: () => sessionTracker.current(),
     user: () => contextStore.user(),
     consent: () => consentManager.headerConsent(),
     clock: () => clock.current(),
-  });
+  };
+  const headerProvider = createBatchHeaderProvider(headerOptions);
 
   // 只读状态快照通过内核能力暴露（C02 与测试用，不占用公共 API 方法位）。
   kernel.registerCapability(STATE_CAPABILITY, (): ClientState => snapshotState());
@@ -352,6 +385,21 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   function drop(record: DiagnosticsRecord): void {
     reportDiagnostics(counters, diagnosticsSink, record);
   }
+
+  /**
+   * 拒绝「装配根专属」字段（见 `ASSEMBLY_ONLY_FIELDS`）：core 面无消费点，此前静默忽略。
+   * 现在计 `invalid_args` 并发一条 `dropped: 'field'` 诊断，使「传了但无效」可观测。
+   * 构造面与 `init` 面共用同一判据，保证两个入口行为一致。
+   */
+  function rejectAssemblyOnlyFields(values: { readonly endpoint?: unknown; readonly token?: unknown }): void {
+    for (const field of ASSEMBLY_ONLY_FIELDS) {
+      if (values[field] === undefined) continue;
+      counters.count(API_REASON_CODES.invalidArgs);
+      drop({ reason_code: API_REASON_CODES.invalidArgs, kind: 'init', dropped: 'field', field });
+    }
+  }
+  // 构造面：`createClient({ endpoint })`（core 不读它，凭据端口在装配根）。
+  rejectAssemblyOnlyFields(options);
 
   /** 只读状态快照（供内核能力 `STATE_CAPABILITY` 与测试读取）。 */
   function snapshotState(): ClientState {
@@ -770,12 +818,16 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
   function performInit(command: QueuedCommand): void {
     const raw = (command.args ?? [])[0];
     const initOptions: ClientInitOptions = isPlainRecord(raw) ? raw : {};
-    if (!isNonEmptyString(initOptions.appId)) {
+    // `endpoint` / `token` 属装配根：在 init 面同样显式拒绝（计 invalid_args + 诊断），不静默忽略。
+    rejectAssemblyOnlyFields(initOptions);
+    // `appId` 必填且非空；构造面（`createClient({ appId })`）已给过值时，`init` 无需重复传入
+    // —— 与 `consent` 同一先后序（构造面生效、`init` 覆盖，D-09 先例）。两处都没有才是非法参数。
+    if (!isNonEmptyString(initOptions.appId) && appId === undefined) {
       counters.count(API_REASON_CODES.invalidArgs);
       return;
     }
     if (initialized) return;
-    appId = initOptions.appId;
+    if (isNonEmptyString(initOptions.appId)) appId = initOptions.appId;
     if (isConsentState(initOptions.consent)) consent = initOptions.consent;
     if (isNonEmptyString(initOptions.pageId)) currentPageId = normalizePageId(initOptions.pageId) ?? currentPageId;
     if (initOptions.debug !== undefined) diagnosticsSink = resolveDiagnostics(initOptions.debug);
@@ -803,6 +855,16 @@ export function createClient<TDictionary extends EventDictionary = PermissiveDic
     }
     if (initOptions.pageId !== undefined && command.url === undefined) pageTracker.setPage(initOptions.pageId);
     if (initOptions.context !== undefined) contextStore.setInitialContext(initOptions.context);
+    // 批次头的 `env` / `release`：构造面可传，init 可覆盖（与 `consent` 同序）。provider 的闭包
+    // 每次取批头都读这里，因此改了就对后续批次生效；未传则保留构造值、再缺省为 production/0.0.0。
+    if (initOptions.env !== undefined) headerOptions.env = initOptions.env;
+    if (initOptions.release !== undefined) headerOptions.release = initOptions.release;
+    // 追加脱敏规则：**追加**到构造面的规则集（不覆盖、不关闭内置 7 条）。重建 masker 后，下面
+    // 注册的字段约束处理器拿到的是新规则集；`clampAndTrack` 读的是同一个 `masker` 绑定。
+    if (initOptions.extra_mask_rules !== undefined) {
+      extraMaskRules = [...extraMaskRules, ...initOptions.extra_mask_rules];
+      masker = createMasker(extraMaskRules);
+    }
     // 同意状态同步到状态机与会话追踪器：**无条件**调用（D-09 副作用的修复，2026-10-15）。
     //
     // 此前是 `if (consent !== previousConsent)`：`consent` 有两个等价入口——`createClient({ consent })`

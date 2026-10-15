@@ -134,6 +134,10 @@ globalThis.window.__rb = {
    * AC-13：经**真实实现**的离开通道发一个 critical 批次。
    * `submit(batch, {channel:'page_leave', complete})` 是 C07 的真实离开路径，
    * 内部用 `http.sendBeacon`（真实 `navigator.sendBeacon`）。
+   *
+   * 口径（#4，2026-10-15）：正文来自 `envelope(...)`——**探针手写信封**（固定 `batch_id`/
+   * `device_id`/`session_id`），没有 `createAssembly` 参与。因此它证明的是
+   * "**transport 的离页通道真的把字节发到了接收端**"，不是"SDK 组批后送达"。
    */
   async leaveBeaconProbe(url, eventCount) {
     const complete = [];

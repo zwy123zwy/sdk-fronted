@@ -136,9 +136,17 @@ export interface CollectorHandles {
 export interface AssemblyOptions {
   /** 应用标识（必填；批次头 `app_id` 与本实例状态都用它）。 */
   readonly appId: string;
-  /** 上报端点；未提供 `credentials` 时用它组装凭据端口。 */
+  /**
+   * 上报端点（**装配根字段**）；未提供 `credentials` 时用它组装凭据端口。
+   *
+   * 这是 `endpoint` 唯一生效的入口：core 的 `createClient({ endpoint })` / `init({ endpoint })`
+   * 会把它当作无效参数**显式拒绝**（计 `invalid_args` + `dropped: 'field'` 诊断），不静默忽略。
+   */
   readonly endpoint?: string | undefined;
-  /** 上报令牌；未提供 `credentials` 时用它组装凭据端口。 */
+  /**
+   * 上报令牌（**装配根字段**，同 `endpoint`）；未提供 `credentials` 时用它组装凭据端口。
+   * 绝不进入事件或调试输出。
+   */
   readonly token?: string | undefined;
   readonly env?: string | undefined;
   readonly release?: string | undefined;

@@ -11,6 +11,12 @@
  *   3. 重启后穷举 `list()` / `read()` 把「同一 profile 上还读得到什么」如实交回 Node 侧。
  *
  * 页面不做任何判定、不吞错：一切数字都交回 Node 侧写 JSON。
+ *
+ * ## 口径（#4，2026-10-15）：本探针证明的是**传输层的落盘/读回**，不是 **SDK 组批**
+ *
+ * 批次正文由 `issue()` **手写**（事件数组与 `protocol_version` 都是探针自己拼的），
+ * 直接喂给 `createOfflineStore` 的 `prewrite`。所以"重启后还读得到"证明的是
+ * transport 的离线存储语义，**不能**推论 `createAssembly → track → 组批 → 落盘` 这条链路。
  */
 import * as T from '/transport/index.js';
 

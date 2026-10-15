@@ -200,15 +200,40 @@ export interface StubCommand {
 
 /** `init` 的选项。 */
 export interface ClientInitOptions {
-  /** 应用标识，由接收方分配。必填且非空。 */
+  /**
+   * 应用标识，由接收方分配。必填且非空。
+   *
+   * 两个入口等价（`ClientOptions extends ClientInitOptions`）：`createClient({ appId })` 与
+   * `init({ appId })` 都生效；同时给出时 `init` 覆盖构造值。仅在**两处都没有**时 `init` 计
+   * `invalid_args`（2026-10-15 修复：此前构造面的 `appId` 从不被读取，`createClient({ appId }).init({})`
+   * 被拒且不生效 —— 与 D-09 同族的「声明了但没读」）。
+   */
   readonly appId?: string | undefined;
-  /** 上报端点（C06 使用）。 */
+  /**
+   * 上报端点。**属装配根字段**：真正消费点是 browser 的 `AssemblyOptions.endpoint`（凭据端口 + C07
+   * 发送器），core 没有网络、不消费它。在 `createClient({ endpoint })` 或 `init({ endpoint })` 上传入
+   * 会被**显式拒绝**：计 `invalid_args` 并发一条 `dropped: 'field'` / `field: 'endpoint'` 的诊断记录
+   * （不静默忽略）。请改传 `createAssembly({ endpoint })`。
+   */
   readonly endpoint?: string | undefined;
-  /** 上报令牌；只在公共 API 层的参数校验中使用，绝不进入事件或调试输出。 */
+  /**
+   * 上报令牌。**属装配根字段**（同 `endpoint`）：真正消费点是 `AssemblyOptions.token`，绝不进入事件或
+   * 调试输出。
+   *
+   * 注意：`token` 目前在 core 的构造/初始化面仍按「接受但不使用」处理（不计数、不发诊断）——既有
+   * C01-AC-12 用例以「init 传入 token 但诊断记录序列精确不变」锁定了该行为，改为显式拒绝需先改那三条
+   * 断言；已上报待裁定。
+   */
   readonly token?: string | undefined;
-  /** 环境，如 `production`。 */
+  /**
+   * 环境，如 `production`。构造面可传，`init` 可覆盖（同时给出时以 `init` 为准）；两处都缺省时
+   * 批头取 `production`（2026-10-15 修复：此前只有构造面生效，`init({ env })` 被静默忽略）。
+   */
   readonly env?: string | undefined;
-  /** 接入方应用版本。 */
+  /**
+   * 接入方应用版本。构造面可传，`init` 可覆盖（同时给出时以 `init` 为准）；两处都缺省时批头取
+   * `0.0.0`（2026-10-15 修复：此前只有构造面生效，`init({ release })` 被静默忽略）。
+   */
   readonly release?: string | undefined;
   /** 初始同意状态，缺省 `unknown`（Q5；2026-10-13 负责人签字修正）。 */
   readonly consent?: ConsentState | undefined;
@@ -226,7 +251,13 @@ export interface ClientInitOptions {
    * 装配根在 T18 接入 C03 的配置运行时后，生效值以远程配置为准（这里只是注入面）。
    */
   readonly url_query_allowlist?: readonly string[] | undefined;
-  /** 追加的脱敏规则（`privacy.extra_mask_rules`；只能追加，不能删除内置 7 条）。 */
+  /**
+   * 追加的脱敏规则（`privacy.extra_mask_rules`；只能追加，不能删除内置 7 条）。
+   *
+   * 两个入口都可传且**语义为追加**：`init({ extra_mask_rules })` 把规则**追加**到
+   * `createClient({ extra_mask_rules })` 的集合之后，永不覆盖、也永不关闭内置规则
+   * （2026-10-15 修复：此前只有构造面生效，init 传入被静默忽略）。
+   */
   readonly extra_mask_rules?: readonly MaskRule[] | undefined;
   /** 手动路由模式下的当前页面标识。 */
   readonly pageId?: string | undefined;

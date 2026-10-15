@@ -71,9 +71,65 @@ const VARIANT = process.env['AC03_TRANSPORT_VARIANT'] ?? 'real';
 
 test.setTimeout(5 * 60_000);
 
-// 两引擎都跑：Chromium 与 WebKit 的累计在途额度实测都是 64 KiB（见 beacon-quota 用例）。
-// Firefox 在本机沙箱内起不来（T29 已记录），不在本项目范围内。
-test.skip(({ browserName }) => browserName !== 'chromium' && browserName !== 'webkit', '本机只支持 Chromium / WebKit');
+/**
+ * 每个浏览器只探测一次：**真的把它启起来**，起得来就跑。
+ *
+ * 为什么必须是"真启动"而不是"二进制存在"：本机沙箱下 `resolveBrowser('firefox')` 是**成功**的
+ * （chromium-1223 / firefox-1522 / webkit-2287 都在缓存里，revision 还精确配对），失败发生在
+ * launch 阶段——firefox 会打出 "Juggler listening to the pipe" 然后卡到超时。用"能不能解析出
+ * 可执行文件"当判据，会把"起不来"错判成"能跑"。
+ *
+ * 这里替换的是一条**写死**的跳过（2026-10-15 前：`browserName !== 'chromium' && browserName !== 'webkit'`
+ * → 即使在 Firefox 可用的 CI 上，C07-AC-03 的用例也照样静默跳过、整轮仍绿）。现在的判据是
+ * 环境事实，不是引擎名单：**浏览器可用就真的跑**，不可用才跳过，且跳过理由（含真实报错）会
+ * 打到测试输出里（`test.skip(condition, reason)` 的 reason 在 list/report 中可见）。
+ */
+const browserAvailability = new Map();
+
+async function browserReady(browserName) {
+  const cached = browserAvailability.get(browserName);
+  if (cached !== undefined) return cached;
+  let entry;
+  let probeDir = null;
+  try {
+    const info = await resolveBrowser(browserName);
+    probeDir = fs.mkdtempSync(path.join(os.tmpdir(), `ac03-probe-${browserName}-`));
+    // 比正式用例的 60 s 短：探测只回答"能不能起来"，不承担正式用例的等待预算。
+    const context = await launchPersistent(info, probeDir, { timeout: 20_000 });
+    await context.close();
+    entry = { ready: true, reason: '' };
+  } catch (error) {
+    entry = { ready: false, reason: String(error?.message ?? error).split('\n')[0] };
+  } finally {
+    if (probeDir !== null) {
+      killMatching(profilePids(probeDir));
+      fs.rmSync(probeDir, { recursive: true, force: true });
+    }
+  }
+  // 判别性证明用的**测试钩子**（不影响正常路径）：置 1 时假装"起得来"，让用例真的去跑。
+  // 用途只有一个——在浏览器起不来的机器上证明"这条跳过是环境判据、不是写死的引擎名单"：
+  // 写死跳过的旧代码在 Firefox 上**恒**跳过；本文件在钩子打开时会真的尝试启动并**失败**。
+  if (process.env['AC03_FORCE_RUN_BROWSER'] === browserName) {
+    entry = { ready: true, reason: '' };
+  }
+  browserAvailability.set(browserName, entry);
+  return entry;
+}
+
+/** 该浏览器起不来就跳过本用例——**显式、带理由**（不是按引擎名单的静默跳过）。 */
+async function requireBrowser(browserName, testInfo) {
+  const { ready, reason } = await browserReady(browserName);
+  if (ready) return;
+  const note =
+    `${browserName} 在本机起不来，本用例无法执行：${reason}。` +
+    `补测：换一台能起 ${browserName} 的机器（或 PW_${browserName.toUpperCase()}_EXE=/path/to/binary）` +
+    `后重跑 \`pnpm test:e2e --project=${browserName}\`。`;
+  // imperative 的 reason 在 list / line reporter 里不打印（实测），annotation 会进 HTML 报告；
+  // 再加一行 stdout，保证命令行上"为什么跳过"一眼可见。
+  testInfo.annotations.push({ type: 'skipped-browser', description: note });
+  console.log(`⚠ 跳过 [${browserName}] ${testInfo.title}：${note}`);
+  test.skip(true, note);
+}
 
 let server = null;
 let receiver = null;
@@ -284,6 +340,7 @@ function rebuiltEventsJson(slices) {
 }
 
 test('C07-AC-03 对照：单次 80 KB 信标返回 false（复现 T29），单次 32 KB 被接受', async ({ browserName }) => {
+  await requireBrowser(browserName, test.info());
   const result = await withContext(browserName, async (context) => {
     const page = await openProbe(context, 'real');
     const config = await page.evaluate(() => globalThis.window.__ac03.config());
@@ -314,6 +371,7 @@ test('C07-AC-03 对照：单次 80 KB 信标返回 false（复现 T29），单�
 });
 
 test('C07-AC-03 默认配置：页面离开冲刷 80 KB 全量送达（验收项原文判定）', async ({ browserName }) => {
+  await requireBrowser(browserName, test.info());
   const { measured, slices } = await withContext(browserName, async (context) => {
     const page = await openProbe(context, 'real');
     return await measureLeave(page, {});
@@ -359,6 +417,7 @@ test('C07-AC-03 默认配置：页面离开冲刷 80 KB 全量送达（验收项
 });
 
 test('C07-AC-03 SDK 侧切片形状：放宽离开预算后 `leave.requests` ≥ 2、无跳过（机制本身）', async ({ browserName }) => {
+  await requireBrowser(browserName, test.info());
   const { measured, slices } = await withContext(browserName, async (context) => {
     const page = await openProbe(context, VARIANT === 'mutant' ? 'mutant' : 'real');
     return await measureLeave(page, { budget: WIDE_BUDGET });
@@ -385,6 +444,7 @@ test('C07-AC-03 SDK 侧切片形状：放宽离开预算后 `leave.requests` ≥
 });
 
 test('C07-AC-03 接收端送达：放宽预算后每片 ≤60 KB、顺序/无重复/无丢失（AC-03 原文判定）', async ({ browserName }) => {
+  await requireBrowser(browserName, test.info());
   const { measured, slices } = await withContext(browserName, async (context) => {
     const page = await openProbe(context, VARIANT === 'mutant' ? 'mutant' : 'real');
     return await measureLeave(page, { budget: WIDE_BUDGET });
@@ -418,6 +478,7 @@ test('C07-AC-03 接收端送达：放宽预算后每片 ≤60 KB、顺序/无重
 });
 
 test('C07-AC-03 根因对照：连续多次真实 sendBeacon 的浏览器额度（与实现无关）', async ({ browserName }) => {
+  await requireBrowser(browserName, test.info());
   const SEQUENCES = [
     [60 * 1024],
     [40 * 1024, 40 * 1024],
@@ -462,6 +523,7 @@ test('C07-AC-03 根因对照：连续多次真实 sendBeacon 的浏览器额度�
 });
 
 test('C07-AC-03 变异自检：把切片阈值调大的变异体必须被同一判据判为不合格', async ({ browserName }) => {
+  await requireBrowser(browserName, test.info());
   const { measured, slices } = await withContext(browserName, async (context) => {
     const page = await openProbe(context, 'mutant');
     return await measureLeave(page, { budget: WIDE_BUDGET });

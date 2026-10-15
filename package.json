@@ -16,12 +16,14 @@
     "measure:apm-adapter": "node packages/plugins/scripts/measure-apm-adapter.mjs",
     "api:check": "node scripts/api-check.mjs",
     "api:update": "node scripts/api-check.mjs --local",
+    "version:check": "node scripts/version-check.mjs",
+    "version:check:release": "node scripts/version-check.mjs --release",
     "test:contract": "vitest run --project contract",
     "test:e2e": "playwright test",
     "examples:build": "pnpm -r --filter \"./examples/**\" run build",
     "examples:test": "pnpm -r --filter \"./examples/**\" run test",
     "gates:selftest": "node scripts/gate-selftest.mjs",
-    "gates": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm size && pnpm api:check && pnpm examples:build && pnpm examples:test"
+    "gates": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm size && pnpm api:check && pnpm version:check && pnpm examples:build && pnpm examples:test"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

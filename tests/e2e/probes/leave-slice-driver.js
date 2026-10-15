@@ -5,6 +5,15 @@
  * 使用**真实浏览器 API**（真实 `navigator.sendBeacon`），把观测到的原始数字交回 Node 侧。
  * 任何判定都在 spec 里做（与 T29 的分工一致）。
  *
+ * ## 口径（#4，2026-10-15）：本探针证明的是**传输层**，不是 **SDK 组批**
+ *
+ * 被测批次是探针**手写信封**（`buildEnvelope`：`batch_id`/`device_id`/`session_id` 都是固定假值，
+ * 不经 uuid），事件也是 `buildEvents` 直接造的，然后走 transport 的
+ * `createDelivery().submit.submit(envelope, { channel: 'page_leave' })`。
+ * 因此它能证明的是"**transport 在离页通道上怎么切片/发送**"（片数、片大小、Content-Type、
+ * 令牌位置、顺序），**不能**证明 `createAssembly → track → 组批` 这条 SDK 侧链路。
+ * SDK 组批另有证据：`examples/*` 的 `runAssemblyMinimalPath` 与 `tests/compat` 的真实批次用例。
+ *
  * 本探针**不修改实现**：切片/预算全部走真实代码路径。唯一可注入的是 `leaveBudget`
  * （`createDelivery` 的既有公开选项），用来把「切片机制」与「离开预算」两个变量分开测量。
  */
@@ -123,7 +132,8 @@ globalThis.window.__ac03 = {
 
   /**
    * 走**真实离开通道**（`channel: 'page_leave'` → `createLeaveSender` → `sliceForBeacon`）
-   * 发一个批次，返回 SDK 侧观测量与期望的事件序列。
+   * 发一个**手写信封**，返回 **transport 侧**观测量与期望的事件序列。
+   * 注意（#4）：这里没有 `createAssembly` 参与——见文件头"口径"一节。
    * @param {{url: string, count: number, padBytes: number, numericFields: number,
    *          budget?: object, waitMs?: number}} options
    */

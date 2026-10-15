@@ -398,3 +398,136 @@ pnpm test:e2e --project=webkit tests/e2e/leave-slice.spec.mjs
   到达 77 → **86 条**、丢 35 → **26 条**，且丢失**首次在 `leave.stats.skipped` 里可见**（不再自报全绿）。
 - 残余丢失的唯一形态：**回合 1 的 64686 B 之外，让出到新任务写出的第 3 片（19695 B）被 `sendBeacon` 拒绝**
   （`retry_network=1`），Chromium 与 WebKit 逐位相同。
+
+## 追加节（T29 尾部 · 单 lane）：WebKit 复跑（D-1 修复后）+ Firefox 补测 —— 2026-10-15
+
+- 执行：T29 尾部 lane，**负责人已授权的非沙箱会话**；工作目录 `/Users/spirit-ai/Desktop/sdk`，直接在 `main` 上工作。
+- 被测对象：`packages/transport/dist/index.js`，sha256 前缀 `23d3de1440433527`，mtime `2026-10-15T08:49:36.076Z`
+  （与上一追加节同一份产物；本轮**未**改 `packages/**`，也**未**改任何 spec / 门禁 / 契约）。
+- 驱动/浏览器：`playwright-core@1.60.0`（树外只读，revision 精确配对）+ 本机 webkit-2287 / firefox-1522，headless。
+- **本轮未设置任何 `MOZ_*` 变量**（`env | grep -i '^MOZ'` 为空；`PW_*` / `PLAYWRIGHT_*` 也为空，全部走 `lib/browsers.mjs` 的解析）。
+
+### 一句话结论
+
+**9/9 不成立。** D-1 修复确实让 WebKit 从「6/9 格捕获到窗口」提升到「本轮 8/9 格对账等式成立」（3 个旧空白格中
+`preflush-d0` 已完全对账、`pending-d0` 从空白变为**部分计数**、`preflush-small` **仍然空白**）；
+但那 2 格是**抖动**而非稳定失败，且 Chromium 在同一 3 格上 2/2 稳定完整。**Firefox 在本会话依旧起不来**
+（根因是内核拒绝嵌套 seatbelt，见下），**未取到任何 Firefox 数字**。
+
+### 1. WebKit 复跑（`pnpm test:e2e --project=webkit`）
+
+命令：`pnpm test:e2e --project=webkit --reporter=list` → **11 passed / 4 failed（29.7 s，4 workers）**。
+
+D004 逐格（`tests/e2e/results/d004-webkit.json`，`generatedAt=2026-10-15T08:55:08.990Z`，sha256 `74e40e08991ff423`）：
+
+| 格子 | 期望 | 存活 | `prewrite_commit_lost` | 窗口捕获 | 对账 | `exposureReconciles` |
+|---|---|---|---|---|---|---|
+| `durable` | 1000 | 1000 | 0 | 否 | ✅ | `true` |
+| `pending-d0` | 1000 | 0 | **10** | **是** | ❌ | `{"survivors":0,"commitLost":10,"expected":1000}` |
+| `pending-d5` | 1000 | 0 | 1000 | 是 | ✅ | `true` |
+| `pending-d20` / `d60` / `d200` | 1000 | 1000 | 0 | 否 | ✅ | `true` |
+| `bulk-d0` | 5000 | 0 | 5000 | 是 | ✅ | `true` |
+| `preflush-d0` | 1000 | 0 | **1000** | **是** | ✅ | `true`（修复前：空白 ❌） |
+| `preflush-small` | 100 | 0 | **0** | **否** | ❌ | `{"survivors":0,"commitLost":0,"expected":100}`（修复前：同样空白） |
+
+**T32 点名的 3 格，逐格回答「现在捕获到窗口了吗」**（对照 `git show e0bd651:tests/e2e/results/d004-webkit.json`）：
+
+| 格 | D-1 前（`e0bd651` 的 JSON） | D-1 后（本轮） | 判定 |
+|---|---|---|---|
+| `pending-d0` | 存活 0 / 计 **0** / `windowCaptured=false` → `{0,0,1000}` | 存活 0 / 计 **10** / `windowCaptured=true` → `{0,10,1000}` | **仍是空白，只是变成「部分计数」**；`10 ≠ 1000`，**不得计入已对账** |
+| `preflush-d0` | 存活 0 / 计 **0** / `windowCaptured=false` → `{0,0,1000}` | 存活 0 / 计 **1000** / `windowCaptured=true` → `true` | **✅ 已修复**（空白 → 完全对账） |
+| `preflush-small` | 存活 0 / 计 **0** / `windowCaptured=false` → `{0,0,100}` | 存活 0 / 计 **0** / `windowCaptured=false` → `{0,0,100}` | **仍未捕获窗口**（默认配置那一格依然无结论） |
+
+### 2. 那 2 格是**抖动**，不是稳定失败（3 次独立复跑）
+
+`node tests/e2e/lib/d004-run.mjs --browser webkit --cells pending-d0,preflush-small --out /tmp/...`（产物写到 `/tmp`，
+**未覆写** T29 官方 JSON；单次约 15 s）：
+
+| 运行 | `pending-d0` 计数 | `pending-d0` 对账 | `preflush-small` 计数 | `preflush-small` 对账 |
+|---|---|---|---|---|
+| 官方整轮 | 10 | ❌ | 0 | ❌ |
+| 复跑 1 | 10 | ❌ | 100 | ✅ |
+| 复跑 2 | 1000 | ✅ | 100 | ✅ |
+| 复跑 3 | 1000 | ✅ | 0 | ❌ |
+
+→ **同一格同一产物，计数在 `0 / 10 / 100 / 1000` 之间跳**。因此本轮**不能**说「WebKit 稳定 8/9」，
+只能说「**单次运行的对账完整性不可靠**」：`pending-d0` 6 次观测里 2 次不完整，`preflush-small` 4 次观测里 2 次不完整。
+
+**机制（有原始磁盘证据，不是推测）**：`rawDumpBeforeOpen` 直接读未经过 SDK 的 IDB，落盘 `meta` 只有 2 条，
+其中 `intent:pending-d0-first` 的值是
+`{"total_enqueued":10,"total_committed":0,"first_pending_at":1792054499764,"updated_at":1792054499765}`
+—— 锚点是**异步**（`requestAnchor()` → `backend.putMeta()`）写入的，且写入值取自**发起那一刻**的账目：
+`issue()` 同步发出 100 批的途中，第 1 次 `requestAnchor()` 以 `total_enqueued=10` 建值、其余 99 批只把
+`anchorQueued` 置位；SIGKILL 在 `measuredMsAfterIssue=0 ms` 到达时，**只有那份 `=10` 的锚点落了盘**，
+后续合并锚点（值本会是 1000）没来得及完成。这正是 `e2e-d004-hardkill.md` 局限第 6 条预告的
+「**合并锚点的残余窗口**」，本轮**首次在 WebKit 上被实测到**，表现为计数偏小（不是数据丢失：
+`reopenStats` 里没有半落盘记录，`durable` 仍 1000/1000）。
+
+**引擎差异（同一命令，Chromium 对照）**：`--browser chromium --cells pending-d0,preflush-d0,preflush-small`
+连跑 2 轮 → **6/6 格「存活 0 + 计数 == 期望」（1000/1000/100）**。即该残余窗口在 Chromium 上**测不出**、
+在 WebKit 上**测得出**——与「WebKit 的 `putMeta` 往返显著慢于 Chromium」一致（同一场景 `commitLostWindowMs` 680 ms）。
+
+### 3. Firefox 补测：**起不来，零数字**（如实记为阻塞，不记为通过）
+
+- `node tests/e2e/lib/smoke-browsers.mjs firefox`（**不设任何 `MOZ_*`**）→ **LAUNCH-FAIL**，
+  `browserType.launchPersistentContext: Timeout 45000ms exceeded`；headless 与 headed（`-foreground`）
+  **同样失败**；超时放到 120 s 仍失败；`leave-slice` 的 20 s 探测性启动亦同样超时。
+- **错误原文（逐字，`firefox-e2e.log` 与单次探测两次独立复现）**：
+  `Sandbox error: sandbox_init() failed with error "Operation not permitted"` +
+  `sandbox initialization failed: Operation not permitted`（其后是整份 seatbelt profile 转储）。
+  注意浏览器**并未崩**：它还在 timeout 前打了 `Juggler listening to the pipe`，卡住的是握手（juggler），
+  与 T29 记录的现象一致。
+- **这根因不是 Firefox 特有，而是本会话的环境事实**：自写的 3 行 C 程序（`sandbox_init("(version 1)(allow default)", …)`）
+  同样返回 `rc=-1 err=Operation not permitted`；`sandbox-exec -f` 也报 `sandbox_apply: Operation not permitted`。
+  即**本会话自身跑在 seatbelt 之下，嵌套 `sandbox_init()` 被内核拒绝**（macOS 26.6.2 / arm64）。
+  所以「非沙箱会话」这一授权**没有在本 lane 实际生效**——请编排方在真正非沙箱的宿主（或允许嵌套的会话）里重派 Firefox。
+- `pnpm test:e2e --project=firefox tests/e2e/durability.spec.mjs tests/e2e/real-browser.spec.mjs`
+  已按要求实际执行完毕（**5 m 29 s，exit 1**）：**7 failed / 0 passed / 0 skipped** ——
+  D004 两条 + `real-browser.spec.mjs` 五条 A/B/C1/C2/D，**每条都因 launch 超时 `✘` 失败**（不是 `skip`），
+  失败原文同上（log 在 `/tmp/t29/firefox-e2e.log`）。**Firefox 一行数字都没有**，本报告不给出任何 Firefox 结论。
+- **`leave-slice.spec.mjs` 的跳过条件：已不再是写死的 `browserName` 名单**。
+  `HEAD`（`e0bd651`）第 76 行是 `test.skip(({ browserName }) => browserName !== 'chromium' && browserName !== 'webkit', '本机只支持 Chromium / WebKit')`
+  —— **那条确实会在 Firefox 上恒跳过**；但**工作树里已被另一 lane 改成运行时真启动探测**
+  （`browserReady()` 真的 `launchPersistentContext` 起一次，起不来才带真实报错跳过）。
+  本 lane **未改动该文件**（遵守「不要改它」）。**实测**（`pnpm test:e2e --project=firefox tests/e2e/leave-slice.spec.mjs`
+  → **6 skipped**）：**仍然全部跳过，但理由换了** —— 旧代码是静默的引擎名单，现在是
+  `⚠ 跳过 [firefox] …：firefox 在本机起不来，本用例无法执行：browserType.launchPersistentContext: Timeout 20000ms exceeded。`
+  这属于另一 lane 的产出，**本 lane 不代其宣称**；本 lane 只如实报「仍是 6 条跳过、跳过理由已带真实报错」。
+
+### 4. WebKit 其余失败项（原文，均为**既有**结论，非本轮引入）
+
+AC-03 三条与 Chromium **逐位相同**（`rebuilt.length` 86 ≠ 112、`sendBeacon` 拒绝 1 次、`leave.skipped=26`），
+即上一追加节已判定的「#2 仍不通过」；`D004-B/C` 那条由 §1 的 `pending-d0` 引起。**没有一个失败是本轮造成的**
+（本轮只跑浏览器、只读源码、未改 `packages/**` 与任何 spec）。
+
+### 5. 清理 / 残留
+
+- 每次 `killMatching(profilePids(dir))` 生效：WebKit 全部用例结束后 `pgrep -f webkit-2287` = **0**，
+  Firefox 结束后 `pgrep -f firefox-1522` = **0**。本轮结束时**无本 lane 残留的浏览器主进程**。
+- **存在 3 个先于本 lane 的孤儿 WebKit XPC 进程**：pid 96565/96566/96567
+  （`com.apple.WebKit.{GPU,Networking,WebContent}`）——它们**不是**本轮产生的：本轮所有浏览器进程 PID 在
+  77k–84k 区间（WebKit 侧 77k–84k，Firefox 侧 85k–88k），远低于 96k，且与上一追加节记录的
+  96565/96566/96567 **同 3 个 pid**（父进程已是 launchd，`profilePids()` 找不到它们的 user-data-dir）。
+  本 lane **未**杀它们（不属于本 lane、也不影响数字），如实留档。
+- 本轮**现场重生/覆写**的已跟踪产物（e2e 正常产物，属 `ignores`/由编排方恢复）：
+  `tests/e2e/probes/mutant-transport.js`（`3c5e4dcb…` → `5720d407…`）、
+  `tests/e2e/results/beacon-quota-webkit.json`（`95813273…` → `b14d1dad…`）、
+  `tests/e2e/results/d004-webkit.json`（**本轮的被测产物**，新 `74e40e08991ff423`）、
+  `beacon-quota-chromium.json`、`tests/e2e/probes/*-driver.js`（后两者跑前已是脏的，非本 lane 编辑）。
+- **`tests/reliability/reconcile.mjs` 在本轮后被如实复跑**（读新 WebKit JSON）：第 3.0 节 WebKit 由
+  3 格 ❌ 变为 **2 格 ❌**（`pending-d0` 计数 10、`preflush-small` 计数 0）；**Chromium 9/9 与上一轮完全相同**。
+  该脚本**只读 JSON、不写报告**，本轮**未**用 `--write`（避免改他人结论）。
+
+### 6. 本轮暴露、但还没被覆盖的「只有真实浏览器才暴露」的风险
+
+1. **锚点合并残余窗口的量级没有任何护栏**：WebKit 上单次 meta 事务往返足以让「事件已产生但计数未落」的
+   事件数偏小一个数量级（10 vs 1000）。单元测试用 `fake-indexeddb` 是**同步**的，结构上测不出来。
+   建议（不在本 lane 权限内）：给锚点加「停止合并、强制逐次落痕」的开关，或在 `d004-run.mjs` 里对
+   捕获窗口的格子做**多轮取最大值/要求连续 N 轮完整**再判定，避免单次抖动被读成通过/失败。
+2. **`preflush-small`（生产默认配置）在 WebKit 上依然无结论**：默认 200 ms 定时器 + 10 批的路径，
+   恰是最贴近线上的那一格，却最难捕获。
+3. **Firefox 完全空白**：不只是 D004，`real-browser.spec.mjs` 的全部真实浏览器项、AC-03 默认/放宽两条路径、
+   `leave-slice` 的切片形状在 Gecko 上都**从未执行过**。Gecko 与 WebKit/Blink 在 IndexedDB 事务调度、
+   `sendBeacon` 额度（Chromium/WebKit 实测同为 64 KiB）上可能不同 —— 现在没有数据。
+4. **驱动不是仓库锁定的 1.64.0**（webkit-2287 只有配 1.60.0 才起得来）；`Page.overrideSetting` 类差异
+   可能已在不知不觉中换了被测面。1.64.0 的完整矩阵需要先 `playwright install`（需批准）。

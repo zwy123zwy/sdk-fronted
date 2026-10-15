@@ -703,6 +703,8 @@ Tests  4 failed | 3 passed (7)
 **`env` / `release` / `extra_mask_rules` / `endpoint` / `token`（`init` 侧）**。性质与 D-09 完全相同
 （看起来设了、实际没设、不报错），建议单独立项；本轮**只报告、未改**。
 
+**→ 2026-10-15 后续（发布阻塞点 ⑧ lane）已逐条处置，见文末「十、阻塞点 ⑧ 处置结果」。**
+
 ### 文档跟进（`docs/guides/**` 不在本轮可写范围，归 T34）
 
 `docs/guides/integration.md` 第 8.2 节的新注记仍写着「`createClient({ consent: 'granted' })` 目前被**静默忽略**
@@ -727,3 +729,51 @@ Tests  4 failed | 3 passed (7)
 
 这三处的共同教训与 `docs/reports/handover.md` 第 4 节的既有流程口径一致：
 **"实测失败"不等于"实现有缺陷"，先证明探针自己是合法输入。**
+
+---
+
+## 十、阻塞点 ⑧ 处置结果（2026-10-15，发布阻塞点 lane；逐条核定 + 修复）
+
+出处：T35 发布检查表列出的发布阻塞点 ⑧；口径裁定由编排方给出（2026-10-15）。
+本节记录**已修/已核定 + 依据**，修订上文「顺带核实」表的"本轮只报告、未改"。
+
+**逐条处置**（探针均先复现旧行为，再改）：
+
+| 参数 | 处置 | 依据 |
+|---|---|---|
+| `createClient({ appId })` | **(a) 生效**：构造面播种 `appId`，`init({ appId })` 覆盖（与 `consent` 同序）；两处都没有才计 `invalid_args` | 与 D-09 同一先例；`ClientInitOptions.appId` 注释即「必填且非空」 |
+| `init({ env })` / `init({ release })` | **(a) 生效**：init 覆盖构造值；未传保留构造值，都缺省仍是 `production` / `0.0.0` | 同上；批头 provider 改为读可变来源（映射类型去 `readonly`，不改公共类型） |
+| `init({ extra_mask_rules })` | **(a) 生效且只能追加**：追加到构造面规则集，不覆盖、不关闭内置 7 条；重建 masker 后由字段约束处理器与 `clampAndTrack` 共用 | 脱敏取保守方向（只能加掩码）；与契约「内置规则不可整体关闭」一致 |
+| `createClient({ endpoint })` / `init({ endpoint })` | **(b) 显式拒绝**：计 `invalid_args` + 发 `dropped:'field'` / `field:'endpoint'` 诊断（`ASSEMBLY_ONLY_FIELDS`）；`endpoint` 唯一生效入口是 `AssemblyOptions.endpoint` | core 没有网络，不可能消费；真正消费点是装配根凭据端口 → C07 发送器 |
+| `createClient({ token })` / `init({ token })` | **暂缓（待裁定）**：仍按「接受但不使用」处理 | `api/public-api.test.ts` 的 C01-AC-12 三条既有断言以「init 传 token」为样本锁死诊断记录序列/console 行数，纳入拒绝清单会红，而既有断言只加不改 |
+
+**判别性证明（三要素，2026-10-15 实跑）**：变异点均为 `packages/core/src/api/client.ts` 的读取点，
+用例为 `api/client-declared-options.test.ts`（13 条）与 `browser/src/assembly-init-options.test.ts`（2 条）：
+
+| 变异 | 判别性断言（红） |
+|---|---|
+| 去掉构造面 `appId` 播种 | `expected 1 to be +0`（invalid_args） |
+| 去掉 `init` 读 `env` | `expected 'production' to be 'prod-x'`；`expected 'ctor-env' to be 'init-env'` |
+| 去掉 `init` 读 `release` | `expected '0.0.0' to be '9.9.9'` |
+| 去掉 `init` 追加 `extra_mask_rules` | `expected 'value=SECRETVALUE' to be 'value=***'`；二次施加用例 `expected 'x' to be 'xx'` |
+| 清空 `ASSEMBLY_ONLY_FIELDS` | `expected +0 to be 1`（invalid_args）；装配路径同断言 |
+
+恢复后 `sha256` 逐字一致；回归：`vitest --project unit packages/{core,browser,transport,plugins}` =
+124 files / 1082 tests 全绿；`tsc -p packages/core`、`tsc -p packages/browser`、`eslint packages/core/src packages/browser/src`、
+`node scripts/api-check.mjs`（4 包 ok，未动导出面）全部 exit 0。
+
+**顺带核查（⑥，只报告；`packages/plugins/src/**` 不在本 lane 可写范围）**——按接口归属包限定作用域
+静态核对 `ClientInitOptions`（15）/`ClientOptions`（19）/`AssemblyOptions`（25）的每个字段，另加探针实测：
+
+- `ClientInitOptions` 只剩 `endpoint` / `token` 在 core 无读取点 → 已按上表处置（`token` 待裁定）；
+- `AssemblyOptions` 25 个字段**全部**有读取点；
+- **新增发现（C05 配置面，建议单独立项）**：
+  1. `ErrorPluginOptions.reportRepeats`（`plugins/src/error/plugin.ts:41`）零读取点，探针 true/false 结果逐字相同；
+     且 `error/edge-cases.test.ts:156`「reportRepeats 开启时窗口内每条都上报」是**空转用例**——断言
+     `events.length===1 && count===3`，正是 `reportRepeats=false` 的默认分支（用例名与断言相反）。
+  2. `ErrorPluginOptions.sources`（`:43`）全仓零读取点；探针 `sources: []` 仍照常采集 `window_error`。
+  3. `RoutePluginOptions.match`（`route/types.ts:44`）零读取点；route 插件只读 `mode` / `templates`。
+  4. 装配根安装 error 插件时未接 `sources` / `reportRepeats`（`browser/src/assembly.ts:465`）→ 生产路径不可达。
+
+**文档跟进（不在本 lane 可写范围）**：`endpoint` / `token` 的「属装配根、core 面会被拒绝」已写进
+`packages/core/src/api/types.ts` 与 `packages/browser/src/assembly.ts` 的字段注释；接入指南的对应说明归 T34。
