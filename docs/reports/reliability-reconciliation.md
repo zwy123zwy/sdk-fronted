@@ -109,7 +109,7 @@
 
 | 引擎 | 文件 | `generatedAt` | 被测实现 `sha256` 前缀 | 驱动 |
 |---|---|---|---|---|
-| chromium | `tests/e2e/results/d004-chromium.json` | 2026-10-14T09:27:33.471Z | `454fbb9008176f86` | `npx-cache-playwright-core-1.60.0` |
+| chromium | `tests/e2e/results/d004-chromium.json` | 2026-10-15T02:12:53.315Z | `88ca1e9c49dc0f61` | `npx-cache-playwright-core-1.60.0` |
 | webkit | `tests/e2e/results/d004-webkit.json` | 2026-10-14T09:16:59.442Z | `26c232e4112442c6` | `npx-cache-playwright-core-1.60.0` |
 
 > **读表前必读：`exposure_window_ms` 的语义不等于 D004 的"暴露窗口"**（本任务实测发现，见缺口 2）。
@@ -138,19 +138,19 @@
 
 | 格子 | 样本量 | 期望事件 | 存活（读回） | 读不回 | `prewrite_commit_lost` 计数 | 暴露窗口时长 | 对账 | 证据（JSON 路径） |
 |---|---|---|---|---|---|---|---|---|
-| chromium `durable` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 17 ms） | 完全对账 ✅（等 `oncomplete` 后杀：1000/1000 全部读回，计 0） | `d004-chromium.json` `cells[0]` |
+| chromium `durable` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 11 ms） | 完全对账 ✅（等 `oncomplete` 后杀：1000/1000 全部读回，计 0） | `d004-chromium.json` `cells[0]` |
 | webkit `durable` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 16 ms） | 完全对账 ✅（等 `oncomplete` 后杀：1000/1000 全部读回，计 0） | `d004-webkit.json` `cells[0]` |
 
 ### ③ 硬杀「暴露窗口内未提交」——事务在途，按条数与窗口时长计量
 
 | 格子 | 样本量 | 期望事件 | 存活（读回） | 读不回 | `prewrite_commit_lost` 计数 | 暴露窗口时长 | 对账 | 证据（JSON 路径） |
 |---|---|---|---|---|---|---|---|---|
-| chromium `pending-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 1213 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[1]` |
-| chromium `pending-d5` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 1213 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[2]` |
+| chromium `pending-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 1334 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[1]` |
+| chromium `pending-d5` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 1789 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[2]` |
 | chromium `pending-d20` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 21 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-chromium.json` `cells[3]` |
-| chromium `pending-d60` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 61 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-chromium.json` `cells[4]` |
-| chromium `pending-d200` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 201 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-chromium.json` `cells[5]` |
-| chromium `bulk-d0` | 500 批 × 10 | 5000 | 0 | 5000 | 5000 | 1712 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 5000 = 期望） | `d004-chromium.json` `cells[6]` |
+| chromium `pending-d60` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 63 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-chromium.json` `cells[4]` |
+| chromium `pending-d200` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 200 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-chromium.json` `cells[5]` |
+| chromium `bulk-d0` | 500 批 × 10 | 5000 | 0 | 5000 | 5000 | 1538 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 5000 = 期望） | `d004-chromium.json` `cells[6]` |
 | webkit `pending-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 0 | —（未捕获；杀在发出后 0 ms） | ⛔ **窗口未捕获，本格无结论**：SIGKILL 落在任何提交之前（`nothingCommitted=true`），JSON 的 `exposureReconciles` 是对象 `{"survivors":0,"commitLost":0,"expected":1000}` 而非 `true`；存活+计数 0 ≠ 期望 1000。**不得记为 0 丢失，也不得计入"已对账"** | `d004-webkit.json` `cells[1]` |
 | webkit `pending-d5` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 923 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-webkit.json` `cells[2]` |
 | webkit `pending-d20` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 21 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-webkit.json` `cells[3]` |
@@ -162,8 +162,8 @@
 
 | 格子 | 样本量 | 期望事件 | 存活（读回） | 读不回 | `prewrite_commit_lost` 计数 | 暴露窗口时长 | 对账 | 证据（JSON 路径） |
 |---|---|---|---|---|---|---|---|---|
-| chromium `preflush-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 935 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[7]` |
-| chromium `preflush-small` | 10 批 × 10 | 100 | 0 | 100 | 100 | 1205 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 100 = 期望） | `d004-chromium.json` `cells[8]` |
+| chromium `preflush-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 985 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[7]` |
+| chromium `preflush-small` | 10 批 × 10 | 100 | 0 | 100 | 100 | 1227 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 100 = 期望） | `d004-chromium.json` `cells[8]` |
 | webkit `preflush-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 0 | —（未捕获；杀在发出后 0 ms） | ⛔ **窗口未捕获，本格无结论**：SIGKILL 落在任何提交之前（`nothingCommitted=true`），JSON 的 `exposureReconciles` 是对象 `{"survivors":0,"commitLost":0,"expected":1000}` 而非 `true`；存活+计数 0 ≠ 期望 1000。**不得记为 0 丢失，也不得计入"已对账"** | `d004-webkit.json` `cells[7]` |
 | webkit `preflush-small` | 10 批 × 10 | 100 | 0 | 100 | 0 | —（未捕获；杀在发出后 0 ms） | ⛔ **窗口未捕获，本格无结论**：SIGKILL 落在任何提交之前（`nothingCommitted=true`），JSON 的 `exposureReconciles` 是对象 `{"survivors":0,"commitLost":0,"expected":100}` 而非 `true`；存活+计数 0 ≠ 期望 100。**不得记为 0 丢失，也不得计入"已对账"** | `d004-webkit.json` `cells[8]` |
 
@@ -175,27 +175,27 @@
 node tests/e2e/lib/d004-run.mjs --browser chromium --out tests/reliability/results/d004-chromium-rerun.json
 ```
 
-- A：`/Users/spirit-ai/Desktop/sdk/tests/e2e/results/d004-chromium.json`（chromium，sha256 `454fbb9008176f86`，2026-10-14T09:27:33.471Z）
+- A：`/Users/spirit-ai/Desktop/sdk/tests/e2e/results/d004-chromium.json`（chromium，sha256 `88ca1e9c49dc0f61`，2026-10-15T02:12:53.315Z）
 - B：`/Users/spirit-ai/Desktop/sdk/tests/reliability/results/d004-chromium-rerun.json`（chromium，sha256 `454fbb9008176f86`，2026-10-14T10:15:01.484Z）
-- 同一份被测实现：**是**
+- 同一份被测实现：**否**（`88ca1e9c49dc0f61` vs `454fbb9008176f86`）—— 两次运行不可直接比较
 
 | 格子 | A 窗口捕获 | B 窗口捕获 | A 存活+计数=期望 | B 存活+计数=期望 | A 窗口时长 | B 窗口时长 | A 杀在发出后 | B 杀在发出后 | 判定 |
 |---|---|---|---|---|---|---|---|---|---|
-| `durable` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 17 ms | 52 ms | 守恒且一致 |
-| `pending-d0` | 是 | 是 | 0+1000=1000 ✅ | 0+1000=1000 ✅ | 1213 ms | 1356 ms | 0 ms | 0 ms | 守恒且一致 |
-| `pending-d5` | 是 | 是 | 0+1000=1000 ✅ | 0+1000=1000 ✅ | 1213 ms | 1117 ms | 6 ms | 5 ms | 守恒且一致 |
+| `durable` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 11 ms | 52 ms | 守恒且一致 |
+| `pending-d0` | 是 | 是 | 0+1000=1000 ✅ | 0+1000=1000 ✅ | 1334 ms | 1356 ms | 0 ms | 0 ms | 守恒且一致 |
+| `pending-d5` | 是 | 是 | 0+1000=1000 ✅ | 0+1000=1000 ✅ | 1789 ms | 1117 ms | 6 ms | 5 ms | 守恒且一致 |
 | `pending-d20` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 21 ms | 22 ms | 守恒且一致 |
-| `pending-d60` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 61 ms | 61 ms | 守恒且一致 |
-| `pending-d200` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 201 ms | 201 ms | 守恒且一致 |
-| `bulk-d0` | 是 | 是 | 0+5000=5000 ✅ | 0+5000=5000 ✅ | 1712 ms | 1233 ms | 10 ms | 11 ms | 守恒且一致 |
-| `preflush-d0` | 是 | 是 | 0+1000=1000 ✅ | 0+1000=1000 ✅ | 935 ms | 1294 ms | 0 ms | 0 ms | 守恒且一致 |
-| `preflush-small` | 是 | 是 | 0+100=100 ✅ | 0+100=100 ✅ | 1205 ms | 1300 ms | 0 ms | 0 ms | 守恒且一致 |
+| `pending-d60` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 63 ms | 61 ms | 守恒且一致 |
+| `pending-d200` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 200 ms | 201 ms | 守恒且一致 |
+| `bulk-d0` | 是 | 是 | 0+5000=5000 ✅ | 0+5000=5000 ✅ | 1538 ms | 1233 ms | 11 ms | 11 ms | 守恒且一致 |
+| `preflush-d0` | 是 | 是 | 0+1000=1000 ✅ | 0+1000=1000 ✅ | 985 ms | 1294 ms | 0 ms | 0 ms | 守恒且一致 |
+| `preflush-small` | 是 | 是 | 0+100=100 ✅ | 0+100=100 ✅ | 1227 ms | 1300 ms | 0 ms | 0 ms | 守恒且一致 |
 
 **读法（只陈述两次运行里实际变了什么）**：
 
 - **可重复**：两次运行捕获到窗口的格子数分别为 5 / 5（同一组格名），**9/9 格的对账等式两次都成立**；
 - **D-1 子窗口的计数装置可重复**：`preflush-small`（默认配置、最贴近生产的那一格）两次都是「存活 0 + 计数 100 = 期望 100」与「存活 0 + 计数 100 = 期望 100」——第二次独立复现了"计数锚点覆盖到该子窗口"这一结论。
-- **不可重复（绝对值）**：暴露窗口时长在两次运行间的相对偏离为 12% / 8% / 28% / 38% / 8%（各捕获格）；`durable` 格的"杀在发出后"从 17 ms 变到 52 ms。**因此本报告不把任何单次窗口时长当作分布或 SLA 输入**（D004 引用的 p50 1–4.1 ms / p95 3–17 ms 是 POC-1 的批写提交延迟，不是这里的端到端窗口时长）。
+- **不可重复（绝对值）**：暴露窗口时长在两次运行间的相对偏离为 2% / 38% / 20% / 31% / 6%（各捕获格）；`durable` 格的"杀在发出后"从 11 ms 变到 52 ms。**因此本报告不把任何单次窗口时长当作分布或 SLA 输入**（D004 引用的 p50 1–4.1 ms / p95 3–17 ms 是 POC-1 的批写提交延迟，不是这里的端到端窗口时长）。
 - **仍不能说明的事**：两次运行都是 Chromium、都是单次、都是 headless；**WebKit 没有第二次运行**（本任务不允许覆写 T29 的 webkit 产物），Firefox 未测。
 
 ### 3.3 暴露窗口的夹逼读数（CR-008 追加，只增不改）

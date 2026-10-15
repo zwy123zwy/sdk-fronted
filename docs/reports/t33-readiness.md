@@ -180,3 +180,28 @@ M01 侧计数（**新计数器口径**，证据 `tools/mock-receiver/src/counter
 见 `docs/reports/t33-pilot-onboarding-kit.md` 第 6 节「Q2 交接函」与第 7 节「拿到 Q2 后的执行顺序」。
 Q2 缺失项的最小事实集：**应用名（含 `app_id`）、应用负责人、前端对接人、预发布环境、现有埋点清单**
 （+ 两项需接入方决定：是否启用同意管理及其 `consent_mode`、是否与第三方 APM 共存）。
+
+---
+
+## 补记（2026-10-15，T35 lane 追加）：§3.1 的「M01 侧计数」字段口径需按装置区分
+
+**只补口径、不改本文任何结论。** 第 3.1 节把下列字段统称为"M01 侧计数（新计数器口径）"，
+并同时给了两个出处（`tools/mock-receiver/src/counters.ts` 与 `tests/e2e/lib/receiver.mjs`）。
+T35 lane 逐文件核对后需要更精确的表述：
+
+| 字段 | `tools/mock-receiver`（M01，HTTP `GET /__mock/counters`，别名 `/__mock/stats`） | `tests/e2e/lib/receiver.mjs`（T32 本地测量装置） |
+|---|---|---|
+| `received_batches/events`、`stored_batches/events`、`duplicate_events` | ✅ 有 | ✅ 有 |
+| `rejected_<code>`（9 类）、`injected_*` | ✅ 有（`injected_*` 只 M01） | 部分 |
+| `duplicate_rate`、`dedupe_window_ms`、`expired_dedupe_keys` | ❌ **没有** | ✅ 有 |
+| `unparsable_batches` | ❌ 没有 | ✅ 有 |
+| `by_event_name`、`by_batch` | ❌ **没有** | ✅ 有 |
+
+**依据**：`tools/mock-receiver/src/counters.ts` 的 `CounterSnapshot` 类型（只列 `received_*` / `stored_*` /
+`duplicate_events` / `rejected_*` / `injected_*`）；`tests/e2e/lib/receiver.mjs:126-133` 才出现
+`duplicate_rate` / `dedupe_window_ms` / `unparsable_batches` / `by_event_name` / `by_batch`。
+
+**为什么值得写下来**：灰度看板的"重复送达率（去重前 − 去重后）"口径属于**生产接收方**的义务
+（`receiver-requirements.md` RR-05 + 第 4 节容量建议），**不能**指望 M01 的 HTTP 接口提供；
+而 M01 又明确"只用于测试、不得作为生产参考实现"。把两者混写会在 P6 放量时找不到数据源。
+详见 `docs/reports/release-grayscale-plan.md` §2.3 与 `docs/reports/release-checklist.md` §7.1。
