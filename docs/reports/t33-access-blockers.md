@@ -786,7 +786,146 @@ Tests  4 failed | 3 passed (7)
   3. `RoutePluginOptions.match`（`route/types.ts:44`）零读取点；route 插件只读 `mode` / `templates`。
   4. 装配根安装 error 插件时未接 `sources` / `reportRepeats`（`browser/src/assembly.ts:465`）→ 生产路径不可达。
 
-**→ 2026-10-15 后续（C05 采集插件 lane）已逐条核定 + 处置，见文末「十一、C05『声明了但没读』处置结果」。**
+**→ 2026-10-15 后续（C05 采集插件 lane）已逐条核定 + 处置 + **补判别性证明**，见文末「十一、C05『声明了但没读』处置结果与判别性证明」。**
 
 **文档跟进（不在本 lane 可写范围）**：`endpoint` / `token` 的「属装配根、core 面会被拒绝」已写进
 `packages/core/src/api/types.ts` 与 `packages/browser/src/assembly.ts` 的字段注释；接入指南的对应说明归 T34。
+
+---
+
+## 十一、C05「声明了但没读」处置结果与判别性证明（2026-10-15 补做 lane）
+
+出处：`b6e8dea`（按上文「十」末尾的登记：该批**改了代码但没留报告**，两件遗留未产出——
+① 三条关键用例的**判别性证明**；② `packages/plugins/src` 的**同类核查结论**）。本节补上这两件。
+
+**本节所有行号以工作区当前文件为准**（与 `b6e8dea` 提交时一致；本 lane 未改任何实现文件）。
+
+### 11.1 三条关键用例的变异三要素（实跑）
+
+命令模板（`<file>` 为被变异文件）：
+`pnpm exec vitest run --coverage.enabled=false --project unit packages/plugins/src/error/edge-cases.test.ts`
+
+| # | 变异点（临时回退） | 被执行命令 | 具体红断言原文 |
+|---|---|---|---|
+| M1 | `error/plugin.ts:165` `const reportRepeats = options?.reportRepeats === true;` → `const reportRepeats = false;`（即**不再读**该字段，回到 D-09/C05 的"声明了但没读"原状） | 同模板 | `:156`「reportRepeats 开启时窗口内每条都上报」红：`AssertionError: expected [ 3 ] to deeply equal [ 1, 2, 3 ]`（`edge-cases.test.ts:165:56`）；`Tests 1 failed | 15 passed (16)` |
+| M2 | 同 `:165` → `const reportRepeats = true;`（恒开，用于打**对照条**） | 同模板 | `:170`「对照：reportRepeats 关闭（缺省）时同一输入只上报一条」红：`AssertionError: expected [ 1, 2, 3 ] to deeply equal [ 3 ]`（`edge-cases.test.ts:178:56`）；`Tests 1 failed | 15 passed (16)` |
+| M3 | `error/plugin.ts:229` `isSourceEnabled` 恒 `true`（白名单永不生效） | 同模板 | `:182`「sources 白名单」红：`AssertionError: expected [ { …(6) }, { …(6) } ] to have a length of 1 but got 2`（`edge-cases.test.ts:192:20`）；**同时** `:196`「sources 为空数组时不采集任何源」红：`…to have a length of +0 but got 2`（`:206:20`）；`Tests 2 failed | 14 passed (16)` |
+
+**判别力要点（回应"它存在的意义就是曾经空转"）**：M1 是**唯一**能让 `:156` 变红的变异，
+且 `:156` 在 M1 下**确实红**（见上）；反过来 `:170` 在 M1 下**保持绿**、在 M2 下才红——
+**两侧各自可被独立打死**，说明这一对**不是**"同一断言的两次重复"，而是真正的开/关对照。
+`:182` 在 M3 下与 `:196` 一起红，说明白名单的"排除侧"与"空数组侧"都被钉住。
+
+### 11.2 同批其余改动的变异三要素（实跑）
+
+| # | 变异点 | 被执行命令 | 红断言原文 |
+|---|---|---|---|
+| M4 | `route/plugin.ts:94` `options?.match ?? createMatcher(options?.templates ?? [])` → `createMatcher(options?.templates ?? [])`（`match` 回到零读取点） | `…--project unit packages/plugins/src/route/edge-cases.test.ts` | 「options.match 自定义匹配器优先于 templates，且确实被调用」红：`AssertionError: expected [] to deeply equal [ '/task/99' ]`（`route/edge-cases.test.ts:69:18`）；`Tests 1 failed | 9 passed (10)`。同文件 `:73` 对照条保持绿 |
+| M5 | `browser/src/assembly.ts:483` 删掉 `...(errorOptions ?? {})`（装配根对 `errorPlugin` 回到零读取点） | `…--project unit packages/browser/src/assembly-error-plugin-options.test.ts` | ①「reportRepeats: true 时…count 累计（1/2/3）」红：`AssertionError: expected [ 3 ] to deeply equal [ 1, 2, 3 ]`；②「sources 白名单在装配路径上生效」红：`expected [ { …(9) }, { …(9) } ] to have a length of 1 but got 2`；`Tests 2 failed | 2 passed (4)` |
+| M6 | `browser/src/assembly.ts:478` 改成让 C04 端口优先（把接入方 `globalContext` 顶掉） | 同上 | 「接入方显式提供的 globalContext 不被装配根的 C04 端口静默顶掉」红：`AssertionError: expected undefined to be 'acme' // Object.is equality`；`Tests 1 failed | 3 passed (4)` |
+
+### 11.3 恢复后 `sha256` 一致性（硬要求）
+
+变异用**先备份再 `cp` 恢复**（备份在 `/tmp`，不落仓库）。恢复后逐文件 `sha256sum -c`：
+
+```
+packages/plugins/src/error/plugin.ts                OK   0a0687bbf55845027cbc45225a534a7e86c4fe0c2d4eef0e95a84c4544b02fb9
+packages/plugins/src/error/edge-cases.test.ts       OK   036d4a64d25e0d044caf16027526df18b0360bb4276c00f98e680cfda0347f58
+packages/plugins/src/route/plugin.ts                OK   0a50e3babb22a66ec65bcb166761fafc363eead062a12ca1bf7c527f7c3f0f5d
+packages/plugins/src/route/types.ts                 OK   ada988a169435add74ae6b9444137f84cf7f0eef841e1131dd01be7eca8ea4a7
+packages/plugins/src/route/edge-cases.test.ts       OK   c01c97368754df8631dbaf4dc041445d1889a7fdda2cb95cfc494d910ad4b556
+packages/browser/src/assembly.ts                    OK   a18cd8e784e60472260080bb61ca340848137c30777bd704b7991c3a2b1ab961
+```
+
+`git diff --stat -- packages/plugins packages/browser` 为空（除探针/变异外**零残留改动**）。
+探针另动过 `http/plugin.ts`、`apm-dual-write/create-plugin.ts`、`perf/vitals.ts`，恢复后 sha256：
+`b4f58368…` / `c753a9c5…` / `792d828e…`（三文件均无 `git diff`）。
+
+### 11.4 行为**真的生效**（不只是"读了字段"）——开/关可观测差异
+
+| 行为 | 关闭（缺省） | 开启 | 观测点 |
+|---|---|---|---|
+| `reportRepeats` | 同一输入 3 次 → **1 条**事件，`metrics.count = 3`、`collapsed = 2` | 同一输入 3 次 → **3 条**事件，`count = [1,2,3]`、`collapsed = 0` | 插件面：`edge-cases.test.ts:156` vs `:170`；**装配面**：`assembly-error-plugin-options.test.ts:111` vs `:121`（`expected [1,2,3]` vs `[3]`） |
+| `sources` | 全部源参与：`window_error` 与 `unhandled_rejection` **各 1 条** | `sources:['window_error']` → 只 1 条且 `source=window_error`（拒绝值**不归一化、不上报**）；`sources:[]` → **0 条**（含自动监听路径） | 插件面 `:182`/`:196`/`:209`；装配面 `:131` |
+
+差异不是"计数多了一个"这类弱证据，而是**事件条数与每条 `count` 序列同时改变**（`[3]` ↔ `[1,2,3]`），
+且 M1/M2/M5 证明这两侧**各自可失败**。
+
+### 11.5 同类核查结论：`packages/plugins/src` 还有没有"声明了但没读"/空转用例？
+
+**方法**（三类证据叠加，不只靠 grep）：
+1. **静态逐字段核对**：对每个 `*Options` 接口用 `awk` 抽出**全部** `readonly` 字段，再在 `packages/*/src` 内找
+   `options?.<field>` / `ports?.<field>` 形式的**读取点**（并排除接口声明自身的匹配）；
+2. **探针实测**（新方法，用来抓"读了但没人证明"）：把字段**钉成常量**（`??` 两侧各一次），
+   跑该插件的全部单测——**全绿 = 该字段没有任何用例证明它生效**；
+3. **"名字声称某行为"的用例抽查**：重点看判据里应同时存在"开启/关闭"两侧的用例名。
+
+#### (a) 字段表：读取点与判别性覆盖
+
+| 接口（文件） | 字段 | 实现读取点 | 有判别性用例？ |
+|---|---|---|---|
+| `ErrorPluginOptions`（`error/plugin.ts`） | `captureResourceErrors` | `:309`（`attach`） | ✅ 探针：恒 true → 3 红；恒 false → 1 红（`:103`/`:119` 双侧） |
+| | `reportRepeats` | `:165`（`settle`/`observe` 消费于 `:209`/`:248`） | ✅ M1/M2 + `:156`/`:170` |
+| | `sources` | `:166`（`isSourceEnabled` `:228`） | ✅ M3 + `:182`/`:196`/`:209` |
+| | `now` | `:163`（`emit` 的 `occurred_at`、`dedup` 计时） | ✅ 探针 R：恒 `Date.now()` → 1 红（`capture.test.ts:238`） |
+| | `windowMs` | `:164` → `createDeduplicator({windowMs})` | ❌ **无判别性用例**（见 (b)-1） |
+| | `globalContext` | `:185`（`emit` 合并进 `context`） | ✅ `assembly-error-plugin-options.test.ts:141` + M6 |
+| | `onLeave` | `:371`（注入端口优先） | ✅ 探针 C：跳过注入 → 1 红（`capture.test.ts:271`/`:291` 双侧） |
+| `RoutePluginOptions`（`route/{plugin,types}.ts`） | `mode` | `:92`（`readPath` `:106`、`attach` `:177`/`:181`） | ✅ 探针 J：恒 `manual` → 6 红；探针 P：hash 分支失效 → 3 红 |
+| | `templates` | `:94` | ✅ 探针 K：恒 `[]` → 4 红 |
+| | `match` | `:94` | ✅ M4 + `edge-cases.test.ts:63` |
+| `HttpPluginOptions`（`http/plugin.ts`） | `traceScope` | `:206` | ✅ 探针 F：恒 `undefined` → 1 红；恒 `{}` → 5 红 |
+| | `traceContextProvider` | `:208` | ✅ 探针 G：恒 `undefined` → 1 红 |
+| | `urlTemplate` | `:195` → `:222` `url_template` | ❌ **无判别性用例**（见 (b)-2） |
+| `ApmDualWriteOptions`（`apm-dual-write/create-plugin.ts`） | `forward` | `:137`（`:152` 消费） | ✅（`apm-dual-write.test.ts` 直接注入并断言转发） |
+| | `resolve` | `:138`（`:152` 惰性解析） | ✅（含"未加载时记 `processor_error`"用例） |
+| | `fieldMap` | `:134` | ✅ 探针 L：恒 `{}` → 2 红 |
+| | `constants` | `:135` | ✅ 探针 N：恒 `{}` → 1 红 |
+| | `eventTypes` | `:136` | ✅ 探针 M：恒 `[]` → 7 红 |
+| `VitalsAccumulatorOptions`（`perf/vitals.ts`） | `now` | `:79` | ✅（探针口径同 error `now`） |
+| | `responseStartProvider` | `:80`（`:125` 消费） | ✅ 探针 O：恒 `undefined` → 2 红 |
+| `CoexistenceInitOptions`（`coexist/index.ts`） | `apmCoexistence` | `:56`/`:58` | ✅ `coexist/defaults.test.ts` 两份缺省表对照 |
+
+**结论 (a)**：`packages/plugins/src` 的 `*Options` **没有任何字段是"零读取点"**——
+上文「十」登记的四条（`reportRepeats` / `sources` / `match` / 装配根接线）均已由 `b6e8dea` 修实，
+本 lane 逐字段复核确认**读取点真实存在且被消费**。
+`AssemblyOptions.errorPlugin`（`browser/src/assembly.ts:475`/`:478`/`:483`）也已接线并有 4 条装配面用例（M5/M6 可杀）。
+
+#### (b) 有问题的用例清单（**只报告，未改**）
+
+1. **`ErrorPluginOptions.windowMs` —— 读取点在，但没有任何用例证明它生效（"名字声称的配置行为"未被测）。**
+   - 判定依据：探针 Q（`error/plugin.ts:164` 钉成 `DEFAULT_DEDUP_WINDOW_MS`）→ `Tests 35 passed (35)`，
+     **全绿**；即把该字段改成"忽略配置"没有任何用例会红。
+   - 原因（读代码可知）：唯一涉及它的用例 `capture.test.ts:238`「窗口到期自动结算（1 秒后上报）」
+     **传的就是 `windowMs: 1000`**（`capture.test.ts:254`），与缺省 `DEFAULT_DEDUP_WINDOW_MS`（1000）
+     **同值**，且时钟只推进 `1000`——传与不传无法区分。该用例实际证明的是**缺省 1 秒语义**，不是**配置项语义**。
+   - 判定：**不是空转用例**（它自身断言有效、且真能失败），但**该配置项缺判别性用例**。
+   - 建议处置（**先请裁决**）：补一条 `windowMs: 10`（配 `now()` 假时钟推进 10ms）的用例，钉住"配置值决定窗口长度"。
+     这属于**加用例**、不改既有断言，但涉及测试口径（是否要求每个 `*Options` 字段都有判别性用例），故先报不先改。
+
+2. **`HttpPluginOptions.urlTemplate` —— 读取点在，但没有任何用例注入过它。**
+   - 判定依据：① `grep -rn urlTemplate`（全仓 `src`/`tests`/`docs`）只有两处读取点（`http/plugin.ts:195`/`:222`）
+     与接口声明，**无任何测试引用**；② 探针 E（`:195` 钉成 `defaultUrlTemplate`）→ `Tests 29 passed (29)`，
+     **全绿**；而探针 I（钉成 `() => 'CONST'`）→ 1 红，说明变红的是**缺省去参数**行为，不是**注入**行为。
+   - 判定：读取点真实（`options?.urlTemplate ?? defaultUrlTemplate`），**但"注入自定义模板会生效"未被任何用例证明**。
+   - 建议处置（**先请裁决**）：补一条注入 `urlTemplate: () => '/x/:id'` 并断言事件 `url_template` 等于该值的用例。
+     同样属**加用例**，先报不先改。
+
+3. **"名字声称某行为"的抽查：未发现新的空转用例。** 逐条看了判据里应含"开启/关闭"两侧的用例名：
+   `error/edge-cases.test.ts:103/:119`（`captureResourceErrors` 双侧 ✅）、`:156/:170`（`reportRepeats` 双侧 ✅）、
+   `:182/:196/:209`（`sources` 三侧 ✅）、`route/edge-cases.test.ts:63/:73`（`match`/`templates` 双侧 ✅）、
+   `coexist/defaults.test.ts`（共存/非共存两表，且 `:39` 有"非空转对照" ✅）、
+   `http/trace-header.test.ts:118`（"未配置追踪范围时不注入"——单侧命名，但同文件 `:114` 已有配置侧注入断言 ✅）。
+   **均无"名字与断言相反"的遗留**；上一轮那条（原 `:156`）已由 `b6e8dea` 修成真用例。
+
+#### (c) 判定依据与处置建议汇总
+
+| 项 | 性质 | 依据 | 建议 |
+|---|---|---|---|
+| `reportRepeats` / `sources` / `match` / `assembly.errorPlugin` | 已修实 | §11.1/§11.2 变异三要素 + §11.4 开/关差异 | **无需处置**（本 lane 已补证明） |
+| `ErrorPluginOptions.windowMs` | 读取点在，**配置语义无判别性用例** | 探针 Q 全绿；`capture.test.ts:254` 传同值 1000 | 补一条异值（如 10ms）用例；**先请口径裁决** |
+| `HttpPluginOptions.urlTemplate` | 读取点在，**注入语义无用例** | 全仓零测试引用；探针 E 全绿 | 补一条注入用例；**先请口径裁决** |
+| 其余 `*Options` 字段 | 读取点 + 判别性用例均齐 | §11.5(a) 表 | 无需处置 |
+
+> 注：本 lane **未修改任何实现文件与测试文件**（`git diff -- packages/plugins packages/browser` 为空），
+> 上述两处建议均为**需要裁决后再动手**的加用例项——按任务口径"口径类问题先问"。
