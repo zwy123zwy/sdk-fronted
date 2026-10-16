@@ -290,3 +290,23 @@ T18（8d，主干枢纽，先做第 1 节的 8 项接线与义务）
 2. **`receiver-requirements.md` 第 4 节的重复流量补充**（第 3 节义务 #1）。
 3. **T29 的沙箱放开**：Firefox 需要非 DSH 沙箱的 shell，届时需在有权限处执行。
 4. **发布前整张预算表的重新推导**（需负责人参与定案）。
+
+## 【中断/接手快照】未提交的在途交付物（2026-10-15 16:40 记录）
+
+> **背景**：末尾几个 goal 轮次在等 5 条 lane 收工；若本会话在此处中断，**未提交的交付物如下表**。
+> **不要 `git checkout .` / `git stash` / `git clean`**——那会连同"谁的产物"一起清掉（见条文 10.8）。
+
+| lane | 已落地的交付物（**未提交**） | 收工后要做的复核 |
+|---|---|---|
+| `gate-selftest` 扩面 | `scripts/gate-selftest.mjs`（+263/−28）：为 `examples:build`/`examples:test`/`test:contract`/`test:e2e` 各加**能失败**的自检；两类用例（**违规样例型**：塞真实违规→门禁须非零退出；**零收集型**：给不可能命中的参数→"收集 0 用例"须非零退出）。`test:e2e` **只用零收集型**（沙箱内 Firefox/WebKit 必红、`resolveBrowser` 显式抛错），故不跑完整 e2e | 判别性证明三要素 + 全量门禁 |
+| `leave-slice` 跳过可见化 | `tests/e2e/leave-slice.spec.mjs` + **`tests/e2e/lib/skip-audit.mjs`（249 行）** + **`tests/e2e/lib/skip-audit-selftest.mjs`**：跳过变成**一等、可见、可断言**的输出——唯一入口 `skipUnavailableBrowser()`（带真实启动报错）、旁路 `.skip` 被 `afterEach` 判红且被 eslint 拦、整 spec 一条没跑即判红；判定逻辑 `auditVerdicts()` 是**不依赖浏览器的纯函数**+确定性自检 | 同上 + eslint 改动是否误伤 |
+| 交付报告 | `docs/reports/delivery-report.md`（**新建**） | 核对它引用的**所有数字与相对链接**（它自报做过链接反证） |
+| compat 产物幂等 | **尚未落地**（该 lane 在 `temp/` 隔离验证；我上一轮已改判其验收标准为"机制+判别性证明"，**真树复核由接手者做**） | 跑完 `pnpm gates` 后 **`git status` 必须为空** |
+| 3 条负载敏感用例 | **尚未落地**（需空闲基线；本会话一直有 lane 在跑） | 受控负载下 ≥10 次全绿 |
+
+**同时需要注意的工作区状态**：
+- `tests/compat/results/*.json`（6 份）是**产物 churn**（只差 `generatedAt`），**不是缺陷**；跑完门禁会再脏一次——**幂等修复落地后才可能干净**；
+- `tests/e2e/probes/mutant-transport.js` 是 e2e 现场重生的**构建产物**，我已在确认"无 e2e 在跑"后恢复过一次；
+- **`pnpm gates` 在多 lane 并行时结果不可信**（在途变异/临时样例会让它红或假绿）——**接手者必须先在独占工作区跑它**。
+
+**接手第一步**：① 确认所有 lane 已停（`list_agents`）；② 在**独占**工作区跑 `pnpm gates`；③ 逐条复核上表交付物（**判别性证明三要素**，不是只看绿）；④ 按序提交；⑤ 恢复产物；⑥ 再做 `browserCheck` 跨平台与"证据最薄"那几条的本机复现。
