@@ -44,4 +44,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps
       - run: pnpm build
+      # 浏览器复核放这里而不是 gates job：本 job 已装浏览器，而 gates job 不装。
+      # 2026-10-15 实测：两个 job 的交集曾为空集 —— gates 跑 examples 但没浏览器（必然 skipped），
+      # 本 job 有浏览器却不跑 examples ⇒ **没有任何 CI job 执行 webpack 的浏览器复核**。
+      # `EXAMPLES_REQUIRE_BROWSER=1` 是关键：本 job 有浏览器，就该**要求**它，
+      # 定位不到时**判失败**而不是允许静默 skipped（gates job 不设该变量，仍覆盖"无浏览器 ⇒ 显式记账跳过"这条路）。
+      - run: pnpm examples:build
+        env:
+          EXAMPLES_REQUIRE_BROWSER: '1'
+      - run: pnpm examples:test
+        env:
+          EXAMPLES_REQUIRE_BROWSER: '1'
       - run: pnpm test:e2e
