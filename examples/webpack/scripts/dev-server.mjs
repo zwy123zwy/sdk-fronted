@@ -17,10 +17,13 @@
  */
 import { get as httpGetRequest } from 'node:http';
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// 与 `tests/compat/**` 共用同一个幂等落盘器（易变字段口径只有一处实现）；反向依赖已有先例，
+// 见 `build-production.mjs` 的同一处注释。
+import { writeJsonStable } from '../../../tests/compat/lib/stable-write.mjs';
 import { classifyBrowserEvidence, expectedSdkVersion, runBundleInSandbox } from './lib/verify-bundle.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
@@ -124,9 +127,15 @@ async function main() {
       skipped: evidence.skipped ? ['browser'] : [],
       status: Object.values(checks).every(Boolean) ? 'pass' : 'fail',
     };
-    mkdirSync(resultsDir, { recursive: true });
-    writeFileSync(resultsFile, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
-    console.log(JSON.stringify({ origin, checks, sandbox: sandbox.checks, browser, skipped: result.skipped, status: result.status, resultsFile }, null, 2));
+    // 幂等落盘：易变字段清单比生产构建多两项——`origin` 与 `sandbox.bundlePath` 含
+    // `port: 0` 分配到的**随机端口**，逐次必变；`generatedAt` = 本产物上次**实质变化**的时间。
+    const write = writeJsonStable(resultsFile, result, [
+      'generatedAt',
+      'origin',
+      'sandbox.bundlePath',
+      'sandbox.evaluatedMs',
+    ]);
+    console.log(JSON.stringify({ origin, checks, sandbox: sandbox.checks, browser, skipped: result.skipped, status: result.status, resultsFile, resultsWritten: write.written }, null, 2));
     if (result.status !== 'pass') exitCode = 1;
   } finally {
     await server.stop();

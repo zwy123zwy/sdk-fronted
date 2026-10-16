@@ -570,6 +570,28 @@ webpack 沙箱 `bundleEvaluated` / `batchPassesContractSchema` / `minimalPathRan
    **不覆盖 `.mjs` 的 e2e 用例**（`tests/e2e/*.spec.mjs`）——所以上面第 5 条的 `test.skip(...)` 不会被 lint 拦住。
    若认同"也禁止在 `.mjs` 用例里写死跳过"，需要改 `eslint.config.js`（门禁配置，未越界改）。
 
+#### 第 5、6 条 —— **已修**（2026-10-15/16，跳过可见性 lane；依据见 `docs/reports/e2e-real-browser.md` 末尾追加节）
+
+- **先复核实际状态（不照抄本条转述）**：HEAD 上第 5 条描述的那行**已经不在了** —— 另一条 lane 已把它换成
+  **运行时真启动探测**（起得来就跑）。但复核发现该探测有 2 处会把"能跑"误判成"起不来"（`context.close()`
+  被放在 `try` 里；失败原因未保留），已修；并补上探测结果记账（否则汇总里只会看到 `probeReady=unknown`）。
+  **"能跑就跑"这一条成立**：`--project=chromium/--project=webkit` 上探测 `ready=true`，6 条全执行、0 跳过。
+- **"跳过不可静默"**：新增 `tests/e2e/lib/skip-audit.mjs`（唯一跳过入口 + `afterEach` 抓旁路跳过判红 +
+  每次 `afterAll` 汇总/落 JSON）、`tests/e2e/lib/skip-audit-summary.mjs`（run 级汇总与判定）、
+  `tests/e2e/lib/skip-audit-selftest.mjs`（判据的确定性自检，14/14）。
+  **某 spec 在某浏览器上全部跳过 = 判红**（理由：整轮仍绿正是本条要消灭的形态；措辞上区分"环境阻塞"与"用例失败"）。
+- **第 6 条**：`eslint.config.js` 的"不得跳过测试"规则**已扩到 `.mjs`**
+  （`**/*.test.mjs` / `**/*.spec.mjs` / `tests/**/*.mjs`，并保留原先被该块替换掉的 ClassDeclaration 禁令）。
+  **误伤处理**：扩规则后 `test.skip(...)` 这一处合法运行时跳过会被拦；没有用"整文件豁免"糊过去，而是把它挪进
+  唯一一个受审计的文件 `tests/e2e/lib/skip-audit.mjs`，并在该文件的块里换成**更窄**的形状判据 ——
+  只放行 `test.skip(<非字面量表达式>, 原因)`；`test.skip()`、`test.skip(true, …)`、`test.skip(browserName !== …)`
+  在**该文件里也报错**（实测，见追加节证明 ②）。
+- **同源残留（本轮只报告、未改，需授权）**：`tests/e2e/beacon-quota.spec.mjs:56` 的
+  `for (const browserName of ['chromium', 'webkit'])` 也是**写死的引擎名单** —— 它在 Firefox 可用时
+  仍然只测 Chromium/WebKit（在 `--project=firefox` 下会重复测这两个引擎），所以
+  `docs/reports/e2e-real-browser.md` 里"`--grep C07-AC-03` = 8 个用例"中的另外 2 个
+  （`beacon-quota` 的两条）在 Gecko 上依然**取不到数**。它不是 `skip`，本轮的"跳过不可静默"机制覆盖不到它。
+
 ---
 
 ## D-07（低·文档）：`flush()` 后立刻查计数会读到 0

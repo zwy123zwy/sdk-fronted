@@ -16,10 +16,14 @@
  * 证据：`tests/compat/results/webpack-production.json`、`examples/webpack/dist/**`
  */
 import { createRequire } from 'node:module';
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// 与 `tests/compat/**` 共用同一个幂等落盘器（T30 证据的易变字段口径只有一处实现）。
+// 反向依赖已有先例：`tests/compat/receiver-contract-gate.test.ts` 直接 import 本目录的
+// `lib/verify-bundle.mjs`。
+import { writeJsonStable } from '../../../tests/compat/lib/stable-write.mjs';
 import {
   classifyBrowserEvidence,
   expectedSdkVersion,
@@ -157,8 +161,9 @@ const result = {
       : 'fail',
 };
 
-mkdirSync(resultsDir, { recursive: true });
-writeFileSync(resultsFile, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
+// 幂等落盘：除易变字段（`generatedAt` = 本产物上次**实质变化**的时间；`sandbox.evaluatedMs`
+// = 沙箱墙钟耗时）外内容未变则**不重写**文件——重跑 `pnpm examples:build` 不再弄脏工作区。
+const write = writeJsonStable(resultsFile, result, ['generatedAt', 'sandbox.evaluatedMs']);
 console.log(
   JSON.stringify(
     {
@@ -169,6 +174,8 @@ console.log(
       skipped: result.skipped,
       status: result.status,
       resultsFile,
+      resultsWritten: write.written,
+      resultsWriteReason: write.reason,
     },
     null,
     2,

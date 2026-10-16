@@ -9,10 +9,11 @@
  * - `fail`：本机实跑过但不通过；
  * - `blocked`：本机做不了，必须写清「缺什么」与归属（T30 当前一律归 T29）。
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 // 只取 `fileURLToPath`：`URL` 构造函数在 happy-dom 下会被沙箱改写（根因见下），不用它。
 import { fileURLToPath } from 'node:url';
+
+import { writeJsonStable } from './stable-write.mjs';
 
 /** 兼容矩阵单元的状态。 */
 export type CellStatus = 'pass' | 'fail' | 'blocked';
@@ -72,11 +73,17 @@ function fileDirectory(): string {
 }
 export const resultsDir = join(moduleDir, '..', 'results');
 
-/** 把一次运行的原始证据写进 `results/<name>.json`，返回落盘路径。 */
+/**
+ * 把一次运行的原始证据写进 `results/<name>.json`，返回落盘路径。
+ *
+ * **幂等**：除 `generatedAt` 外内容与磁盘一致时不重写文件（保留上次的 `generatedAt`），
+ * 于是"重跑门禁"不再把工作区弄脏。`generatedAt` 因此表示
+ * **「本产物上次实质变化的时间」**，不是「上次运行时间」。判据与易变字段清单见
+ * `tests/compat/lib/stable-write.mjs` 与 `tests/compat/README.md` 第 1 节。
+ */
 export function writeResult(name: string, payload: unknown): string {
-  mkdirSync(resultsDir, { recursive: true });
   const file = join(resultsDir, `${name}.json`);
-  writeFileSync(file, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  writeJsonStable(file, payload, ['generatedAt']);
   return file;
 }
 

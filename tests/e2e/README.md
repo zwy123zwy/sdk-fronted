@@ -34,9 +34,23 @@ node tests/e2e/lib/d004-run.mjs --browser chromium  # 不经 Playwright，直接
 | webkit | ✅ 可跑（存储测量也通过；见下） | 每个格子后必须清理辅助进程（`lib/harness.mjs` 已做） |
 | firefox | ⛔ 本机沙箱内**阻塞** | Firefox 主进程的 macOS `sandbox_init()` 无法嵌套在 DSH 文件沙箱里，`launchPersistentContext` 卡在 juggler 握手直到超时。**补测步骤**：在非 DSH 沙箱的会话里跑 `pnpm test:e2e --project=firefox`；**不得设置任何 `MOZ_*` 变量**（会破坏握手）。 |
 
-`firefox` project 在本会话会**如实失败**并打印上述原因（不是 `skip`，也不影响 `pnpm gates`——
-`gates` 脚本本来就不包含 `test:e2e`）。若负责人希望默认命令在沙箱里保持绿色，
-需要改门禁配置（`playwright.config.ts` 加 `testIgnore` 或改 `test:e2e` 脚本）——那属于门禁配置变更，需批准。
+`firefox` project 在本会话**不会被静默跳过**：`leave-slice.spec.mjs` 用**运行时真启动探测**
+（能起来就跑）判定，起不来才逐条 `skip` 并把真实报错打进输出/HTML 报告；随后**跳过审计**
+（`lib/skip-audit.mjs`）会因为这批用例"一条都没跑"而在 `afterAll` **判红** —— 所以
+`pnpm test:e2e --project=firefox` 在本机是**红的**（红的原因是环境阻塞，不是用例失败），
+语义与上表一致，也不影响 `pnpm gates`（`gates` 本来就不包含 `test:e2e`）。
+若负责人希望默认命令在沙箱里保持绿色，需要改门禁配置（`playwright.config.ts` 加 `testIgnore`
+或改 `test:e2e` 脚本）——那属于门禁配置变更，需批准。
+
+### 跳过可见性（跳过不可能静默）
+
+- **逐条**：每条跳过都要经 `lib/skip-audit.mjs` 登记真实原因；旁路来的跳过（在 spec 里写死
+  `.skip`）由 `afterEach` 判红，`.mjs` 用例里的 `.skip` 也被 eslint 拦（`eslint.config.js`）。
+- **run 级数字**：Playwright 在**每个失败用例后会重启 worker 进程**，所以 `afterAll` 会被调用多次、
+  每次只看得见自己那一段（实测 `--project=chromium` 6 条 3 红 ⇒ 4 段：executed 2/1/1/2）。
+  每次调用落一份 JSON 到 `test-results/skip-audit/`，**run 级判定**要另外跑
+  `node tests/e2e/lib/skip-audit-summary.mjs`（把各段相加；`--allow-partial` 只用于 `--grep` 聚焦跑）。
+- **判据自检**（确定性、不用浏览器）：`node tests/e2e/lib/skip-audit-selftest.mjs`。
 
 ## 目录
 
@@ -45,6 +59,9 @@ node tests/e2e/lib/d004-run.mjs --browser chromium  # 不经 Playwright，直接
 | `durability.spec.mjs` | D004 核心承诺（硬杀落盘）的 Playwright 入口（Chromium/WebKit 均通过） |
 | `real-browser.spec.mjs` | 真实浏览器项（APIs/信标/XHR/401/选主/pagehide 等）；C1 为 D-2 缺陷的红灯 |
 | `lib/browsers.mjs` | 驱动/浏览器解析（见上） |
+| `lib/skip-audit.mjs` | 跳过审计：唯一跳过入口 + 旁路跳过判红 + 每次 `afterAll` 的汇总/JSON |
+| `lib/skip-audit-summary.mjs` | run 级汇总与判定（把各 worker 段的 JSON 相加） |
+| `lib/skip-audit-selftest.mjs` | 上面两组判据的确定性自检（`node` 直接跑） |
 | `lib/static-server.mjs` | 只服务白名单目录的 127.0.0.1 静态服务器 |
 | `lib/receiver.mjs` | 本地接收端（202 / 401 / 永不响应 三个端点） |
 | `lib/harness.mjs` | 持久化 context、真 SIGKILL、按 profile 的进程清理、结果落盘 |

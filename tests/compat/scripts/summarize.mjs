@@ -15,9 +15,11 @@
  * `node examples/webpack/scripts/{build-production,dev-server}.mjs` 落盘；
  * 证据文件缺失或 status 不是 `pass` 时，这里如实写 `fail`。
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { URL, fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+
+import { writeJsonStable } from '../lib/stable-write.mjs';
 
 const resultsDir = fileURLToPath(new URL('../results/', import.meta.url));
 
@@ -264,12 +266,14 @@ const summary = {
   total: all.length,
 };
 
-mkdirSync(resultsDir, { recursive: true });
-writeFileSync(
-  join(resultsDir, 'matrix.json'),
-  `${JSON.stringify({ task: 'T30', generatedAt: new Date().toISOString(), summary, cells: all }, null, 2)}\n`,
-  'utf8',
-);
+// 幂等落盘：`matrix.json` 由既有 `results/*.json` 派生，输入没实质变化时不该被这次汇总"刷新"。
+// `generatedAt` = 本产物上次**实质变化**的时间（同 `lib/stable-write.mjs` 的口径）。
+const write = writeJsonStable(join(resultsDir, 'matrix.json'), {
+  task: 'T30',
+  generatedAt: new Date().toISOString(),
+  summary,
+  cells: all,
+});
 
 const width = Math.max(...all.map((cell) => cell.dimension.length), 8);
 for (const cell of all) {
@@ -277,4 +281,5 @@ for (const cell of all) {
 }
 console.log(`\npass=${summary.pass} fail=${summary.fail} blocked=${summary.blocked} total=${summary.total}`);
 console.log('matrix: tests/compat/results/matrix.json');
+console.log(`matrix.json：${write.written ? '已重写' : `未重写（${write.reason}）`}`);
 process.exitCode = summary.fail > 0 ? 1 : 0;

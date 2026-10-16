@@ -69,12 +69,45 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.test.ts', '**/*.spec.ts', 'tests/**/*.ts'],
+    // 指南第 6 节：不得跳过测试。
+    // 2026-10-15 起同时覆盖 `.mjs` 用例与 `tests/**` 下的 `.mjs` 支持代码——此前只覆盖 `.ts`，
+    // 于是 `tests/e2e/leave-slice.spec.mjs` 里**写死**的 `test.skip(({ browserName }) => …)` 不会被
+    // lint 拦住（`docs/reports/t33-access-blockers.md` 第 6 条）。
+    // 这里保留基块的 ClassDeclaration 禁令：本块会**替换**该规则的整个数组，不收回来就等于放宽。
+    files: ['**/*.test.ts', '**/*.spec.ts', '**/*.test.mjs', '**/*.spec.mjs', 'tests/**/*.ts', 'tests/**/*.mjs'],
     rules: {
       'no-restricted-syntax': [
         'error',
+        { selector: 'ClassDeclaration', message: '用函数式工厂和闭包组织代码，不用类（指南第 11 节）' },
         { selector: "CallExpression[callee.property.name='skip']", message: '不得跳过测试（指南第 6 节）' },
         { selector: "CallExpression[callee.property.name='only']", message: '不得提交 .only' },
+      ],
+    },
+  },
+  {
+    // 「环境起不来就跳过」是 e2e 里唯一合法的跳过，它必须**只**出现在这一个文件里
+    // （`tests/e2e/lib/skip-audit.mjs` 的 `skipUnavailableBrowser()`）。
+    // 这**不是**整文件豁免：本块把规则换成更窄的一条——只放行**由运行时探测结果驱动**的跳过形状
+    // `test.skip(<非字面量表达式>, 原因)`；而 `test.skip()`（无条件）、`test.skip(true, …)`、
+    // `test.skip(browserName !== …)`（写死引擎名单）在本文件里同样报错。
+    // 净效果：全仓唯一一处 `test.skip` 也必须带运行时条件 + 真实原因，判据另有确定性自检
+    // （`node tests/e2e/lib/skip-audit-selftest.mjs`）。
+    files: ['tests/e2e/lib/skip-audit.mjs'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        { selector: 'ClassDeclaration', message: '用函数式工厂和闭包组织代码，不用类（指南第 11 节）' },
+        { selector: "CallExpression[callee.property.name='only']", message: '不得提交 .only' },
+        {
+          selector: "CallExpression[callee.property.name='skip'][arguments.length=0]",
+          message: '不得无条件跳过测试（指南第 6 节）',
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name='skip'][arguments.0.type=/^(Literal|BinaryExpression|LogicalExpression|ArrowFunctionExpression|TemplateLiteral)$/]",
+          message:
+            '写死的跳过：只允许 test.skip(<运行时探测结果表达式>, 原因)（first arg 不得是字面量/比较/逻辑/箭头函数）',
+        },
       ],
     },
   },
