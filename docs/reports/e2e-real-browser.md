@@ -785,3 +785,217 @@ Gecko 的信标额度永远取不到数（即 t33 说的"8 个用例"里另外�
 **本报告不宣称的事**：Firefox 的 AC-03 判定**没有被验证过**（本机沙箱内 Firefox 起不来；§4 证明 ③ 证明的是
 "该浏览器上一条都没跑会被判红"，不是"Firefox 上通过"）。若要在 Gecko 上取数，需在能起 Firefox 的机器上跑
 `pnpm test:e2e --project=firefox`（**不得设置任何 `MOZ_*`**）。
+
+---
+
+## 追加节（e2e 基建缺陷 lane，2026-10-16）：`beacon-quota.spec.mjs` 的写死引擎名单 → 与 `leave-slice` **同一套**运行时探测 + 跳过审计
+
+本节记录 `tests/e2e/beacon-quota.spec.mjs` 的一处基建缺陷修复。它**不是**"用例被跳过"，
+而是**测错了引擎**——上一节（跳过可见性 lane §6）只报告、未改，本节是授权后的处置。
+
+### 1. 先复核实际状态（不照抄条目的转述）
+
+修前 `beacon-quota.spec.mjs:56` 是：
+
+```js
+for (const browserName of ['chromium', 'webkit']) {
+  test(`C07-AC-03 取数：${browserName} 信标单次上限 + …`, async () => { … });
+}
+```
+
+它**不用** Playwright project 的 `browserName` fixture，而是自己遍历两个字面量：于是一个 spec 文件
+在**每个** project 下都声明并运行**同样两条**用例（`--list` 实测：`chromium` project 下 2 条、`firefox` 下 2 条、
+`webkit` 下 2 条，标题里的引擎名是**写死**的那两个）。实测（修前基线，本 lane）：
+
+```
+$ pnpm test:e2e --project=chromium tests/e2e/beacon-quota.spec.mjs
+  ✓  1 [chromium] › … › C07-AC-03 取数：chromium 信标单次上限 + …
+  ✓  2 [chromium] › … › C07-AC-03 取数：webkit 信标单次上限 + …
+  2 passed (37.2s)
+```
+
+即：`--project=chromium` 这一次运行**同时启动了 Chromium 与 WebKit 两个真浏览器**（在 chromium project 的
+worker 里跑 webkit 的软件）。后果有两条，都不是"跳过"：
+
+1. **Gecko 永远取不到数**：`--project=firefox` 下这两条**照样跑**，但跑的是 Chromium/WebKit；
+   `tests/e2e/results/beacon-quota-firefox.json` **永远不会产生**，报告里 Gecko 的信标额度一栏永远是空的。
+2. **project 与引擎错配**：`--project=firefox` 的实际内容是"起一个 Chromium + 一个 WebKit"，与 project 名字相反。
+
+**为什么"跳过审计"覆盖不到它**：`lib/skip-audit.mjs` 的记账挂在 `afterEach`/`afterAll` 上，只看得见
+**被执行的用例**；这里用例**在跑**（`executed=2`），只是跑错了引擎——既没有 `skipped`，也没有"整 spec 一条没跑"，
+所以判据全绿而事实是错的。这类缺陷需要改**用例声明形状**，不是加一层跳过守卫。
+
+### 2. 改法（与已合入的先例同一套口径，不另造第二套）
+
+- **用例只声明一条**，浏览器来自 project 的 `browserName` fixture：`test('…', async ({ browserName }) => …)`。
+- 探测/记账/理由文本的唯一实现抽到新文件 `tests/e2e/lib/browser-availability.mjs`
+  （`createBrowserAvailability()`：每浏览器只**真启动探测**一次；`requireBrowser()`：探测结果无论可用与否都记账，
+  起不来才登记跳过）。`leave-slice.spec.mjs` 同时改为调用它 —— 两个 spec 共用**同一条**"能不能跑"的判据，
+  避免两份实现漂移。**跳过本身仍然只有唯一入口** `lib/skip-audit.mjs::skipUnavailableBrowser()`
+  （`browser-availability.mjs` 里没有、也不允许有 `test.skip`，见 `eslint.config.js` 的窄规则）。
+- 判据里**没有任何** `browserName` 名单（修后 `grep -n "chromium\|webkit\|firefox" tests/e2e/beacon-quota.spec.mjs`
+  只命中头注释里的历史说明）。
+- `declaredTests` 钉为 **1**（本 spec 的用例条数），跳过审计据此判"整 spec 在该浏览器上一条都没跑"。
+- 证据 JSON 补齐可复核字段：`browser` / `project` / `driver` / `executablePath`（都是 project 决定的值，
+  不再是写死遍历出来的标签）。
+- 强制走"能跑"分支的钩子统一为 `E2E_FORCE_RUN_BROWSER=<name>`（旧名 `AC03_FORCE_RUN_BROWSER` 仍识别，
+  避免破坏既有证明命令的记录）。
+
+### 3. 判别性证明（三要素）
+
+**证明 ①：修后 project 与引擎一一对应**（`--list`，不用起浏览器）
+
+```
+$ pnpm exec playwright test tests/e2e/beacon-quota.spec.mjs --list
+  [chromium] › beacon-quota.spec.mjs:84:1 › C07-AC-03 取数：信标单次上限 + 累计在途额度 + 片间节流
+  [firefox]  › beacon-quota.spec.mjs:84:1 › C07-AC-03 取数：信标单次上限 + 累计在途额度 + 片间节流
+  [webkit]   › beacon-quota.spec.mjs:84:1 › C07-AC-03 取数：信标单次上限 + 累计在途额度 + 片间节流
+  Total: 3 tests in 1 file
+```
+
+修前同一命令是 6 条（3 project × 同样的 2 条写死引擎），且 firefox project 的两条标题是 `chromium` / `webkit`。
+
+**证明 ②（正例）：同一无名单路径在 Chromium/WebKit 上取到数**
+
+```
+$ pnpm test:e2e --project=chromium --project=webkit tests/e2e/beacon-quota.spec.mjs
+[beacon-quota-probe] [webkit]  ready=true stage=launch driver=npx-cache-playwright-core-1.60.0
+[beacon-quota-probe] [chromium] ready=true stage=launch driver=npx-cache-playwright-core-1.60.0
+[skip-audit] spec=beacon-quota.spec.mjs browser=chromium worker=0 declared=1 observed=1 executed=1 skipped=0 unregistered=0 probeReady=true
+[skip-audit] spec=beacon-quota.spec.mjs browser=webkit   worker=1 declared=1 observed=1 executed=1 skipped=0 unregistered=0 probeReady=true
+  ✓  2 [webkit]   › … 取数：信标单次上限 + …
+  ✓  1 [chromium] › … 取数：信标单次上限 + …
+  2 passed (33.5s)
+```
+
+两条用例标题里**没有**引擎名，实际跑的引擎由 project 决定（`results/beacon-quota-{chromium,webkit}.json`
+的 `project`/`browser` 字段一致，`userAgent` 分别是 Blink 与 WebKit 的）。跳过数为 **0**。
+
+**证明 ③（钩子·负对照）：强制走"能跑"分支 ⇒ **真的去起 Firefox** ⇒ 红，不是跳过**
+
+```
+$ E2E_FORCE_RUN_BROWSER=firefox pnpm test:e2e --project=firefox tests/e2e/beacon-quota.spec.mjs
+[E2E_FORCE_RUN_BROWSER] 强制按"能跑"执行 [firefox]（真实探测 ready=false，
+    原因：browserType.launchPersistentContext: Timeout 20000ms exceeded.）
+[beacon-quota-probe] [firefox] ready=true stage=launch driver=npx-cache-playwright-core-1.60.0
+[skip-audit] spec=beacon-quota.spec.mjs browser=firefox worker=0 declared=1 observed=1 executed=1 skipped=0 unregistered=0 probeReady=true
+    TimeoutError: browserType.launchPersistentContext: Timeout 60000ms exceeded.
+      - [pid=59064][err] sandbox initialization failed: Operation not permitted
+      - [pid=59064][err] Sandbox error: sandbox_init() failed with error "Operation not permitted"
+  1 failed
+PLAYWRIGHT_EXIT=1
+```
+
+写死名单的旧代码在 `--project=firefox` 下**根本不会去起 Firefox**（它起的是 Chromium/WebKit）；现在判据说
+"能跑"就**真的去起**，起不来就**真红**。这就是"这条跳过/执行是环境判据、不是引擎名单"的判别性证据。
+
+**证明 ④（钩子·正对照）：Firefox 的**真实**探测路径登记跳过并让整轮判红**（不设钩子）
+
+```
+$ pnpm test:e2e --project=firefox tests/e2e/beacon-quota.spec.mjs
+[beacon-quota-probe] [firefox] ready=false stage=launch driver=npx-cache-playwright-core-1.60.0
+    reason=browserType.launchPersistentContext: Timeout 20000ms exceeded.
+[skip-audit] spec=beacon-quota.spec.mjs browser=firefox declared=1 observed=1 executed=0 skipped=1 unregistered=0 probeReady=false
+[skip-audit] Error: … [firefox]：本次观察到的 1 条**全部被跳过、执行 0 条** —— 该浏览器在本机起不来，
+    这批用例一条都没跑。这不是用例失败，是环境阻塞：…
+→ 1 skipped + 1 failed（afterAll 的环境阻塞判定） / EXIT=1
+```
+
+本条**未**设置任何 `MOZ_*` 变量。
+
+### 4. 回归
+
+| 命令 | 结果 |
+|---|---|
+| `pnpm test:e2e --project=chromium --project=webkit tests/e2e/beacon-quota.spec.mjs` | **2 passed**，`executed=1/skipped=0` 每浏览器（证明 ②） |
+| `pnpm exec playwright test tests/e2e/beacon-quota.spec.mjs --list` | 3 project × 1 条（证明 ①） |
+| `node tests/e2e/lib/skip-audit-selftest.mjs` | **14/14 通过**，exit 0 |
+| `pnpm exec eslint tests/e2e` | exit 0（新文件 `lib/browser-availability.mjs` 无 lint 违规） |
+| `pnpm examples:build` / `pnpm examples:test` | **exit 0**（见下节；webpack 的跨平台改动） |
+
+**本报告不宣称的事**：**Firefox（Gecko）的信标额度没有被验证过**。本机沙箱内 Firefox 起不来
+（`sandbox_init()` EPERM），证明 ③ 证明的是"判据说能跑就真去起、起不来真红"，证明 ④ 证明的是
+"起不来时逐条登记跳过 + 整轮判红"，**都不是**"Firefox 上通过"。要在 Gecko 上取数，需在能起 Firefox 的
+机器上跑 `pnpm test:e2e --project=firefox`（**不得设置任何 `MOZ_*`**）。
+
+### 5. 同源残留（**只报告，未改**）：`tests/e2e/**` / `examples/**` 下其余的写死引擎名 / 平台路径
+
+| 位置 | 写死了什么 | 性质 |
+|---|---|---|
+| `tests/e2e/lib/browsers.mjs:26-30` | `EXECUTABLE_RELATIVE` 是 **macOS arm64** 布局（`chrome-mac-arm64/…app`、`firefox/Nightly.app`、`pw_run.sh`） | **启动探测的最后一个回退分支**（顺序 1 `PW_<NAME>_EXE` → 2 树外驱动 `executablePath()` 精确配对 → 3 本机缓存 + 这张表）。1/2 都跨平台；表本身只影响"没有树外驱动"的机器。本机实测用的正是分支 2（`driver=npx-cache-playwright-core-1.60.0`），**没有踩到**。建议后续用 `browserType.executablePath()` 的实例推导替换这张表 |
+| `tests/e2e/lib/d004-anchor-window.mjs:480` | `for (const browser of ['chromium','webkit'])` 读 `results/d004-<browser>.json` | 该文件**末尾**的信息性汇总（`dumpRealArtifacts()`，只打印产物时间与 sha256）。Firefox 的 d004 产物**今天还不存在**（`lib/d004-run.mjs` 的 CLI 默认 `--browser chromium`，可显式传别的），所以现在不漏读；将来若有 `d004-firefox.json` 会被静默忽略。**不是**门禁判据 |
+| `tests/e2e/lib/d004-run.mjs:105,343` | 默认参数 `--browser chromium` | CLI 默认值（可覆盖），与"写死名单"不同性质 |
+| `tests/e2e/lib/smoke-browsers.mjs:11` | `['chromium','firefox','webkit']` | CLI 参数 `all` 的**取值词汇表**（`node … smoke-browsers.mjs all`），不是判据 |
+| `examples/webpack/README.md:52` | 文字描述"若本机存在 `chromium-1223`" | 文档，已随本轮改动失去事实依据，建议下一轮随代码同步（`examples/**` 在本次可写范围内，但 README 不是判据，未改） |
+
+**另有 2 处同类（本轮**未**改，属别 lane 范围，按派工口径只报告）**：
+`tests/compat/scripts/vite-dev-server.mjs:31` 与 `tests/compat/scripts/browser-core-path.mjs:38,43`
+仍写死 `Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64`（与 `examples/webpack` 修前**同型**）。
+`tests/compat/**` 不在本 lane 可写范围；另注：`tests/compat/**/*.test.ts` 目前**不在** `vitest.config.ts`
+的任何 project 里，所以这些脚本的产物即使缺失也进不了门禁。
+
+### 6. 编排方裁定后的收尾（2026-10-16，同一 lane）
+
+派工对本节 §5 的残留表做了裁定，其中 3 项落在本 lane 可写范围内，逐项处置如下。
+
+**① `examples/webpack` 的"必须有浏览器" opt-in（编排方裁定 (2)：批准）**
+
+口径：**默认不假装，声明即承担**——与"跳过不可静默"是同一条原则的两面。
+
+- 默认（不设变量）语义**不变**：定位不到即 `skipped`（带理由的合法豁免，**不计入 pass**，不是失败）。
+  默认值必须服务"CI 的 gates job 不装浏览器"这个事实，否则会把门禁在 CI 上弄红、且红因是环境而不是 SDK。
+- 设 `EXAMPLES_REQUIRE_BROWSER=1` 时，定位不到返回新状态 `unavailable`（**不是**白名单里的 `skipped`）
+  ⇒ `classifyBrowserEvidence()` 返回 `accounted: false` ⇒ 整体 `status: fail`、`exit 1`。
+- 实现：`examples/webpack/scripts/lib/chromium-locate.mjs` 的 `browserRequired()` / `unavailableStatus()` /
+  `requiredBrowserHint()`；两个脚本的 `browserCheck()` 在 `located.browser === null` 分支改用
+  `unavailableStatus()`，并在该状态下把 `requiredBrowserHint()` 打进 stderr。
+
+判别性证明（三要素，本机实跑；证据文件运行前后均按 sha256 还原）：
+
+| 场景 | 命令 | 观察到 |
+|---|---|---|
+| opt-in + **无**可用浏览器 | `HOME=/tmp/proof-home PLAYWRIGHT_BROWSERS_PATH=/tmp/proof-browsers PW_CHROMIUM_EXE=/tmp/broken-chromium EXAMPLES_REQUIRE_BROWSER=1 node examples/webpack/scripts/build-production.mjs` | `✗ 浏览器复核失败：…` + hint；`browser.status="unavailable"`、`status="fail"`、**EXIT=1**（同一环境**不设**变量时是 `skipped` / `status=pass` / EXIT=0——上表 §3 证明 ② 已记录） |
+| opt-in + **有**可用浏览器 | `EXAMPLES_REQUIRE_BROWSER=1 node examples/webpack/scripts/build-production.mjs` | `browser.status=pass`、`accounted=true`、`status=pass`、EXIT=0（opt-in 不误伤能跑的场景） |
+| opt-in + 无浏览器（dev-server） | 同上环境 `node examples/webpack/scripts/dev-server.mjs` | `checks.browserEvidenceAccounted=false`、`browser.status=unavailable`、`status=fail`、**EXIT=1** |
+| 默认 + 无浏览器（dev-server，负对照） | 去掉 `EXAMPLES_REQUIRE_BROWSER` | `⚠ 浏览器复核已跳过…`、`browserEvidenceAccounted=true`、`browser.status=skipped`、`status=pass`、EXIT=0 |
+
+**② `tests/e2e/lib/d004-anchor-window.mjs` 的静默忽略 → 加一行可见告警（编排方要求，各一行即可）**
+
+`dumpRealArtifacts()` 只列 `chromium` / `webkit`；别的 `d004-<x>.json`（如将来在能起 Gecko 的机器上跑出的
+`d004-firefox.json`）此前**不会被读到、也不会吭声**。现在扫描 `tests/e2e/results/`，对清单外的名字打一行
+`⚠ 以下 d004 产物存在但**未被本清单读取**…`。**判据/断言一字未动**（该函数只在 `--dump` 下打印）。
+
+判别性证明：植入一份 `tests/e2e/results/d004-firefox.json` 后 `node tests/e2e/lib/d004-anchor-window.mjs --dump`
+→ 告警出现、`d004-firefox.json` 被点名、EXIT=0；**删除植入文件后**同一命令告警计数为 **0**（负对照），
+`node tests/e2e/lib/d004-anchor-window.mjs` 仍 **EXIT=0**。
+
+**③ `examples/webpack/README.md:52` 的过期文字 → 改掉**
+
+原文"若本机存在 `chromium-1223`，路径与 T30 其它脚本一致"已失去事实依据（本轮起是跨平台运行时定位）。
+改为描述真实定位链（`PW_CHROMIUM_EXE` → `chromium.executablePath()` → 本机 `chromium-*` 缓存，
+**真的启动成功**才算可用）、"定位不到记 `skipped` 且带逐条尝试与真实报错、不记 pass"、
+以及 `EXAMPLES_REQUIRE_BROWSER=1` 的 opt-in 语义。
+
+**未处置（按裁定属别 lane / 不在本 lane 范围）**：`tests/compat/scripts/{vite-dev-server.mjs:31,
+browser-core-path.mjs:38,43}` 的同类写死路径——编排方**已批准另派**，本 lane 不动手；
+`tests/e2e/probes/mutant-transport.js` 的"派生却被跟踪"由编排方处置（`git rm --cached` + `.gitignore`），
+本 lane 不再回退它。
+
+### 7. CI 上"到底哪个 job 会跑到 examples"（只报告，不改 `.github/workflows/`）
+
+派工要求的前置清单。`find .github -name '*.yml' -o -name '*.yaml'` 实测**只有 `ci.yml` 一个 workflow**
+（内容为全文逐行核对，非推测）：
+
+| job | runner | 装浏览器？ | 跑 examples？ | 依据（行号） |
+|---|---|---|---|---|
+| `gates` | `ubuntu-latest` | **否**（无任何 `playwright install`） | **是**：`pnpm examples:build`、`pnpm examples:test` | `ci.yml:12-31`（`pnpm install` 见 `:22`，两条 examples 见 `:30`、`:31`） |
+| `e2e` | `ubuntu-latest`，`needs: gates` | **是**：`pnpm exec playwright install --with-deps` | **否**（只有 `pnpm build` + `pnpm test:e2e`） | `ci.yml:33-47`（装浏览器 `:45`，`test:e2e` `:47`） |
+
+**结论**：两个 job 的交集是**空集**——装浏览器的 job 不跑 examples，跑 examples 的 job 不装浏览器。
+因此 webpack 的浏览器复核（`examples/webpack/scripts/*.mjs` 的 `browserCheck`）**今天在任何 CI job 上都不会执行**，
+只会走到 `skipped`。`grep -rn "playwright install\|examples:build\|examples:test\|test:e2e" .github/`
+只有上面这四行命中，没有第三个 job、也没有别的 workflow 兜底。
+
+**最自然的接法（供裁定 (1) 使用，本 lane 不改）**：把 `examples:build` / `examples:test` 加到 **`e2e` job**
+（它已经装了浏览器），或给 `gates` job 加一步 `playwright install chromium`（更省时间但要多下载）。
+两者都属 `.github/workflows/ci.yml`（**门禁配置，需负责人追认**）。

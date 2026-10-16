@@ -6,11 +6,16 @@
  * 喂给 `verify-bundle.mjs` 的沙箱：断言 `SDK_VERSION`、`createAssembly`，并真跑一次
  * `createAssembly → init → track → flush → 接收方收到批次`。
  *
- * 若本机存在 Chromium（与 `tests/compat/scripts/vite-dev-server.mjs` 用同一路径），
+ * 若本机能定位到**可启动的** Chromium（跨平台解析见 `lib/chromium-locate.mjs`：Playwright 官方的
+ * `executablePath()` + 本机已装 `chromium-*` 构建 + `PW_CHROMIUM_EXE`，**真的启动成功**才算可用），
  * 额外用真实浏览器打开 `dist/index.html` 复核一次；**浏览器一栏失败会让整体结论转红**，
- * 缺 Chromium（`skipped`）不影响沙箱结论，但会**显式记进 `skipped` 字段**（#2：不是算 pass）。
+ * 定位不到（`skipped`）不影响沙箱结论，但会**显式记进 `skipped` 字段**（#2：不是算 pass）。
  * CI 的 gates job 不装浏览器，所以 `skipped` 在 CI 上是常态；未知状态（不是 pass/skipped）
  * 一律判红——那正是此前 `browser.status !== 'fail'` 的漏洞所在。
+ *
+ * `EXAMPLES_REQUIRE_BROWSER=1`（opt-in）：**声明"这次运行必须有真实浏览器"**。定位不到时状态
+ * 从 `skipped` 变 `unavailable` ⇒ 整体 `fail` / exit 1。默认不设，因为 gates job 本就不装浏览器
+ * （默认值要服务这个事实）；设了就是显式承担。
  *
  * 运行：`node examples/webpack/scripts/build-production.mjs`
  * 证据：`tests/compat/results/webpack-production.json`、`examples/webpack/dist/**`
@@ -30,6 +35,25 @@ import {
   runBundleInSandbox,
   summarizeStats,
 } from './lib/verify-bundle.mjs';
+import {
+  requiredBrowserHint,
+  resolveLaunchableChromium,
+  unavailableReason,
+  unavailableStatus,
+} from './lib/chromium-locate.mjs';
+
+/**
+ * `chromium.executablePath()` 在"该版本期望的构建没装"时**仍会返回一条路径**（只是不存在），
+ * 也可能在异常环境下直接抛错。这里只把它当作**一个候选**，取不到就交给后面的候选
+ * （本机已装构建 / `PW_CHROMIUM_EXE`），不让它把整条复核打断。
+ */
+function safeExecutablePath(chromium) {
+  try {
+    return chromium.executablePath();
+  } catch {
+    return '';
+  }
+}
 
 const exampleRoot = fileURLToPath(new URL('..', import.meta.url));
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
@@ -69,18 +93,28 @@ async function build() {
   return { config, stats };
 }
 
-/** 真实浏览器复核（可选；缺 Chromium 时记为 skipped，而不是 pass）。 */
+/** 真实浏览器复核（可选；定位不到 Chromium 时经 `classifyBrowserEvidence` 显式记账，不算 pass）。 */
 async function browserCheck() {
-  const chromePath = join(
-    process.env['HOME'] ?? '',
-    'Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64',
-    'Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
-  );
-  if (!existsSync(chromePath)) {
-    return { status: 'skipped', reason: `未找到 Chromium：${chromePath}` };
-  }
   const { chromium } = await import('@playwright/test');
-  const browser = await chromium.launch({ executablePath: chromePath });
+  // 跨平台定位：**不写死任何平台路径**（此前写死 `$HOME/Library/Caches/ms-playwright/chromium-1223/
+  // chrome-mac-arm64/…`，于是 Linux CI 上这条复核**从来没跑过**，只留下一句 skipped）。
+  // 定位规则见 `lib/chromium-locate.mjs` 头注释：Playwright 官方的 `executablePath()` +
+  // 本机已装 `chromium-*` 构建（按 revision 从新到旧），**真的启动成功**才算可用。
+  const located = await resolveLaunchableChromium({
+    launch: (options) => chromium.launch(options),
+    playwrightPath: safeExecutablePath(chromium),
+  });
+  if (located.browser === null) {
+    // 默认 `skipped`（带理由的合法豁免）；`EXAMPLES_REQUIRE_BROWSER=1` 时是 `unavailable` ⇒ 判红。
+    const status = unavailableStatus();
+    const reason = `本机没有可用（能启动）的 Chromium：${unavailableReason(located.attempts)}`;
+    if (status === 'unavailable') {
+      console.error(`✗ 浏览器复核失败：${reason}\n  ${requiredBrowserHint()}`);
+    }
+    return { status, reason, attempts: located.attempts };
+  }
+  const browser = located.browser;
+  const chromePath = located.executablePath;
   try {
     const page = await browser.newPage();
     const pageErrors = [];
@@ -103,6 +137,8 @@ async function browserCheck() {
     return {
       status: Object.values(checks).every(Boolean) ? 'pass' : 'fail',
       chromePath,
+      chromeSource: located.source,
+      attempts: located.attempts,
       domText: text,
       pageErrors,
       checks,
@@ -139,6 +175,8 @@ try {
 // Chromium）**以及任何未知状态**都被算作 pass。现在改用共用的白名单判据
 // （`classifyBrowserEvidence`：只有 `pass` 与**带理由**的 `skipped` 是"已交代"），
 // skipped 从 pass 判据里**剔除**并在 `skipped` 字段里显式记账（见下）。
+// 声明了 `EXAMPLES_REQUIRE_BROWSER=1` 时定位不到浏览器会返回 `unavailable`，
+// 它不是白名单状态 ⇒ `accounted: false` ⇒ 整体 `fail` / exit 1（"声明即承担"）。
 const evidence = classifyBrowserEvidence(browser);
 if (evidence.skipped) {
   console.warn(`⚠ 浏览器复核已跳过（**不计入 pass 判据**，显式记账）：${evidence.reason}`);
@@ -152,7 +190,7 @@ const result = {
   entry: fileURLToPath(new URL('../src/main.js', import.meta.url)),
   build: statsSummary,
   sandbox,
-  browser: { status: browser.status, checks: browser.checks, detail: browser },
+  browser: { status: browser.status, checks: browser.checks, attempts: browser.attempts, detail: browser },
   // #2：跳过项**逐一列出**（不是"没看见"，也不是"算过了"）。本脚本只有浏览器一项可跳过。
   skipped: evidence.skipped ? ['browser'] : [],
   status:

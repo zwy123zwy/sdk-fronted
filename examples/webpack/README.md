@@ -49,8 +49,11 @@ pnpm examples:build && pnpm examples:test
 第 3 条是关键：只验证"SDK_VERSION 能读出来"无法区分"依赖真的打进来了"和"常量被内联了"。
 注入 `transport` 走的是运行期工厂参数，证明 SDK 的装配与上报链路在 bundle 里是活的。
 
-生产构建脚本还会用真实 Chromium（若本机存在 `chromium-1223`，路径与 T30 其它脚本一致）
-打开 `dist/index.html` 复核一页；缺浏览器时如实记 `skipped`，**不记 pass**。
+生产构建脚本还会用真实 Chromium 打开 `dist/index.html` 复核一页。浏览器是**跨平台运行时定位**的
+（`scripts/lib/chromium-locate.mjs`：`PW_CHROMIUM_EXE` → `chromium.executablePath()` → 本机 ms-playwright
+缓存里的 `chromium-*` 构建，**真的启动成功**才算可用），不再写死 `chromium-1223` / macOS 路径。
+定位不到时如实记 `skipped` 并带上试过的每条路径与真实报错，**不记 pass**；
+设 `EXAMPLES_REQUIRE_BROWSER=1` 则定位不到直接判红（`unavailable`，exit 1）。
 
 ## 与 T30 矩阵的关系
 

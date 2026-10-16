@@ -1569,3 +1569,116 @@ M3（把最贵输入人为变慢 8 倍）→ `24.943467 ms > 20 ms` **判红**�
    同批另有 `tools/mock-receiver/src/injection.acceptance.test.ts` 的 M01-AC-09 在 1 个 run 里红
    （`expected 202 to be 429`），看起来是另一类竞态、与本轮无关，一并登记。
 
+
+---
+
+## 十三、两处基建缺陷：`browserCheck` 写死 macOS 路径 / `beacon-quota` 写死引擎名单（2026-10-16，基建缺陷 lane）
+
+出处：`docs/reports/handover.md` 交接表第 3 行（"`examples/webpack` 的 `browserCheck` **写死 macOS 路径**
+→ CI 上'Chromium 复核'永远 skipped"）+ 本文件「额外发现」第 3 条、第十一节第 5 条与
+`docs/reports/e2e-real-browser.md` 跳过可见性 lane §6 的"同源残留"。**已修**，逐条给依据。
+
+### 13.1 `examples/webpack` 的 `browserCheck`：写死 macOS 路径（handover 第 3 行）
+
+**先复核实际状态（不照抄）**：两个脚本各有一份，写死**同一串**三合一常量：
+
+```
+examples/webpack/scripts/build-production.mjs:74-78   （修前）
+examples/webpack/scripts/dev-server.mjs:148-152       （修前）
+  join(process.env.HOME ?? '', 'Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64',
+       'Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing')
+```
+
+它把「本机装的是 `chromium-1223`」「平台目录 `chrome-mac-arm64`」「操作系统 `Library/Caches` + `.app` 包」
+三件事同时钉死；`existsSync` 不成立就 `return { status: 'skipped' }`。**skipped 怎么产生的**：
+不是浏览器起不来，而是**这条路径字符串在非 macOS 上必然不存在**——Linux CI 是
+`~/.cache/ms-playwright/<build>/chrome-linux/chrome`，Windows 是
+`%LOCALAPPDATA%\ms-playwright\<build>\chrome-win\chrome.exe`。所以 CI 上这一栏**从来没跑过**。
+
+**与「#2（skipped 算 pass）」的关系**：是**同一处的两个不同缺陷**，不要混。`ccb8855` 修的是**判据**
+（`classifyBrowserEvidence()`：`pass` 与**带理由**的 `skipped` 才 `accounted`，其余判红）——修完
+"skipped 不再算 pass"，但"在 Linux 上必然 skipped"这条**没有变**，本轮的 `browserCheck` 依然走到那个 `return`。
+本轮修的是**定位**：让它跨平台真的找到浏览器。
+
+**改法**：新增 `examples/webpack/scripts/lib/chromium-locate.mjs`（唯一实现），定位顺序
+① `PW_CHROMIUM_EXE` → ② `chromium.executablePath()`（Playwright 官方按 平台/架构/`PLAYWRIGHT_BROWSERS_PATH`
+算出的期望路径，**不复制任何平台清单**）→ ③ 从①②的路径反推缓存根 + 各平台默认缓存根，枚举本机已装的
+`chromium-*` 构建（按 revision 从新到旧）。关键：候选**存在**不算数，**真的 `launch()` 成功**才算数
+（存在但起不来/缺依赖/架构不符不会被误判成可用）。定位不到时，把**试过的每一条路径与真实报错**
+写进 `browser.attempts` / `browser.reason`（可审计），状态仍是 `skipped`（**不计入 pass**，由 #2 的白名单判据
+显式记账）——**没有假装有浏览器**。
+
+**判别性证明（三要素，2026-10-16 实跑）**：
+
+| 场景 | 命令 | 观察到 |
+|---|---|---|
+| ① 正常（本机有 1223） | `node examples/webpack/scripts/build-production.mjs` | `browser.status=pass`、`chromeSource=ms-playwright chromium-1223`、`attempts=[{chromium.executablePath() … "文件不存在"}, {ms-playwright chromium-1223 … null}]`；**`status=pass`、exit 0`** —— 注意第一条候选（`executablePath()` 期望的 chromium-1248）在本机**不存在**：这正是旧代码"路径不存在就 skipped"的那一条，新代码会继续往下找到能启动的构建 |
+| ② 没有任何可用浏览器（关掉全部候选） | `HOME=/tmp/proof-home PLAYWRIGHT_BROWSERS_PATH=/tmp/proof-browsers PW_CHROMIUM_EXE=/tmp/broken-chromium node examples/webpack/scripts/build-production.mjs` | `⚠ 浏览器复核已跳过…`、`browser.status=skipped`、`skipped=["browser"]`、`accounted=true`，`reason` 逐条列出：`env PW_CHROMIUM_EXE=/tmp/broken-chromium（browserType.launch: Target page, context or browser has been closed）；chromium.executablePath()=/tmp/proof-browsers/chromium-1248/…（文件不存在）`；exit 0（**不是 pass**，是显式记账） |
+| ③ 通过 `PW_CHROMIUM_EXE` 指向**坏掉的**可执行文件 | 同上第一条候选 | 真的去 `launch()` → 真实报错被记录下来（**不是**"文件不存在"就跳过） |
+
+**回归**：`pnpm examples:build` → **exit 0**；`pnpm examples:test` → **exit 0**（两个脚本各自
+`browser.status=pass`、`skipped=[]`、整体 `status=pass`）。`tests/compat/results/webpack-{production,dev-server}.json`
+是 `pnpm examples:*` 的产物，本轮**运行前快照 → 运行后按 sha256 还原回运行前内容**（`da8a858e…` / `fce14065…`
+逐字一致），不把易变字段（`generatedAt`/随机端口）留给下一个人。
+
+**没有做到的、需要负责人裁决的一点**：CI 的 **gates job 不装浏览器**（`.github/workflows/ci.yml` 只有 e2e job
+跑 `playwright install`），而 `pnpm examples:build` / `examples:test` 正是 gates job 的步骤；e2e job 又
+**不跑** examples。所以**今天没有任何一个 CI job 会执行 webpack 的浏览器复核**——本轮把"定位"修成跨平台后，
+在装了浏览器的机器上这一栏会真的跑（本机实测 pass），但在 CI 上它仍然是 `skipped`（显式记账、带逐条原因）。
+让它在 CI 上真的跑起来需要动 `.github/workflows/ci.yml`（gates job 装浏览器，或 e2e job 跑 `examples:*`），
+**属门禁配置变更，本 lane 未越界改**。
+
+### 13.2 `tests/e2e/beacon-quota.spec.mjs:56` 的写死引擎名单
+
+**先复核实际状态**：那是 `for (const browserName of ['chromium', 'webkit'])` 包住 `test(...)`——它**不用**
+project 的 `browserName`，于是在每个 project 下都声明同样两条写死引擎的用例。实测修前
+`pnpm test:e2e --project=chromium tests/e2e/beacon-quota.spec.mjs` = **2 passed**（标题 `[chromium] …chromium…`
+与 `[chromium] …webkit…`，即 chromium project 里同时起了 Chromium 与 WebKit 两个真浏览器）。
+**它不是 skip**，是**测错引擎** → Gecko 的信标额度永远取不到数、`results/beacon-quota-firefox.json` 永不产生。
+
+**改法与依据**：换成与 `leave-slice.spec.mjs` **同一套**口径——用例只声明一条、浏览器取自 project 的
+`browserName`、真启动探测（唯一实现抽到 `tests/e2e/lib/browser-availability.mjs`，两个 spec 共用）、
+起不来才经 `lib/skip-audit.mjs` 登记跳过；判据里无任何引擎名单。判别性证明与回归见
+`docs/reports/e2e-real-browser.md` 的「追加节（e2e 基建缺陷 lane，2026-10-16）」证明 ①–④
+（`--list` 3 project × 1 条；chromium/webkit 各 `executed=1/skipped=0` 两绿；
+`E2E_FORCE_RUN_BROWSER=firefox` ⇒ 真去起 ⇒ `sandbox_init()` EPERM ⇒ **1 failed / EXIT=1** 而非跳过）。
+**不得**把本节读成"Firefox 已验证"：本机沙箱内 Firefox 起不来，Gecko 上没有取到任何数。
+
+### 13.3 只报告（未改）：其余写死引擎名 / 平台路径
+
+`tests/e2e/lib/browsers.mjs:26-30` 的 macOS 布局表（仅第 3 回退分支，本机走的是第 2 分支）、
+`tests/e2e/lib/d004-anchor-window.mjs:480`（信息性汇总）、`tests/e2e/lib/{d004-run,smoke-browsers}.mjs`
+的 CLI 默认值/词汇表；以及**别 lane 范围**的 `tests/compat/scripts/vite-dev-server.mjs:31`、
+`tests/compat/scripts/browser-core-path.mjs:38,43`（与 `examples/webpack` 修前同型）。
+逐条位置与性质见 `docs/reports/e2e-real-browser.md` 追加节 §5 的表。
+
+### 13.4 编排方裁定后的收尾（2026-10-16，同一 lane）
+
+**裁定 (1)「把 examples 的浏览器复核接到装了浏览器的那个 CI job」——登记为待办，需负责人追认。**
+本 lane **未**改 `.github/workflows/ci.yml`（门禁配置 + 范围外）。作为裁定前置，交了 job 覆盖清单
+（全文逐行核对，实测 `.github/` 下只有 `ci.yml` 一个 workflow）：
+
+| job | 装浏览器？ | 跑 examples？ | 依据 |
+|---|---|---|---|
+| `gates`（ubuntu-latest） | **否**（无任何 `playwright install`） | **是**：`pnpm examples:build` / `pnpm examples:test` | `ci.yml:12-31`（`:30`、`:31`） |
+| `e2e`（ubuntu-latest，`needs: gates`） | **是**：`pnpm exec playwright install --with-deps` | **否**（只有 `pnpm build` + `pnpm test:e2e`） | `ci.yml:33-47`（`:45`、`:47`） |
+
+⇒ 两 job 交集为空：**webpack 浏览器复核今天在任何 CI job 上都不会执行**（只会 `skipped`）。
+`grep -rn "playwright install\|examples:build\|examples:test\|test:e2e" .github/` 仅上述四行命中。
+最自然的接法：把 `examples:*` 加进 **`e2e` job**，或给 `gates` job 加 `playwright install chromium`。
+
+**裁定 (2) `EXAMPLES_REQUIRE_BROWSER=1` opt-in——已实现**（详见 `docs/reports/e2e-real-browser.md`
+追加节 §6）；默认仍是"定位不到 ⇒ `skipped`（不计 pass，不是失败）"，声明后变 `unavailable` ⇒ 判红 exit 1。
+四场景判别性证明（opt-in 有/无浏览器 × 两个脚本）逐条实测于同一节。
+
+**裁定 (3) `tests/e2e/probes/mutant-transport.js`——本 lane 不再管**（编排方另做 `git rm --cached` +
+`.gitignore`）。如实记录：该文件由 `leave-slice.spec.mjs` 的 `beforeAll` 从 `packages/transport/dist`
+**现场重建**，仓库里那份是**过期**的（含旧的 `BEACON_MAX_BYTES` / `LEAVE_BUDGET.maxBytes=48K`）——
+我此前的 `git checkout --` 恢复**恰好把过期证据放回了仓库**，经本 lane 报备后由编排方纠正处置。
+
+**裁定 (4) `tests/compat/scripts/{vite-dev-server.mjs:31, browser-core-path.mjs:38,43}`——只报告，已批准另派。**
+
+**⑦ 残留表中落在本 lane 范围内的两条（各一行，未扩大）**：
+`tests/e2e/lib/d004-anchor-window.mjs` 对清单外的 `d004-*.json` 加一行可见告警（判据一字未动，
+植入/删除 `d004-firefox.json` 的正负对照见 e2e 报告 §6）；`examples/webpack/README.md:52` 的过期
+"若本机存在 `chromium-1223`"改为真实定位链 + skipped/opt-in 语义。

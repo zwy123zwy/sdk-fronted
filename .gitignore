@@ -7,3 +7,7 @@ playwright-report/
 test-results/
 .DS_Store
 .pnpm-store
+
+# 派生探针：由 leave-slice.spec.mjs 的 beforeAll 从 packages/transport/dist 现场重建，不应被跟踪
+# （2026-10-15：仓库里那份已过期；编排方此前的 git checkout -- 恰好把过期证据放回了仓库）
+tests/e2e/probes/mutant-transport.js

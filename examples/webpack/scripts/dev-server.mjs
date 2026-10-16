@@ -7,17 +7,17 @@
  * 2. `GET /main.js` → HTTP 200、非空 JS；
  * 3. 把 `/main.js` 的内容喂给 `verify-bundle.mjs` 沙箱 → `SDK_VERSION` / `createAssembly` /
  *    最小路径 `createAssembly → init → track → flush → 接收方收到批次`；
- * 4. 可选：用真实 Chromium 打开页面，断言 DOM 里出现 `web-report-sdk <版本>`。
- *    浏览器一栏失败会让整体结论转红；缺 Chromium 记为 `skipped`（**合法豁免，但不计 pass**，
- *    见 `checks.browserEvidenceAccounted` 与结果里的 `skipped` 字段，判据在 #2 统一到
- *    `classifyBrowserEvidence`）。
+ * 4. 可选：用**跨平台定位到的、能启动的** Chromium 打开页面，断言 DOM 里出现 `web-report-sdk <版本>`
+ *    （定位规则见 `lib/chromium-locate.mjs`）。浏览器一栏失败会让整体结论转红；定位不到记为
+ *    `skipped`（**合法豁免，但不计 pass**，见 `checks.browserEvidenceAccounted` 与结果里的
+ *    `skipped` 字段，判据在 #2 统一到 `classifyBrowserEvidence`）。
+ *    设 `EXAMPLES_REQUIRE_BROWSER=1`（opt-in）时定位不到变 `unavailable` ⇒ 判红（"声明即承担"）。
  *
  * 运行：`node examples/webpack/scripts/dev-server.mjs`
  * 证据：`tests/compat/results/webpack-dev-server.json`
  */
 import { get as httpGetRequest } from 'node:http';
 import { createRequire } from 'node:module';
-import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,6 +25,25 @@ import { fileURLToPath } from 'node:url';
 // 见 `build-production.mjs` 的同一处注释。
 import { writeJsonStable } from '../../../tests/compat/lib/stable-write.mjs';
 import { classifyBrowserEvidence, expectedSdkVersion, runBundleInSandbox } from './lib/verify-bundle.mjs';
+import {
+  requiredBrowserHint,
+  resolveLaunchableChromium,
+  unavailableReason,
+  unavailableStatus,
+} from './lib/chromium-locate.mjs';
+
+/**
+ * `chromium.executablePath()` 在"该版本期望的构建没装"时**仍会返回一条路径**（只是不存在），
+ * 也可能在异常环境下直接抛错。这里只把它当作**一个候选**，取不到就交给后面的候选
+ * （本机已装构建 / `PW_CHROMIUM_EXE`），不让它把整条复核打断。
+ */
+function safeExecutablePath(chromium) {
+  try {
+    return chromium.executablePath();
+  } catch {
+    return '';
+  }
+}
 
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const resultsDir = join(repoRoot, 'tests/compat/results');
@@ -125,6 +144,8 @@ async function main() {
       browser,
       // #2：跳过项逐一列出（本脚本只有浏览器一项可跳过）。
       skipped: evidence.skipped ? ['browser'] : [],
+      // 定位过程留全：试过哪些路径、各自真实报错（"没有浏览器"这句话必须可审计）。
+      browserAttempts: browser.attempts ?? [],
       status: Object.values(checks).every(Boolean) ? 'pass' : 'fail',
     };
     // 幂等落盘：易变字段清单比生产构建多两项——`origin` 与 `sandbox.bundlePath` 含
@@ -143,18 +164,29 @@ async function main() {
   return exitCode;
 }
 
-/** 真实浏览器复核（可选；缺 Chromium 记为 skipped，并带理由——由 #2 的白名单判据处置）。 */
+/** 真实浏览器复核（可选；定位不到 Chromium 时经 `classifyBrowserEvidence` 显式记账，不算 pass）。 */
 async function browserCheck(origin) {
-  const chromePath = join(
-    process.env['HOME'] ?? '',
-    'Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64',
-    'Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
-  );
-  if (!existsSync(chromePath)) {
-    return { status: 'skipped', reason: `未找到 Chromium：${chromePath}` };
-  }
   const { chromium } = await import('@playwright/test');
-  const browser = await chromium.launch({ executablePath: chromePath });
+  // 跨平台定位：**不写死任何平台路径**（此前写死 `$HOME/Library/Caches/ms-playwright/chromium-1223/
+  // chrome-mac-arm64/…`，于是 Linux CI 上这条复核**从来没跑过**，只留下一句 skipped）。
+  // 定位规则见 `lib/chromium-locate.mjs` 头注释：Playwright 官方的 `executablePath()` +
+  // 本机已装 `chromium-*` 构建（按 revision 从新到旧），**真的启动成功**才算可用。
+  const located = await resolveLaunchableChromium({
+    launch: (options) => chromium.launch(options),
+    playwrightPath: safeExecutablePath(chromium),
+  });
+  if (located.browser === null) {
+    // 默认 `skipped`（带理由的合法豁免）；`EXAMPLES_REQUIRE_BROWSER=1` 时是 `unavailable`
+    // ⇒ `classifyBrowserEvidence` 不给 accounted ⇒ `checks.browserEvidenceAccounted=false` ⇒ 判红。
+    const status = unavailableStatus();
+    const reason = `本机没有可用（能启动）的 Chromium：${unavailableReason(located.attempts)}`;
+    if (status === 'unavailable') {
+      console.error(`✗ 浏览器复核失败：${reason}\n  ${requiredBrowserHint()}`);
+    }
+    return { status, reason, attempts: located.attempts };
+  }
+  const browser = located.browser;
+  const chromePath = located.executablePath;
   try {
     const page = await browser.newPage();
     const pageErrors = [];
@@ -174,6 +206,8 @@ async function browserCheck(origin) {
     return {
       status: Object.values(checks).every(Boolean) ? 'pass' : 'fail',
       chromePath,
+      chromeSource: located.source,
+      attempts: located.attempts,
       domText: text,
       pageErrors,
       checks,

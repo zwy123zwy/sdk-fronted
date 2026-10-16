@@ -37,6 +37,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, expect } from '@playwright/test';
 import { resolveBrowser } from './lib/browsers.mjs';
+import { createBrowserAvailability, requireBrowser as requireBrowserAvailable } from './lib/browser-availability.mjs';
 import { createSkipAudit } from './lib/skip-audit.mjs';
 import { startStaticServer } from './lib/static-server.mjs';
 import { killMatching, launchPersistent, profilePids } from './lib/harness.mjs';
@@ -72,6 +73,7 @@ const MUTANT_TRANSPORT = '/probes/mutant-transport.js';
 /**
  * 当前运行时用的是哪个变体（默认真实产物）。
  * 变异验证：`AC03_TRANSPORT_VARIANT=mutant pnpm test:e2e --project=chromium --grep "切片机制"`。
+ * 强制走"能跑"分支（判别性证明）：`E2E_FORCE_RUN_BROWSER=firefox pnpm test:e2e --project=firefox`。
  */
 const VARIANT = process.env['AC03_TRANSPORT_VARIANT'] ?? 'real';
 
@@ -87,83 +89,21 @@ test.setTimeout(5 * 60_000);
 /**
  * 每个浏览器只探测一次：**真的把它启起来**，起得来就跑。
  *
- * 为什么必须是"真启动"而不是"二进制存在"：本机沙箱下 `resolveBrowser('firefox')` 是**成功**的
- * （chromium-1223 / firefox-1522 / webkit-2287 都在缓存里，revision 还精确配对），失败发生在
- * launch 阶段——firefox 会打出 "Juggler listening to the pipe" 然后卡到超时。用"能不能解析出
- * 可执行文件"当判据，会把"起不来"错判成"能跑"。
+ * 探测实现、理由文本与记账判据的唯一实现在 `lib/browser-availability.mjs`（与
+ * `beacon-quota.spec.mjs` 共用同一套口径——两份实现会让"能跑就跑"漂移成两套判据）：
+ *   - **真启动**而不是"二进制存在"（本机沙箱下 `resolveBrowser('firefox')` 成功但 launch 超时）；
+ *   - 启动成功即"能跑"，关闭阶段报错只记 note，不得把能跑的浏览器误判成起不来；
+ *   - 失败原因逐字保留（stage + 首行报错 + 驱动 id），跳过时能直接进输出与 HTML 报告。
  *
  * 这里替换的是一条**写死**的跳过（2026-10-15 前：`browserName !== 'chromium' && browserName !== 'webkit'`
  * → 即使在 Firefox 可用的 CI 上，C07-AC-03 的用例也照样静默跳过、整轮仍绿）。现在的判据是
  * 环境事实，不是引擎名单：**浏览器可用就真的跑**，不可用才跳过。
  *
- * 2026-10-15 复核（本 lane）："能跑就跑"这一条本身成立，但旧探测有两处会把**能跑的浏览器误判成起不来**，
- * 已修：
- *   1. 旧代码把 `await context.close()` 放在 try 里 —— 探测**已经启动成功**之后，只要关闭阶段报错
- *      （headless 退出抖动、进程被回收等），整条就被记成 `ready:false` 而跳过。现在启动与关闭分开：
- *      **启动成功即 `ready:true`**，关不上只记 `note` 打日志。
- *   2. 失败原因必须逐字保留（`stage` + 首行报错 + 驱动 id），跳过时能直接进输出与 HTML 报告。
- *
  * 跳过本身**不可能静默**：见 `lib/skip-audit.mjs` —— 每条跳过都要登记真实原因；旁路来的跳过
  * （在 spec 里直接写 `.skip`）在 `afterEach` 判红；**整 spec 在某浏览器上一条都没跑**时
  * `afterAll` 再判红（"环境阻塞"与"用例失败"在措辞上区分开）。
  */
-const browserAvailability = new Map();
-
-/** 单行化 + 限长的真实报错（探测失败原因要能直接进报告）。 */
-function firstLine(error) {
-  return String(error?.message ?? error).split('\n')[0].slice(0, 400);
-}
-
-/** 真启动探测：解析 → 启动 → 关闭。只有"启动"成功才算能跑。 */
-async function probeBrowser(browserName) {
-  let info;
-  try {
-    info = await resolveBrowser(browserName);
-  } catch (error) {
-    return { browserName, ready: false, stage: 'resolve', driver: null, reason: firstLine(error), note: '' };
-  }
-  const probeDir = fs.mkdtempSync(path.join(os.tmpdir(), `ac03-probe-${browserName}-`));
-  let closeNote = '';
-  try {
-    // 比正式用例的 60 s 短：探测只回答"能不能起来"，不承担正式用例的等待预算。
-    const context = await launchPersistent(info, probeDir, { timeout: 20_000 });
-    // 关键：启动成功即"能跑"；关闭阶段的异常**不得**把能跑的浏览器误判成起不来。
-    try {
-      await context.close();
-    } catch (error) {
-      closeNote = `探测后关闭 context 报错（不影响"能跑"判定）：${firstLine(error)}`;
-    }
-    return { browserName, ready: true, stage: 'launch', driver: info.driverId, reason: '', note: closeNote };
-  } catch (error) {
-    return { browserName, ready: false, stage: 'launch', driver: info.driverId, reason: firstLine(error), note: '' };
-  } finally {
-    killMatching(profilePids(probeDir));
-    fs.rmSync(probeDir, { recursive: true, force: true });
-  }
-}
-
-async function browserReady(browserName) {
-  const cached = browserAvailability.get(browserName);
-  if (cached !== undefined) return cached;
-  let entry = await probeBrowser(browserName);
-  // 判别性证明用的**测试钩子**（不影响正常路径）：置为该浏览器名时假装"起得来"，让用例真的去跑。
-  // 用途只有一个——在浏览器起不来的机器上证明"这条跳过是环境判据、不是写死的引擎名单"：
-  // 写死跳过的旧代码在 Firefox 上**恒**跳过；本文件在钩子打开时会真的尝试启动并**失败**（红）。
-  // 打开时先在输出里留痕，避免被误当成真实探测结果。
-  if (process.env['AC03_FORCE_RUN_BROWSER'] === browserName) {
-    console.log(
-      `[AC03_FORCE_RUN_BROWSER] 强制按"能跑"执行 [${browserName}]（真实探测 ready=${String(entry.ready)}，` +
-        `原因：${entry.reason === '' ? '无' : entry.reason}）`,
-    );
-    entry = { ...entry, ready: true, reason: '', forced: true };
-  }
-  browserAvailability.set(browserName, entry);
-  console.log(
-    `[ac03-probe] [${browserName}] ready=${String(entry.ready)} stage=${entry.stage} driver=${String(entry.driver)}` +
-      `${entry.reason === '' ? '' : ` reason=${entry.reason}`}${entry.note === '' ? '' : ` note=${entry.note}`}`,
-  );
-  return entry;
-}
+const availability = createBrowserAvailability({ tag: 'ac03-probe' });
 
 /** 跳过审计：让"跳过"不可能静默（唯一跳过入口 + afterEach 抓旁路 + afterAll 汇总/判红）。 */
 const skipAudit = createSkipAudit({ specName: 'leave-slice.spec.mjs', declaredTests: DECLARED_AC03_TESTS });
@@ -171,16 +111,8 @@ skipAudit.install();
 
 /** 该浏览器起不来就跳过本用例——**显式、带理由**（不是按引擎名单的静默跳过）。 */
 async function requireBrowser(browserName, testInfo) {
-  const probe = await browserReady(browserName);
-  // 探测结果**无论可用与否**都要记账：汇总/JSON 要靠它区分"能跑却没跑"与"起不来才跳过"。
-  skipAudit.noteProbe(browserName, probe);
-  if (probe.ready) return;
-  const note =
-    `${browserName} 在本机起不来（探测阶段=${probe.stage}，驱动=${String(probe.driver)}），本用例无法执行：${probe.reason}。` +
-    `补测：换一台能起 ${browserName} 的机器（或 PW_${browserName.toUpperCase()}_EXE=/path/to/binary）` +
-    `后重跑 \`pnpm test:e2e --project=${browserName}\`。`;
-  // 跳过登记进审计（含真实原因）；输出/报告可见性、旁路跳过判红、整 spec 全跳过判红都在那里。
-  skipAudit.skipUnavailableBrowser(browserName, testInfo, probe, note);
+  const probe = await availability.ready(browserName);
+  requireBrowserAvailable(browserName, testInfo, probe, skipAudit);
 }
 
 let server = null;

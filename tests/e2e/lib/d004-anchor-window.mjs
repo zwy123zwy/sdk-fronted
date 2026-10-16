@@ -477,7 +477,27 @@ test('不变量：把空白轮伪造成 0 丢失会被 assertNoBlankAsZeroLoss �
 
 function dumpRealArtifacts() {
   const out = [];
-  for (const browser of ['chromium', 'webkit']) {
+  const listed = ['chromium', 'webkit'];
+  const resultsDir = path.join(REPO, 'tests/e2e/results');
+  // 可见性（2026-10-16）：这里只列 `chromium`/`webkit` 两个名字，其他 d004 产物（例如将来在能起
+  // Gecko 的机器上跑出来的 `d004-firefox.json`，或 `--browser` 显式指定的别的引擎）**不会被读到**。
+  // 这不是判据（本函数只打印产物时间与 sha256，见调用处的 `--dump`），但"静默忽略"仍然是误导源，
+  // 故显式告警一次：列出来的名字之外还有哪些 d004-*.json 存在。
+  try {
+    const stray = fs
+      .readdirSync(resultsDir)
+      .map((name) => /^d004-(.+)\.json$/u.exec(name)?.[1])
+      .filter((name) => typeof name === 'string' && !listed.includes(name));
+    if (stray.length > 0) {
+      out.push(
+        `⚠ 以下 d004 产物存在但**未被本清单读取**（本函数只列 ${listed.join(' / ')}）：` +
+          `${stray.map((name) => `d004-${name}.json`).join('、')}——要一并核对请把它们加进上面的清单`,
+      );
+    }
+  } catch {
+    /* 目录不存在时无需告警 */
+  }
+  for (const browser of listed) {
     const file = path.join(REPO, 'tests/e2e/results', `d004-${browser}.json`);
     if (!fs.existsSync(file)) {
       out.push(`${browser}: 无产物（${path.relative(REPO, file)}）`);
