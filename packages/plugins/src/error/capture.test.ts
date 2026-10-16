@@ -235,6 +235,50 @@ describe('C05-AC-03 同指纹去重且 count 记总次数', () => {
     expect(events, '不同指纹各自成窗口，必须全部上报').toHaveLength(100);
   });
 
+  it('判别力：windowMs 生效——传 10 ms 时窗口内合并、到 10 ms 结算、窗口外另起一条', () => {
+    const events: JsErrorEvent[] = [];
+    const counters = createCounters();
+    const harness = createContext(counters.port);
+    const scheduled: (() => void)[] = [];
+    const context = {
+      ...harness.context,
+      scheduleRepeat: (handler: () => void): (() => void) => {
+        scheduled.push(handler);
+        return () => undefined;
+      },
+    };
+    let clock = 1_700_000_000_000;
+    // 必须传一个**与缺省 1000 不同值**的窗口：传 1000（= 缺省）时「传了」与「缺省」不可区分。
+    const plugin = createErrorPlugin((event) => events.push(event), {
+      now: () => clock,
+      windowMs: 10,
+    });
+    plugin.install(context);
+    const tick = (): void => {
+      for (const handler of scheduled) handler();
+    };
+
+    plugin.capture.handleWindowError('Uncaught Error: tight window', 1, 2, new Error('tight window'));
+    clock += 5;
+    plugin.capture.handleWindowError('Uncaught Error: tight window', 1, 2, new Error('tight window'));
+    tick();
+    expect(events, '距首条 5 ms（< windowMs=10）不得结算：窗口内必须合并').toHaveLength(0);
+
+    clock += 5; // 距首条 10 ms，恰好到期
+    tick();
+    expect(events, '到 windowMs=10 必须结算（缺省 1000 ms 在此刻不会结算）').toHaveLength(1);
+    expect(events[0]?.metrics.count, '窗口内两条必须合并为 count=2').toBe(2);
+
+    // 窗口外：同一指纹在结算后必须重新开窗并另报一条，而不是被无限并进上一条。
+    plugin.capture.handleWindowError('Uncaught Error: tight window', 1, 2, new Error('tight window'));
+    tick();
+    expect(events, '新窗口未到期不得结算').toHaveLength(1);
+    clock += 10;
+    tick();
+    expect(events, '窗口外的同指纹必须另起一条').toHaveLength(2);
+    expect(events[1]?.metrics.count).toBe(1);
+  });
+
   it('窗口到期自动结算（1 秒后上报），无需显式 flush', () => {
     const events: JsErrorEvent[] = [];
     const counters = createCounters();

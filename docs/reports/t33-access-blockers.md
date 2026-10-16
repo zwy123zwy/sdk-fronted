@@ -846,7 +846,7 @@ packages/browser/src/assembly.ts                    OK   a18cd8e784e60472260080b
 | 行为 | 关闭（缺省） | 开启 | 观测点 |
 |---|---|---|---|
 | `reportRepeats` | 同一输入 3 次 → **1 条**事件，`metrics.count = 3`、`collapsed = 2` | 同一输入 3 次 → **3 条**事件，`count = [1,2,3]`、`collapsed = 0` | 插件面：`edge-cases.test.ts:156` vs `:170`；**装配面**：`assembly-error-plugin-options.test.ts:111` vs `:121`（`expected [1,2,3]` vs `[3]`） |
-| `sources` | 全部源参与：`window_error` 与 `unhandled_rejection` **各 1 条** | `sources:['window_error']` → 只 1 条且 `source=window_error`（拒绝值**不归一化、不上报**）；`sources:[]` → **0 条**（含自动监听路径） | 插件面 `:182`/`:196`/`:209`；装配面 `:131` |
+| `sources` | 全部源参与：`window_error` 与 `unhandled_rejection` **各 1 条** | `sources:['window_error']` → 只 1 条且 `source=window_error`（拒绝值**不归一化、不上报**）；`sources:[]` → **0 条**（含自动监听路径） | 插件面 `:208`/`:222`/`:235`；装配面 `:131` |
 
 差异不是"计数多了一个"这类弱证据，而是**事件条数与每条 `count` 序列同时改变**（`[3]` ↔ `[1,2,3]`），
 且 M1/M2/M5 证明这两侧**各自可失败**。
@@ -866,23 +866,23 @@ packages/browser/src/assembly.ts                    OK   a18cd8e784e60472260080b
 |---|---|---|---|
 | `ErrorPluginOptions`（`error/plugin.ts`） | `captureResourceErrors` | `:309`（`attach`） | ✅ 探针：恒 true → 3 红；恒 false → 1 红（`:103`/`:119` 双侧） |
 | | `reportRepeats` | `:165`（`settle`/`observe` 消费于 `:209`/`:248`） | ✅ M1/M2 + `:156`/`:170` |
-| | `sources` | `:166`（`isSourceEnabled` `:228`） | ✅ M3 + `:182`/`:196`/`:209` |
-| | `now` | `:163`（`emit` 的 `occurred_at`、`dedup` 计时） | ✅ 探针 R：恒 `Date.now()` → 1 红（`capture.test.ts:238`） |
-| | `windowMs` | `:164` → `createDeduplicator({windowMs})` | ❌ **无判别性用例**（见 (b)-1） |
+| | `sources` | `:166`（`isSourceEnabled` `:228`） | ✅ M3 + `:208`/`:222`/`:235` |
+| | `now` | `:163`（`emit` 的 `occurred_at`、`dedup` 计时） | ✅ 探针 R：恒 `Date.now()` → 1 红（`capture.test.ts:282`；本 lane 在 `:238` 前置入新用例后，由原 `:238` 下移） |
+| | `windowMs` | `:164` → `createDeduplicator({windowMs})` | ✅ **已补**（本 lane 归位）：`error/capture.test.ts:238`（配 10ms，见 §11.6；M7 可杀） |
 | | `globalContext` | `:185`（`emit` 合并进 `context`） | ✅ `assembly-error-plugin-options.test.ts:141` + M6 |
-| | `onLeave` | `:371`（注入端口优先） | ✅ 探针 C：跳过注入 → 1 红（`capture.test.ts:271`/`:291` 双侧） |
+| | `onLeave` | `:371`（注入端口优先） | ✅ 探针 C：跳过注入 → 1 红（`capture.test.ts:315`/`:335` 双侧；同上行号下移） |
 | `RoutePluginOptions`（`route/{plugin,types}.ts`） | `mode` | `:92`（`readPath` `:106`、`attach` `:177`/`:181`） | ✅ 探针 J：恒 `manual` → 6 红；探针 P：hash 分支失效 → 3 红 |
 | | `templates` | `:94` | ✅ 探针 K：恒 `[]` → 4 红 |
 | | `match` | `:94` | ✅ M4 + `edge-cases.test.ts:63` |
 | `HttpPluginOptions`（`http/plugin.ts`） | `traceScope` | `:206` | ✅ 探针 F：恒 `undefined` → 1 红；恒 `{}` → 5 红 |
 | | `traceContextProvider` | `:208` | ✅ 探针 G：恒 `undefined` → 1 红 |
-| | `urlTemplate` | `:195` → `:222` `url_template` | ❌ **无判别性用例**（见 (b)-2） |
+| | `urlTemplate` | `:195` → `:222` `url_template` | ✅ **已补**（本 lane 归位）：`http/privacy.test.ts:51`（注入值断言，见 §11.6；M8 可杀） |
 | `ApmDualWriteOptions`（`apm-dual-write/create-plugin.ts`） | `forward` | `:137`（`:152` 消费） | ✅（`apm-dual-write.test.ts` 直接注入并断言转发） |
 | | `resolve` | `:138`（`:152` 惰性解析） | ✅（含"未加载时记 `processor_error`"用例） |
 | | `fieldMap` | `:134` | ✅ 探针 L：恒 `{}` → 2 红 |
 | | `constants` | `:135` | ✅ 探针 N：恒 `{}` → 1 红 |
 | | `eventTypes` | `:136` | ✅ 探针 M：恒 `[]` → 7 红 |
-| `VitalsAccumulatorOptions`（`perf/vitals.ts`） | `now` | `:79` | ✅（探针口径同 error `now`） |
+| `VitalsAccumulatorOptions`（`perf/vitals.ts`） | `now` | `:79`（`:128`/`:133` 组事件时的 `occurred_at`） | ❌ **无判别性覆盖（原表误标 ✅）**：2026-10-16 本 lane 钉常量复核，`:79` → `const now = ((): number => Date.now());` 后 `packages/plugins` **121/121 全绿**、`packages/plugins/src/perf` 11/11 全绿；且 `perf/*.test.ts` 里**没有任何 `occurred_at` 断言**。**只报告，未处置**（`perf/` 不在本 lane 可写范围） |
 | | `responseStartProvider` | `:80`（`:125` 消费） | ✅ 探针 O：恒 `undefined` → 2 红 |
 | `CoexistenceInitOptions`（`coexist/index.ts`） | `apmCoexistence` | `:56`/`:58` | ✅ `coexist/defaults.test.ts` 两份缺省表对照 |
 
@@ -891,41 +891,123 @@ packages/browser/src/assembly.ts                    OK   a18cd8e784e60472260080b
 本 lane 逐字段复核确认**读取点真实存在且被消费**。
 `AssemblyOptions.errorPlugin`（`browser/src/assembly.ts:475`/`:478`/`:483`）也已接线并有 4 条装配面用例（M5/M6 可杀）。
 
-#### (b) 有问题的用例清单（**只报告，未改**）
+#### (b) 有问题的用例清单（**当时只报告；现已按裁定补齐，见 §11.6**）
 
 1. **`ErrorPluginOptions.windowMs` —— 读取点在，但没有任何用例证明它生效（"名字声称的配置行为"未被测）。**
+   **→ 2026-10-15 裁定"两条都补"，已补（本 lane 归位）：`error/capture.test.ts:238`，见 §11.6。**
    - 判定依据：探针 Q（`error/plugin.ts:164` 钉成 `DEFAULT_DEDUP_WINDOW_MS`）→ `Tests 35 passed (35)`，
      **全绿**；即把该字段改成"忽略配置"没有任何用例会红。
-   - 原因（读代码可知）：唯一涉及它的用例 `capture.test.ts:238`「窗口到期自动结算（1 秒后上报）」
-     **传的就是 `windowMs: 1000`**（`capture.test.ts:254`），与缺省 `DEFAULT_DEDUP_WINDOW_MS`（1000）
+   - 原因（读代码可知）：唯一涉及它的用例 `capture.test.ts:282`「窗口到期自动结算（1 秒后上报）」
+     **传的就是 `windowMs: 1000`**（现 `capture.test.ts:298`；原 `:238`/`:254`，被本 lane 在 `:238` 前置入新用例后下移），与缺省 `DEFAULT_DEDUP_WINDOW_MS`（1000）
      **同值**，且时钟只推进 `1000`——传与不传无法区分。该用例实际证明的是**缺省 1 秒语义**，不是**配置项语义**。
    - 判定：**不是空转用例**（它自身断言有效、且真能失败），但**该配置项缺判别性用例**。
-   - 建议处置（**先请裁决**）：补一条 `windowMs: 10`（配 `now()` 假时钟推进 10ms）的用例，钉住"配置值决定窗口长度"。
-     这属于**加用例**、不改既有断言，但涉及测试口径（是否要求每个 `*Options` 字段都有判别性用例），故先报不先改。
 
 2. **`HttpPluginOptions.urlTemplate` —— 读取点在，但没有任何用例注入过它。**
+   **→ 已补（本 lane 归位）：`http/privacy.test.ts:51`，见 §11.6。**
    - 判定依据：① `grep -rn urlTemplate`（全仓 `src`/`tests`/`docs`）只有两处读取点（`http/plugin.ts:195`/`:222`）
      与接口声明，**无任何测试引用**；② 探针 E（`:195` 钉成 `defaultUrlTemplate`）→ `Tests 29 passed (29)`，
      **全绿**；而探针 I（钉成 `() => 'CONST'`）→ 1 红，说明变红的是**缺省去参数**行为，不是**注入**行为。
    - 判定：读取点真实（`options?.urlTemplate ?? defaultUrlTemplate`），**但"注入自定义模板会生效"未被任何用例证明**。
-   - 建议处置（**先请裁决**）：补一条注入 `urlTemplate: () => '/x/:id'` 并断言事件 `url_template` 等于该值的用例。
-     同样属**加用例**，先报不先改。
 
 3. **"名字声称某行为"的抽查：未发现新的空转用例。** 逐条看了判据里应含"开启/关闭"两侧的用例名：
    `error/edge-cases.test.ts:103/:119`（`captureResourceErrors` 双侧 ✅）、`:156/:170`（`reportRepeats` 双侧 ✅）、
-   `:182/:196/:209`（`sources` 三侧 ✅）、`route/edge-cases.test.ts:63/:73`（`match`/`templates` 双侧 ✅）、
+   `:208/:222/:235`（`sources` 三侧 ✅）、`route/edge-cases.test.ts:63/:73`（`match`/`templates` 双侧 ✅）、
    `coexist/defaults.test.ts`（共存/非共存两表，且 `:39` 有"非空转对照" ✅）、
-   `http/trace-header.test.ts:118`（"未配置追踪范围时不注入"——单侧命名，但同文件 `:114` 已有配置侧注入断言 ✅）。
+   `http/trace-header.test.ts:118`（"未配置追踪范围时不注入"——单侧命名，但同文件已有配置侧注入断言 ✅）。
    **均无"名字与断言相反"的遗留**；上一轮那条（原 `:156`）已由 `b6e8dea` 修成真用例。
+
+4. **`VitalsAccumulatorOptions.now` —— 本 lane 2026-10-16 复核时**新发现**：读取点在（`perf/vitals.ts:79`），
+   但 §11.5(a) 表里"✅（探针口径同 error `now`）"是**未经实跑的推断，且复核为假**。**
+   判定依据（钉常量法）：`:79` → `const now = ((): number => Date.now());` → `packages/plugins` **121/121 全绿**、
+   `packages/plugins/src/perf` **11/11 全绿**；且 `perf/*.test.ts` 无任何 `occurred_at` 断言。
+   即把该字段改成"忽略配置"没有任何用例会红 ⇒ **该字段没有判别性用例**。
+   影响面：`perf/plugin.ts:79` 会把 `ports.now` 传进该字段，所以插件面注入的时钟同样不被任何断言钉住。
+   **处置：只报告，未动手**（`packages/plugins/src/perf/**` 不在本 lane 可写范围）。
+   修法建议（交给有 `perf/` 所有权的人）：照 `error` 的 `now` 探针 R，加一条"注入 `now` → 断言 `take()` 出的事件
+   `occurred_at` 等于注入时钟"的用例，再对 `vitals.ts:79` 做一次钉常量确认变红。
 
 #### (c) 判定依据与处置建议汇总
 
-| 项 | 性质 | 依据 | 建议 |
+| 项 | 性质 | 依据 | 处置 |
 |---|---|---|---|
 | `reportRepeats` / `sources` / `match` / `assembly.errorPlugin` | 已修实 | §11.1/§11.2 变异三要素 + §11.4 开/关差异 | **无需处置**（本 lane 已补证明） |
-| `ErrorPluginOptions.windowMs` | 读取点在，**配置语义无判别性用例** | 探针 Q 全绿；`capture.test.ts:254` 传同值 1000 | 补一条异值（如 10ms）用例；**先请口径裁决** |
-| `HttpPluginOptions.urlTemplate` | 读取点在，**注入语义无用例** | 全仓零测试引用；探针 E 全绿 | 补一条注入用例；**先请口径裁决** |
-| 其余 `*Options` 字段 | 读取点 + 判别性用例均齐 | §11.5(a) 表 | 无需处置 |
+| `ErrorPluginOptions.windowMs` | 读取点在，原本**配置语义无判别性用例** | 探针 Q 全绿；`capture.test.ts:298` 传同值 1000 | **已按裁定补用例**（`error/capture.test.ts:238`，§11.6，M7 可杀） |
+| `HttpPluginOptions.urlTemplate` | 读取点在，原本**注入语义无用例** | 全仓零测试引用；探针 E 全绿 | **已按裁定补用例**（`http/privacy.test.ts:51`，§11.6，M8 可杀） |
+| `VitalsAccumulatorOptions.now` | 读取点在，**原表漏判为 ✅，实为无判别性用例** | 2026-10-16 钉常量复核：`:79` 钉成 `Date.now` → 121/121 全绿 | **只报告**（`perf/` 非本 lane 所有权，见 §11.5(b) 第 4 条与 §11.7） |
+| 其余 `*Options` 字段 | 读取点 + 判别性用例均齐 | §11.5(a) 表；2026-10-16 本 lane 对**除上两条外的其余 19 个读取点**逐点钉常量复核，**18 红 / 1 绿**（绿者即上行的 `vitals.now`） | 无需处置 |
 
-> 注：本 lane **未修改任何实现文件与测试文件**（`git diff -- packages/plugins packages/browser` 为空），
-> 上述两处建议均为**需要裁决后再动手**的加用例项——按任务口径"口径类问题先问"。
+> 注：§11.5 的 **实现文件零改动**（`git diff` 对 `error/plugin.ts`/`http/plugin.ts`/`assembly.ts`/`route/plugin.ts`/
+> `perf/vitals.ts`/`coexist/index.ts`/`apm-dual-write/create-plugin.ts` 全部为空），
+> 只**新增两条测试**（最终落位：`error/capture.test.ts`、`http/privacy.test.ts`）并补写本节与 §11.6/§11.7。
+> 2026-10-16 归位说明：两条用例最初被落在 `error/edge-cases.test.ts` 与 `http/trace-header.test.ts`；
+> 本 lane 判定 ① `edge-cases.test.ts` 的 `createContext()` 返回 `Record<string, unknown>`，要装上去**必须**
+> `as unknown as` 强转（本仓禁用），② `trace-header.test.ts` 的 describe 归属 AC-12，把 `url_template` 断言放在那里
+> 属**挂错 AC**，故两处改动**已全部回退到 HEAD**（该两文件 `git diff` 为空），只保留本 lane 重新落位的两条。
+> 另：`http/trace-header.test.ts:118` 的既有用例未被改动。
+
+### 11.6 两条补做的判别性用例（2026-10-15 裁定"两条都补"后实做）
+
+裁定口径：**"一个公共选项没有判别性用例"与"一个检查不会失败"是同一类事**——选项可以被改坏而没有任何测试会察觉；
+故"每个 `*Options` 字段都必须有判别性用例"为硬口径。
+
+**最终落位（2026-10-16 本 lane）**：两条用例分别补在 `error/capture.test.ts:238` 与 `http/privacy.test.ts:51`。
+为什么不在最初落盘的位置：`error/edge-cases.test.ts` 的 `createContext()` 返回 `Record<string, unknown>`，
+不改既有 helper 就只能靠 `as unknown as` 强转（本仓禁用）；`http/trace-header.test.ts` 的 describe 归属 AC-12，
+把 `url_template` 断言放那儿属**挂错 AC**。**两处最初落盘已整体回退到 HEAD**（两文件 `git diff` 为空）⇒ 不存在重复用例。
+
+| # | 新用例 | 被测字段的读取点 | 变异三要素（临时回退 → 必须红 → 恢复） |
+|---|---|---|---|
+| M7 | `error/capture.test.ts:238`「判别力：windowMs 生效——传 10 ms 时窗口内合并、到 10 ms 结算、窗口外另起一条」 | `error/plugin.ts:164` → `createDeduplicator({windowMs})` | 变异：`:164` → `const windowMs = DEFAULT_DEDUP_WINDOW_MS;`（即不再读该字段）；命令：`pnpm exec vitest run --coverage.enabled=false --project unit packages/plugins/src/error/capture.test.ts -t "判别力：windowMs 生效"`；**红断言原文**：`AssertionError: 到 windowMs=10 必须结算（缺省 1000 ms 在此刻不会结算）: expected [] to have a length of 1 but got +0`（`capture.test.ts:269:62`），`Tests 1 failed | 12 skipped (13)` |
+| M8 | `http/privacy.test.ts:51`「注入自定义 urlTemplate 后 dimensions.url_template 用注入值（判别：与缺省「去查询参数」的结果不同串）」 | `http/plugin.ts:195` → `:222` `url_template` | 变异：`:195` → `const urlTemplate = defaultUrlTemplate;`（即不再读该字段）；命令：`pnpm exec vitest run --coverage.enabled=false --project unit packages/plugins/src/http/privacy.test.ts -t "注入自定义 urlTemplate"`；**红断言原文**：`AssertionError: 必须使用注入的 urlTemplate: expected '/api/task/42' to be '/x/:id' // Object.is equality`（`privacy.test.ts:69:71`），`Tests 1 failed | 2 skipped (3)` |
+
+**为什么这两条真的能区分"传了"与"缺省"**（不是把同值再写一遍）：
+- M7 传 `windowMs: 10`（与缺省 1000 **不同值**，这正是原用例 `capture.test.ts:282` 传 `1000` 的病）。
+  假时钟 t=0 首条、t=5 重复（窗口内必须合并）、t=10 触发内核定时器：配置生效 → `due(10)` 成立 → 结算 1 条且 `count=2`；
+  配置被忽略（仍按 1000 判定）→ **0 条**，M7 的红断言正是后者。结算后 t=10 再报一条、t=20 结算 → 第 2 条 `count=1`，
+  钉住"窗口外另起一条"，顺带排除"永不结算"式的假通过。
+- M8 注入 `() => '/x/:id'`，实参 URL 为 `/api/task/42?token=…#frag`：注入生效 → `/x/:id`；
+  被忽略 → 缺省实现去 `?`/`#` 得 `/api/task/42`（**逐字不同**）。M8 的红断言原文正是这两串的对比。
+
+**恢复与 sha256 一致性（硬要求）**：变异一律"先 `cp` 备份到 `/tmp` 再 `cp` 恢复"，恢复后与基线逐文件比对，**逐字节一致**：
+`error/plugin.ts 0a0687bbf55845027cbc45225a534a7e86c4fe0c2d4eef0e95a84c4544b02fb9`、
+`http/plugin.ts b4f583680cfdefd2e5104e57500b53a56a9cfa0f9711ae9619e228e7176c7551`；
+本节 §11.7 复核动过的另四个实现文件恢复后为
+`route/plugin.ts 0a50e3babb22a66ec65bcb166761fafc363eead062a12ca1bf7c527f7c3f0f5d`、
+`perf/vitals.ts 792d828eaf5b61e772c74e2ecdae70df4ff4fde2f9ddd0750cb2c5e9654ddd93`、
+`coexist/index.ts 49175f52b5311fa76a5f42e327ca32c022f777a5b26484ed897b9db586087af0`、
+`apm-dual-write/create-plugin.ts c753a9c5d1df5a7614cfffe1b9ebf2e4333771d3728f32db32cc6615797d7d19`；
+六个文件 `git diff` 全为空。
+
+**回归**（最终状态实跑）：`pnpm exec vitest run --coverage.enabled=false --project unit packages/plugins`
+= **20 files / 121 tests 全绿**（补前 119，**+2** 即这两条）；`tsc -p packages/plugins` exit 0；`eslint packages/plugins/src` exit 0。
+
+### 11.7 同批钉常量复核新发现：`VitalsAccumulatorOptions.now` 无判别性用例（只报告）
+
+同一次复核把 §11.5(a) 表里**除 M7/M8 字段外的 19 个读取点**逐点钉成常量，只有一处全绿：
+
+```
+GREEN | V1_vitals.now  ← packages/plugins 121/121 全绿；packages/plugins/src/perf 11/11 全绿
+RED   | E1_error.now / E3_reportRepeats / E4_sources / E5_globalContext / E6_captureResourceErrors / E7_onLeave
+RED   | H2_traceScope / H3_traceContextProvider
+RED   | R1_mode / R2_templates / R3_match
+RED   | V2_responseStartProvider
+RED   | A1_forward / A2_resolve / A3_fieldMap / A4_constants / A5_eventTypes
+RED   | C1_apmCoexistence
+```
+
+判定：`VitalsAccumulatorOptions.now`（`perf/vitals.ts:44`，经 `perf/index.ts:25` → 包入口 `src/index.ts:18` 可达）
+**读是读了**（`:79` → `:128`/`:133` 组事件时的 `occurred_at`），但把它钉成 `((): number => Date.now())` 后**没有一条用例会红**
+⇒ 与改动前的 `windowMs`/`urlTemplate` 同类：**该选项可以被改坏而测试察觉不到**。
+故 §11.5(a) 原表该行的"✅（探针口径同 error `now`）"是**未实跑的推断，已复核为假**，本轮已在表中改标 ❌。
+`perf/plugin.ts:79` 会把 `ports.now` 传进该字段，所以插件面注入的时钟同样不被任何断言钉住。
+
+**处置：只报告，未动手**——`packages/plugins/src/perf/**` 不在本 lane 可写范围，且修法是**新增断言**（不是纯探针）。
+建议交给有 `perf/` 所有权的人：照 error 侧探针 R，加一条"注入 `now` → 断言 `take()` 出的事件 `occurred_at` 等于注入时钟"，
+再对 `vitals.ts:79` 做一次钉常量确认变红。
+
+**回归口径注明**：本节 121/121 是**当前工作区**的结果，它**包含**其他 lane 已落盘的内容——
+`tests/compat/results/*.json`、`vitest.config.ts`（新增 `compat` project；与本 lane 的 `--project unit` 无关）、
+`tests/e2e/*` 及其两个新文件（**本 lane 未触碰、也未运行 e2e**，按纪律禁止）。本 lane 自身改动只有三处：
+`packages/plugins/src/error/capture.test.ts`（+1 用例）、`packages/plugins/src/http/privacy.test.ts`（+1 用例）、本报告；
+另外**回退了另一条 lane 最初落盘的两处测试改动**（`error/edge-cases.test.ts`、`http/trace-header.test.ts` 现为 HEAD 原样）。
+本 lane **未做任何 git 写操作**；未改任何实现文件、契约、决策、验收用例、门禁配置。
