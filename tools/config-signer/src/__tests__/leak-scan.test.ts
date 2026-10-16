@@ -156,11 +156,42 @@ describe('K02-AC-08 私钥不泄漏', () => {
       expect(text.includes('"d":')).toBe(false);
     }
 
-    // 零新增未跟踪文件（除本任务新增的非密钥文件外）
+    // 零新增密钥文件（K02-AC-08 的落盘判定）。
+    //
+    // **这里不能再断言「窗口内新增的未跟踪文件必须都在 `tools/config-signer/` 内」**：
+    // `git ls-files -o --exclude-standard` 是**仓库级共享可变状态**，窗口内任何别的进程
+    // （并发的 vitest 套件、其它 lane 的在途文件、构建脚本）新增一个未跟踪文件都会落进差集，
+    // 于是那条断言实际在判「**别人**有没有写文件」，与 K02 是否泄漏密钥无关。
+    //
+    // 实测（2026-10-16）：在窗口内落下 `packages/plugins/dist-apm-adapter/pollute.js` 这类文件
+    // （C05-AC-18 的度量脚本就会短暂生成同名目录）→ 本用例必红，原文是
+    // `AssertionError: expected false to be true`；不在窗口内落 → 必绿。
+    // 「全量偶发红、单跑 4/4 绿」正是因为**窗口期重合与否只取决于调度**。
+    // 另注：多 lane 并行时 `git ls-files -o` 的集合本身就在变（本会话实测到其它 lane 的
+    // `tests/e2e/lib/*.mjs`、`tests/compat/lib/*.mjs`、`docs/reports/*.md` 在窗口内外进出）。
+    //
+    // 修法：把判定收回到**本用例真正拥有的范围**，并把内容判定**加强**（原来只看扩展名）：
+    //   ① 仓库任意位置都不得新增密钥文件形态（`.pem` / `.key`）——与原判据一致；
+    //   ② 本工具目录内不得新增未跟踪文件——保留原判据里属于「本任务自身」的那一半；
+    //   ③ **任何**新增的未跟踪文件（任意目录、任意扩展名）的内容里都不得出现本次运行的
+    //      任何密钥材料或私钥 PEM 头——这条比原来更强，且与别的进程写不写文件无关。
     const after = untrackedSnapshot();
     const added = after.filter((file) => !before.includes(file));
-    expect(added.every((file) => file.startsWith('tools/config-signer/'))).toBe(true);
     expect(added.some((file) => file.endsWith('.pem') || file.endsWith('.key'))).toBe(false);
+    expect(added.filter((file) => file.startsWith('tools/config-signer/'))).toEqual([]);
+
+    const addedTexts: string[] = [];
+    for (const file of added) {
+      try {
+        addedTexts.push(await readFile(join(REPO_ROOT, file), 'utf8'));
+      } catch {
+        // 二进制、或并发进程刚好删掉了它：跳过内容扫描（形态判定已在上面做过）
+      }
+    }
+    expect(countSecretHits(addedTexts, [...fragments])).toBe(0);
+    for (const text of addedTexts) {
+      expect(text.includes(PRIVATE_KEY_MARKER)).toBe(false);
+    }
   });
 
   it('仓库中没有可解析的私钥文件，也没有新增密钥文件', async () => {

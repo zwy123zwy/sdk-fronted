@@ -31,6 +31,11 @@ import type {
 interface NodeFs {
   readdirSync(path: string): string[];
   readFileSync(path: string, encoding: 'utf8'): string;
+  mkdirSync(path: string): void;
+  mkdtempSync(prefix: string): string;
+  copyFileSync(source: string, target: string): void;
+  symlinkSync(target: string, path: string): void;
+  rmSync(path: string, options: { readonly recursive: boolean; readonly force: boolean }): void;
 }
 interface NodeChildProcess {
   execFileSync(file: string, args: readonly string[], options: { readonly encoding: 'utf8' }): string;
@@ -321,6 +326,45 @@ describe('C05-AC-17 双写开关', () => {
   });
 });
 
+/**
+ * 在**独占的临时根目录**里运行度量脚本，返回它的 stdout。
+ *
+ * 为什么：脚本把产物固定写到 `<packages/plugins>/dist-apm-adapter`，并在结束时 `rmSync` 掉它。
+ * 两个进程同时跑（并发的门禁、另一条 lane、或同一套件被两个 vitest 进程收集）时，一方的
+ * `--clean` 与 `finally` 会删掉另一方的产物，后者读到 0 个 `.js` 产物而红：
+ * `Error: 期望 1 个 .js 产物，实际 0 个：`。
+ * 实测（2026-10-16）：**纯 CPU 并发负载（另一个进程跑别的测试文件）0/6 红；
+ * 另一个进程跑本文件时 4/6 红**——所以它不是「负载敏感」，而是固定产物目录的竞态。
+ *
+ * 修法：每次运行给脚本一个**独占的根目录**（`packageRoot` 由脚本自身位置推出，于是
+ * outDir 变成 `<临时根>/dist-apm-adapter`），从结构上消除共享路径——不用 retry、不用等待、
+ * 不放宽任何断言，测的仍是同一个脚本、同一份源码、同一套 tsup 配置：
+ * - 临时根放在 `packages/plugins` **内部**（点号开头），这样 tsup 向上找到的
+ *   `tsup.config.ts` / `tsconfig.json` / `package.json` 与真实构建完全一致
+ *   （换到仓库别处会命中不同配置，度量就不再是同一种产物）；
+ * - `package.json` 与 `src` 用**符号链接**指回真实文件，因此不会有第二份会走样的打包元数据
+ *   （`package.json` 的 `"type": "module"` 决定产物是 `index.js` 还是 `index.mjs`）；脚本本身
+ *   必须是**拷贝**——`import.meta.url` 会解析真实路径，符号链接会让 `packageRoot` 又指回原处；
+ * - 点号目录对 `tsc`（include 只有 `src`）、`vitest`（include 只覆盖各包的 `src`）、
+ *   `coverage`、ESLint（默认不遍历点目录）都不可见，且在 `finally` 里删除。
+ *
+ * 等价性验证：临时根里跑出的 `raw 1199 B / gzip 705 B / brotli 585 B` 与原地跑逐字节一致。
+ */
+function measureAdapterBundle(script: string): string {
+  const root = nodeFs.mkdtempSync(`${packageRoot}/.measure-apm-adapter-`);
+  try {
+    nodeFs.mkdirSync(`${root}/scripts`);
+    nodeFs.copyFileSync(script, `${root}/scripts/measure-apm-adapter.mjs`);
+    nodeFs.symlinkSync(`${packageRoot}/package.json`, `${root}/package.json`);
+    nodeFs.symlinkSync(`${packageRoot}/src`, `${root}/src`);
+    return nodeChildProcess.execFileSync('node', [`${root}/scripts/measure-apm-adapter.mjs`], {
+      encoding: 'utf8',
+    });
+  } finally {
+    nodeFs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
 describe('C05-AC-18 构建产物', () => {
   it('C05-AC-18 适配器源码不 import 任何第三方包', () => {
     const directory = `${packageRoot}/src/apm-dual-write/`;
@@ -341,7 +385,7 @@ describe('C05-AC-18 构建产物', () => {
 
   it('C05-AC-18 适配器构建产物不含第三方包代码且 gzip 不超过 1.5 KB', { timeout: 120_000 }, () => {
     const script = `${packageRoot}/scripts/measure-apm-adapter.mjs`;
-    const output = nodeChildProcess.execFileSync('node', [script], { encoding: 'utf8' });
+    const output = measureAdapterBundle(script);
     const gzip = /gzip (\d+) B/.exec(output);
     expect(gzip).not.toBeNull();
     expect(Number(gzip?.[1] ?? Number.NaN)).toBeLessThanOrEqual(1536);

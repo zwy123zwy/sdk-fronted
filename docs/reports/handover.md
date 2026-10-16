@@ -224,6 +224,35 @@ T18 已留一条"断言 attachment 目前未脱敏"的哨兵：**C04 修好后�
   ③ **长期留存门禁日志**：本会话那条"运气型"失败的根因，就是靠**从留存的 `/tmp/gates-*.log` 里找回报错原文**
      （`instancePath: /events/0/view_id`）才定位的——**看板上只写"曾红"是不够的**。
   ④ **门禁不应与重任务并行跑**：负载下另有两条重负载敏感用例偶发红（`C05-AC-18 gzip`、`mask-adversarial` perf 护栏），空闲全绿。
+     **（2026-10-16 已结案：两条都不是"抖动"——`C05-AC-18` 是固定产物目录 `packages/plugins/dist-apm-adapter`
+     的跨进程竞态（纯 CPU 并发 0/6 红、同文件并发 4/6 红），`mask-adversarial` 是用墙钟度量"计算量"；
+     另加 `leak-scan.test.ts` 的「K02 全部子命令…」= 窗口内取**仓库级**未跟踪文件快照。
+     三条真因、修法与全部复跑/变异证据见 `docs/reports/t33-access-blockers.md` 第十二节。）**
+
+10.6b **"负载敏感"的三种常见真身（2026-10-16 结案；照这个顺序怀疑，别先下"抖动"结论）**：
+  ① **固定路径 / 仓库级共享状态**（`C05-AC-18` 的 `dist-apm-adapter`、K02 的 `git ls-files -o` 快照）——
+     与 CPU 无关，**纯 CPU 并发负载下反而 0/6 红**；"两个并发 vitest 进程"能复现，是因为它让**同一份用例/同一个目录**
+     被两个进程同时碰到。修法是**消除共享**（独占临时根目录 / 把判定收回到本用例拥有的范围），不是加锁、更不是 retry。
+  ② **用墙钟度量"计算量"**（`mask-adversarial`）——并行超订只抬高墙钟、不抬高 CPU 时间：
+     同一输入墙钟中位数在双套件并行下 23–32 ms（4/4 红），`process.cpuUsage` 稳定在 7.5–8.3 ms。
+     修法是换统计量（块内求和的 CPU 时间），**阈值原值不动**。另注意**超时面是独立的第二件事**：
+     同一用例在 `loadavg 65` 下会撞 vitest 默认 5 s（`Error: Test timed out in 5000ms`），
+     靠**减少用例自身 CPU 工作量**（迭代数 50→15）解决，而不是调大超时。
+  ③ **`types: []` 的包里要用 `process`**：**不要**加 `/// <reference types="node" />`（会把 node 类型泄漏进整个程序，
+     打坏 `global-registry.ts` 的 `setTimeout` 返回类型）；按本仓既有写法在文件内
+     `declare const process: { cpuUsage(...) }`（见 `mask-adversarial.test.ts` / `apm-dual-write.test.ts`）。
+
+10.6c **还有一条同类未修（只报告，待裁决）**：`tools/config-signer/src/__tests__/performance.test.ts`
+   「K02-AC-09 进程内签名 100 次：中位数与 p95 均低于 100 ms」是**墙钟 p95** 判据，
+   全量双套件下实测 1/10 进程-run 红（`expected 104.88087499999983 to be less than 100`）。建议同一修法。
+
+10.6d **不要用仓库级 `git checkout/restore/stash` 去换一个绿色门禁（2026-10-16 实例，编排方造成）**：
+   当日编排方为让 `typecheck` 变绿，对**另一条 lane 正在写**的
+   `packages/core/src/privacy/mask-adversarial.test.ts` 执行了 `git checkout -- <该文件>`，
+   **静默吃掉了执行方已验证过的在途修改**（执行方随后发现文件被还原并重新落盘）。
+   危害与 10.8 同源，但更隐蔽：**被回退方无法从自己的日志里看出发生了什么**，
+   而"已验证"的结论会随文件一起失效。**规矩**：要动别人的文件（哪怕只是"恢复原状"）→ 先问；
+   需要"干净的树"→ 用 `git stash` 之外的方式（例如只校验自己 lane 的文件，或等对方收工）。
 
 10.7 **审计"声明了但没读"的标准手段（本会话新增，已验证有效）**：
    ① **静态**：核对每个 `*Options` 接口的**每个字段**在实现里**是否真有读取点**（无 ⇒ 该字段是死配置）；

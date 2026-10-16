@@ -1316,3 +1316,153 @@ A1_forward 4 / A2_resolve 2 / A3_fieldMap 1 / A4_constants 1 / A5_eventTypes 1 /
 **未做任何 git 写操作**；实现文件、契约、决策、验收用例、既有测试断言、门禁配置均未改；
 临时变异在 `/tmp/hooker_route_plugin.baseline.ts`、`/tmp/hooker_http_plugin.baseline.ts` 备份下逐处恢复并
 `shasum -a 256 -c` 复核。
+
+---
+
+## 十二、三条「重负载敏感」用例的真因与修复（2026-10-16，T33 lane）
+
+**派工背景**：看板记 `C05-AC-18 gzip` 负载下 3/6 红、`mask-adversarial` perf 护栏 1/6 红、
+`tools/config-signer/.../leak-scan.test.ts` 的「K02 全部子命令的输出中不含本次使用的任何密钥材料」曾 1 次在全量门禁中红
+（单跑 4/4 绿、随后全量重跑全绿）。
+**结论：三条没有一条是"抖动"**——两条是**共享固定路径 / 仓库级共享状态**，一条是**统计量选错（墙钟 vs CPU 时间）**。
+三条的修法都不是 retry / sleep / 放宽断言 / `.skip` / 调超时；**实现文件一行未改**。
+
+### 12.1 机器状态（如实记录：空闲基线只在开工时拿到过）
+- 开工第一步：`loadavg = [4.02, 4.87, 4.58]`、`pgrep -lf 'vitest|tsc|gates'` 只剩编辑器自带的 `tsserver`
+  （路径里含 `tsc` 的误匹配），**无任何 vitest/tsc/gates 进程** ⇒ **拿到了空闲基线**，
+  三条在空闲下全绿（与看板一致，复现不出）。
+- 之后全程**拿不到空闲基线**：另有 3 条 lane 并行，`loadavg` 长期 12–65（最高实测 **65.5**）。
+  因此所有"负载敏感"结论都建立在**受控负载**上（两个并发 vitest 进程；两个并发全量 `unit` 套件）；
+  最终的空闲侧复核只在一个 `loadavg1≈5.0` 的窗口里补到（12.5）。
+
+### 12.2 `C05-AC-18`：**固定产物目录的跨进程竞态**（不是负载，也不是 gzip 预算）
+
+**复现与报错形态**（"同文件并发"各 2 个进程，共 6 轮）：
+- **同文件并发 4/6 红**，报错原文（**资源/IO 错，不是超时、也不是体积断言**）：
+  `Error: 期望 1 个 .js 产物，实际 0 个：`（`measure-apm-adapter.mjs:74` 的 `buildBundle`）。
+- **纯 CPU 并发负载**（另一个进程跑**别的**测试文件，6 轮）：**0/6 红**。⇒ 与 CPU 竞争无关。
+- 空闲单跑：1307 ms，gzip 705 B（限 1536 B，余量 2.18×）。**体积断言与负载无关**（gzip 是确定性函数）。
+
+**真因**：`packages/plugins/scripts/measure-apm-adapter.mjs` 把产物固定写到
+`packages/plugins/dist-apm-adapter`，并在 `finally` 里 `rmSync` 它。两个进程同时跑时，
+一方的 `tsup --clean` 与 `finally` 会删掉另一方的产物，后者 `readdirSync` 到 0 个 `.js` 而抛错。
+（`git check-ignore` 证实该目录**不在** `.gitignore` 里——`dist/` 匹配不到 `dist-apm-adapter`。）
+
+**为什么它此前表现为"负载敏感"**：受控负载的构造方式就是"两个并发 vitest 进程"；只有当**同一份用例**
+被两个进程同时收集时才会撞。真实门禁里这发生的条件正是"`pnpm gates` 与另一条 lane 的
+`pnpm exec vitest run`（宽过滤器）并行"——与 CPU 忙不忙无关，所以空跑到底也不会红。
+
+**修法（方向①"消除共享状态/固定路径"）**：在**测试侧**给每次运行一个**独占的临时根目录**
+（`mkdtempSync(<packageRoot>/.measure-apm-adapter-)`）——`packageRoot` 由脚本自身位置推出，
+于是 `outDir` 变成 `<临时根>/dist-apm-adapter`。要点：
+`scripts/measure-apm-adapter.mjs` 必须是**拷贝**（`import.meta.url` 解析真实路径，符号链接会让 `packageRoot` 指回原处）；
+`package.json` 与 `src` 用**符号链接**指回真实文件（`package.json` 的 `"type": "module"` 决定产物是 `index.js` 还是 `index.mjs`，
+不能复制一份会走样的元数据）；临时根放在 `packages/plugins` **内部**（tsup 向上找到的 `tsup.config.ts`/`tsconfig.json` 与真实构建一致），
+点号开头（`tsc` include 只有 `src`、`vitest` include 只覆盖各包 `src`、`coverage` 不含、ESLint 默认不遍历点目录），`finally` 删除。
+**等价性**：临时根跑出 `raw 1199 B / gzip 705 B / brotli 585 B`，与原地跑**逐字节一致**。
+**不用锁、不等待、不 retry**。
+
+**证据**：受控负载 **10 轮 × 2 并发（=20 个进程-run）全绿**；两个并发全量 `unit` 套件 **8 轮 × 2（=16 个进程-run）全绿**；
+变异 M1（退回共享路径 `execFileSync('node', [script])`）→ **2/4 红**，恢复后 3/3 绿（sha256 复核一致）。
+
+### 12.3 `mask-adversarial`：**用墙钟度量"计算量"**（外加一个 5 s 默认超时面）
+
+**复现与报错形态**（修复前，2 并发 `packages/core/src/privacy` 套件 10 轮）：**3/10 红**，
+全是 `AssertionError`（不是超时）：
+`输入「email 的域标签重复」的单次中位耗时 20.744084 ms 超出加固预算 20 ms`、
+`50 条规则下输入「email 的域标签重复」的中位耗时 37.265312 ms`、
+`50 条规则下输入「cn_mobile 的 lookahead 失败路径」的中位耗时 22.53 ms`。
+
+**真因（同一份输入的两种度量，实测）**：
+
+| 度量 | 空闲 | 单套件并行 | 双套件并行 |
+| --- | --- | --- | --- |
+| 墙钟中位数 | 3.1 ms | 10–23 ms | **23–32 ms（4/4 红）** |
+| CPU 时间（`process.cpuUsage`） | 3.1 ms | 7.5–8.3 ms | **7.5–8.3 ms（不动）** |
+
+`unit` project 共 145 个文件，10 核机上 `pnpm test` 跑到约 6× 超订（user 58 s / wall 9.5 s）。
+**此时墙钟度量的不是代码，而是"被抢占多久"**；"无灾难性回溯"是关于**计算量**的命题，CPU 时间才是它的正确度量。
+**为什么此前表现为"负载敏感"**：并行抢占只抬高墙钟、不抬高 CPU 时间，于是同一份代码在负载下"变慢"。
+
+**修法（方向③：换成有依据的度量，不动阈值）**：新增 `cpuMsPerCall`，
+用 `process.cpuUsage()` 的**块内求和再平均**（CPU 时间可加，整块求和把 µs 级分辨率误差摊平；中位数会被并行抢占整体抬高）。
+`PRODUCTION_BUDGET_MS=0.2`、`HARDENING_BUDGET_MS=20` **原值保留**（实测余量：0.2 ms 对 0.006–0.020 ms；20 ms 对最贵的 8.3 ms ⇒ 2.4×）。
+`packages/core/tsconfig.json` 的 `types` 为空，因此按本仓既有写法用**文件内** `declare const process: { cpuUsage(...) }`
+（**没有**用 `/// <reference types="node" />`——那会把 node 类型泄漏进整个程序并打坏 `global-registry.ts` 的 `setTimeout` 返回类型）。
+
+**同时查清并处置了第二个失败面（超时）**：`loadavg 65` 时另见
+`Error: Test timed out in 5000ms`（vitest 默认 5 s；两个加固用例自身约 350 ms CPU，放大成 7.6 s 墙钟）。
+**没有调超时**：把两个加固用例的迭代数 50 → **15**（整块 CPU 约 105 ms，仍远高于计数器分辨率），
+用例自身 CPU 由约 0.74 s 降到约 0.29 s；生产上界用例 200 → 2000 次迭代（整块约 12 ms，只为保证分辨率）。
+**阈值未动、判据未放宽**。
+
+**证据**：受控负载 10 轮 × 2 并发 privacy 套件 **20/20 绿**；两个并发全量 `unit` 套件 **8 轮 × 2 = 16/16 绿，
+0 次超时**（含 `loadavg 59.6` 的两轮）；`loadavg1≈5.0` 窗口 3/3 绿。
+变异：M2（把统计量退回墙钟中位数）→ 双套件下 **3/3 轮、每轮 2/2 进程全红**（值 22.7–33.8 ms）；
+M3（把最贵输入人为变慢 8 倍）→ `24.943467 ms > 20 ms` **判红**（证明阈值仍承重、不是空转）。
+
+### 12.4 `leak-scan.test.ts`「K02 全部子命令…」：**观测窗口内的仓库级共享状态**
+
+**真因**：该用例在窗口开始/结束各取一次 `git ls-files -o --exclude-standard` 快照，
+并断言"窗口内新增的未跟踪文件**全部**位于 `tools/config-signer/` 下"。
+这是**仓库级共享可变状态**：窗口内**任何别的进程**（并发套件、其它 lane 的途文件、构建产物）
+新增一个未跟踪文件都会落进差集 ⇒ 断言实际在判"**别人**有没有写文件"，与 K02 是否泄漏密钥无关。
+
+**确定性证据（同一份代码，只挪时序）**：
+- 在窗口内（`delay≈0.65 s`）落下 `packages/plugins/dist-apm-adapter/pollute.js` ⇒ **必红**，
+  原文 `AssertionError: expected false to be true`；
+- 不在窗口内落 ⇒ **必绿**；
+- 本会话还**实时看到**别的 lane 的未跟踪文件在集合里进出（`tests/e2e/lib/*.mjs`、`tests/compat/lib/*.mjs`、
+  `docs/reports/gate-selftest-coverage.md`）。
+- 叠加放大项：`C05-AC-18` 的度量脚本会在 `packages/plugins/dist-apm-adapter/` 短暂生成未跟踪文件
+  （该目录**不在** `.gitignore`），而它与本用例同属 `unit` project、在**同一次** `vitest run` 里**并行**跑
+  ⇒ 产物存活期与该用例窗口是否重合**只取决于调度**。这正是"全量偶发红、单跑 4/4 绿、重跑全绿"。
+
+**修法（方向①+②：收回判定范围，并把内容判定加强）**：
+① 仓库任意位置都不得新增 `.pem` / `.key` 形态文件（与原判据一致）；
+② `tools/config-signer/` 内不得新增未跟踪文件（保留原判据里属于"本任务自身"的那一半）；
+③ **任何**新增的未跟踪文件（任意目录、任意扩展名）的**内容**里都不得出现本次运行的任何密钥材料或私钥 PEM 头
+——**比原来更强**（原来只看扩展名），且与别的进程写不写文件无关。
+（`tools/config-signer/` 的兄弟用例仍然是**有意**仓库级的：「工作树里不应存在密钥形态文件」本身是全局性质，
+别的进程落一个 `.pem` 就应该红——所以下面变异 B 里它同时变红是正确的，不是误伤。）
+
+**证据**：在**持续**制造良性未跟踪文件的污染进程下 **10/10 绿**（修复前同一条件可稳定复现红）；
+两个并发全量套件 16/16 绿。变异（均在窗口内注入，逐条确认文件确实变了、事后 sha256 还原）：
+- A：在 `tools/config-signer/` 内落一个良性 JSON → **本用例第 183 行判红**，兄弟用例绿（精确隔离"本任务自身"那一半）；
+- B：落一个 `.pem` → 本用例第 182 行（形态）判红，兄弟用例第 214 行同时判红；
+- C：落一个**扩展名良性**（`.txt`）、内容含**私钥 PEM 头**的文件 → 本用例第 193 行
+  内容扫描判红（`expected 1 to be +0`；该 PEM 头行本就是本次运行登记的指纹之一），兄弟用例同时判红。
+  ⇒ 加强后的内容判定确实承重。
+  （该 PEM 头的**完整字面量本文档故意不写出**——它与 `test-support.ts` 里拼接出的 `PRIVATE_KEY_MARKER` 同值，
+  写出来会让兄弟用例的"工作树里不得有 PEM 头文本"扫描把本文档本身判为违规。这一坑本会话**真实踩过一次**：
+  报告里写了该字面量 ⇒ `leak-scan.test.ts:215` 立刻把 `docs/reports/t33-access-blockers.md` 报成
+  `expected [ Array(1) ] to deeply equal []`。**文档若要引用它，请用拼接写法或只写符号名。**）
+
+### 12.5 汇总：实测结果（全部为最终版本，sha256 见下）
+| 用例 | 受控负载 | 结果 |
+| --- | --- | --- |
+| `C05-AC-18` | 同文件 2 并发 × 10 轮（20 进程-run） | **20/20 绿**（修前同条件 4/6 红） |
+| `mask-adversarial` | privacy 套件 2 并发 × 10 轮（20 进程-run） | **20/20 绿**（修前同条件 3/10 红） |
+| `leak-scan`（K02） | 持续良性污染进程 × 10 轮 | **10/10 绿**（修前同条件可稳定复现红） |
+| 三者同时 | 全量 `unit` 2 并发 × 9 轮（18 进程-run） | **18/18 绿、0 超时**（`loadavg` 最高 59.6；末轮两个进程各 `145/145 files、1330/1330 tests`） |
+| 三者同时 | 单进程、`loadavg1≈5.0` × 3 轮 | **3/3 绿**（21 tests/轮） |
+
+**最终 sha256（变异逐处恢复后复核）**：
+- `packages/core/src/privacy/mask-adversarial.test.ts` `e2ba99c9558ab2aeddc2c9af78b0d6526a5617a54cb79dc51e03ffa65d50e71b`
+- `tools/config-signer/src/__tests__/leak-scan.test.ts` `abf34c8f100ad3bb3bd11fd6932b80da90e7bba5a38ff135744d96a7b2129f7d`
+- `packages/plugins/src/apm-dual-write/apm-dual-write.test.ts` `a2a788d0bf0233a5992ac049a096dba5464cf08d0096dc6b8cfa8e2bb884c350`
+
+### 12.6 只报告、未改（交负责人裁决）
+1. **第四条同类用例**：`tools/config-signer/src/__tests__/performance.test.ts`
+   「K02-AC-09 进程内签名 100 次：中位数与 p95 均低于 100 ms」——**墙钟 p95** 判据，在全量双套件下
+   实测 1/10 进程-run 红：`AssertionError: expected 104.88087499999983 to be less than 100`（第 62 行）。
+   与 `mask-adversarial` 同一病根（墙钟统计量）。**它不在本次派工的三条里，我未改动**；
+   建议同一修法（换成 CPU 时间统计量），请裁决。
+2. **超时面**：`mask-adversarial` 在极端超订（实测 `loadavg 65`）下仍可能撞 vitest 默认 5 s——
+   我已把用例自身 CPU 工作量降了约 2.5×（见 12.3），但**没有**调超时预算。若仍要更大余量，
+   杠杆是"给这两个用例加 timeout"（我不自行调）或把 2 万字符加固检查移交 T20 的 `tests/bench/`。
+3. **编排侧事故（非本 lane 造成，需登记）**：本 lane 的
+   `packages/core/src/privacy/mask-adversarial.test.ts` 在 **16:58:38** 被编排方用
+   `git checkout -- <该文件>` **整体回退**（理由：想让树在 `typecheck` 上变绿），已由我重新落盘；
+   另两个文件当时未被触碰。**若有人在 16:58 前后读到过该文件的中间态/红，那不是最终版本**——
+   请以本节的 sha256 与单跑结果为准（受影响窗口内的观测一律作废）。
