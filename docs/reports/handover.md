@@ -375,3 +375,18 @@ T18（8d，主干枢纽，先做第 1 节的 8 项接线与义务）
 后果：**C07-AC-03 的 2 条在 Firefox 上取不到数**（不是 skip，是根本没跑那条分支）。
 **编排方已批准**改为与 `leave-slice.spec.mjs` 同一套**运行时真启动探测**口径（可复用 `skipAuditUnavailableBrowser()`）。
 **待派**（该文件属 e2e lane，勿在未授权时改）。
+
+## 【2026-10-15 收尾】剩余开发内容（全部不依赖 Q2）
+
+> 5 条 lane 已全部收工（`main` 门禁 exit 0 / 164 文件 / 1582 用例）。下列为**尚可独立推进**的项：
+
+| 优先 | 项 | 现状与所需 |
+|---|---|---|
+| **1** | `tools/config-signer/src/__tests__/performance.test.ts` 的「K02-AC-09 p95<100 ms」 | **已在修**（换 CPU 时间口径、阈值原值保留；先例：`mask-adversarial.test.ts`）。**实测证据**：全量 unit 双套件下 1/10 进程-run 红（`expected 104.88… to be less than 100`） |
+| **2** | `tests/e2e/beacon-quota.spec.mjs:56` 写死 `['chromium','webkit']` | **已批准**改为与 `leave-slice.spec.mjs` 同一套**运行时真启动探测**口径（可复用 `skipUnavailableBrowser()`）。后果：**C07-AC-03 的 2 条在 Firefox 上取不到数**（不是 skip，是根本没走那条分支） |
+| **3** | `examples/webpack` 的 `browserCheck` **写死 macOS 路径** | **CI 上"Chromium 复核"永远 skipped**（本会话只做到"如实记账"，未跨平台） |
+| **4** | T37 报的"**证据最薄**"几条**本机复现** | 性能维度整体（P-01/P-02/P-03/P-04/P-05/P-06）只核到"配置与报告存在"；K-03/K-04 契约测试范围只核到"目录存在"；C-01/C-04 兼容矩阵只核到 `matrix.json` 存在。**→ 现在无并发冲突，可直接跑 `--project security`/`contract`/`compat` 逐项复现**（这会把它从"最薄"变厚） |
+| **5** | **2 万字符加固检查移交 `tests/bench/`** | 裁定：**不加超时**（超时是墙钟量，与本次消除的病根同类）⇒ 把它移到基准侧 |
+| **6** | 流程条文 **10.6④/10.6b/10.6c/10.6d** 的复核 | 已由 `052c6a5a` 写入本文件，接手者只需确认与上文一致 |
+
+**另记一条会给后来人添麻烦的坑**（`052c6a5a` 实测踩到）：**在报告里写出私钥 PEM 头的字面量，会让 K02 的兄弟用例把文档本身判违规** ⇒ **只写符号名**。
