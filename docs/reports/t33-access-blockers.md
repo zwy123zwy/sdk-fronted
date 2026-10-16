@@ -1088,11 +1088,99 @@ AssertionError: TTFB 的 occurred_at 必须是注入 now 的返回值 4102444800
 
 | 字段 | 读取点 | 证据（钉常量 → 结果） | 为什么没有判别性用例 |
 |---|---|---|---|
-| `RoutePorts.now`（`route/plugin.ts`） | `:95` → `:113` `RouteChange.at` | `:95` → `(): number => 9_999` ⇒ **124/124 全绿** | `route/*.test.ts` 多处注入 `now`（`history.test.ts:90`、`manual.test.ts:36/56`、`hash.test.ts:23`、`edge-cases.test.ts:54/76/95/128/149/165`）却**只断言 `via`/`path`/`template`**，全仓没有任何 `change.at` 断言 |
-| `HttpPorts.now`（`http/plugin.ts`） | `:196` → `:235`（事件 `occurred_at`）、`:271`/`:276`/`:283`/`:305`/`:310`/`:316`（耗时 `now()-startedAt`） | `:196` → `(): number => 9_999` ⇒ **124/124 全绿** | `http/*.test.ts` 注入 `now`（`edge-cases.test.ts:32` 等），但只断言 `metrics.duration_ms`（`capture.test.ts:44`、`edge-cases.test.ts:74`）——那是**同一个假时钟做差**，钉成常量后差值仍为期望值；**没有任何 `occurred_at` 断言** |
-| `PerfPorts.now`（`perf/plugin.ts`） | `:78` → `:106` `web_long_task.occurred_at`（另经 `:80` 传入 §11.8 已补的 `VitalsAccumulatorOptions.now`） | `:78` → `(): number => 9_999` ⇒ **124/124 全绿** | `perf/long-task.test.ts:47` 只断言"上报 1 条 + `duration_ms` 落在 90–150 + `dimensions` 为空"，**不断言 `occurred_at`**；`perf/*.test.ts` 其余 `now` 注入同理 |
+| `RoutePorts.now`（`route/plugin.ts`） | `:95` → `:113` `RouteChange.at` | `:95` → `(): number => 9_999` ⇒ **124/124 全绿** | `route/*.test.ts` 多处注入 `now`（`history.test.ts:90`、`manual.test.ts:36/56`、`hash.test.ts:23`、`edge-cases.test.ts:54/76/95/128/149/165`）却**只断言 `via`/`path`/`template`**，全仓没有任何 `change.at` 断言。**❌ → ✅ 已补覆盖 + 实跑变异（2026-10-16），证据见 §11.9** |
+| `HttpPorts.now`（`http/plugin.ts`） | `:196` → `:235`（事件 `occurred_at`）、`:271`/`:276`/`:283`/`:305`/`:310`/`:316`（耗时 `now()-startedAt`） | `:196` → `(): number => 9_999` ⇒ **124/124 全绿** | `http/*.test.ts` 注入 `now`（`edge-cases.test.ts:32` 等），但只断言 `metrics.duration_ms`（`capture.test.ts:44`、`edge-cases.test.ts:74`）——那是**同一个假时钟做差**，钉成常量后差值仍为期望值；**没有任何 `occurred_at` 断言**。**❌ → ✅ 已补覆盖 + 实跑变异（2026-10-16），证据见 §11.9** |
+| `PerfPorts.now`（`perf/plugin.ts`） | `:78` → `:106` `web_long_task.occurred_at`（另经 `:80` 传入 §11.8 已补的 `VitalsAccumulatorOptions.now`） | `:78` → `(): number => 9_999` ⇒ **124/124 全绿** | `perf/long-task.test.ts:47` 只断言"上报 1 条 + `duration_ms` 落在 90–150 + `dimensions` 为空"，**不断言 `occurred_at`**；`perf/*.test.ts` 其余 `now` 注入同理。**❌ → ✅ 已补覆盖（vitals 侧接线一并补齐）+ 实跑变异（2026-10-16），证据见 §11.9** |
 
 这三处与 `vitals.now` **同类**（读取点真实、注入无断言），但**字段归属不同**：前两者是 `route`/`http` 的注入端口
 （`RoutePorts`/`HttpPorts`），后者是 `perf` 插件装配层的端口（`vitals.now` 的补测只覆盖 `VitalsAccumulator` 内部，
 **插件面 `ports.now` → `occurred_at` 的接线仍未被断言**）。补法照 §11.8 即可（注入不可能出现的 `now` → 断言
-`at`/`occurred_at` 等于注入值），但因超出本轮授权范围（本轮只补 `vitals.ts:79` 这一处），**只报告，未动手**。
+`at`/`occurred_at` 等于注入值）。**2026-10-16 后续 lane 已按此补齐（三处 + vitals 插件面接线，共 4 条用例），
+实跑变异与全量钉常量复核见 §11.9。**
+
+### 11.9 上表三处 `now` 读取点已补覆盖（2026-10-16，后续 lane 收口）
+
+§11.8 末尾"只报告，未动手"的三处缺口（外加其点名的 **vitals 插件面接线**）本轮补齐。**实现文件零改动**：
+三处 `plugin.ts` 探针变异后逐字节恢复，sha256 与基线一致（见下"恢复后一致性"）。
+**未改任何既有断言**（只加），未新增依赖，未动 `docs/contracts/**`、`docs/decisions/**`、`tests/acceptance/**`、门禁配置与实现。
+
+**新增用例（只加不改，4 条）**：
+
+| # | 用例（文件:行） | 断言（值断言，非"事件存在"） | 为什么有区分力 |
+|---|---|---|---|
+| G1 | `route/history.test.ts:166`「RouteChange.at 必须来自注入的 now」 | 注入 `now: () => 4_102_444_800_000`，驱动 `pushState` / `replaceState` / `popstate` 三种变化后 `expect(changes.map(c => c.at)).toEqual([4_102_444_800_000, …×3])`，并逐条 `expect(c.at).not.toBe(Date.now())` | `4_102_444_800_000`（2100-01-01）**不可能自然出现**；断言的是 `at` 的**值**。旧用例在同文件 `:90` 等多处注入了 `now`，却**只断 `via`/`path`/`template`**，故"不调用注入值"与"调用了但丢弃返回值"都打不死 |
+| G2 | `http/capture.test.ts:302`「web_http.occurred_at 必须来自注入的 now」 | 注入 `now: () => 4_102_444_800_000`，`capture.record({GET,'/api/task/1'},{status:200},42)` 后 `expect(event.occurred_at).toBe(4_102_444_800_000)` | 旧用例只断 `metrics.duration_ms`（`capture.test.ts:44`、`edge-cases.test.ts:74`）——那是**同一个假时钟做差**，钉成常量后差值仍等于期望值；本用例断的是 `occurred_at` 的**值** |
+| G3 | `perf/long-task.test.ts:63`「web_long_task.occurred_at 必须来自注入的 now」 | 注入 `now: () => 4_102_444_800_000`，投递 1 条 `longtask` 后 `expect(longTasks[0].occurred_at).toBe(4_102_444_800_000)` | 旧用例（`:47`）只断"上报 1 条 + `duration_ms` 落在 90–150 + `dimensions` 为空"，**`occurred_at` 从未被读** |
+| G4 | `perf/vitals.test.ts:298`「插件面 now 接线（vitals 路径）必须被真实读取」 | 同注入，`FCP` 条目 + `onLoad` 后 `expect(fcp.occurred_at).toBe(4_102_444_800_000)` | §11.8 只补了 `VitalsAccumulator` **内部**；本用例钉的是**插件 `perf/plugin.ts:78` → 累加器** 这条接线。**"累加器已覆盖"不等于"插件接线已覆盖"** |
+
+**变异三要素（实跑原文）**：每处两个口径，命令 `pnpm exec vitest run --coverage.enabled=false --project unit packages/plugins`。
+
+| 读取点 | 口径A：不调用注入值（改用 `Date.now`） | 口径B：调用了但丢弃返回值 |
+|---|---|---|
+| `route/plugin.ts:95` | 红（1 failed） | 红（1 failed） |
+| `http/plugin.ts:196` | 红（1 failed） | 红（1 failed） |
+| `perf/plugin.ts:78` | 红（2 failed：G3+G4） | 红（2 failed：G3+G4） |
+
+口径A 变异原文：`const now = ports?.now ?? ((): number => Date.now());` → `const now = (): number => Date.now();`
+口径B 变异原文：→ `const now = (): number => { void ports?.now?.(); return Date.now(); };`（`route`/`http` 用
+`void ports?.now?.();`，`perf` 同步；口径B 红在**值断言**上）。
+
+红断言原文（各取一条代表，均为**值断言**）：
+
+```
+FAIL  route  > RouteChange.at 必须来自注入的 now > push / replace / pop 三种变化的 change.at 都等于注入值 4102444800000
+AssertionError: change.at 必须是注入 now 的返回值 4102444800000（Date.now 或丢弃返回值都会在此变红）:
+  expected [ 1792136107122, 1792136107122, …(1) ] to deeply equal [ 4102444800000, 4102444800000, …(1) ]
+  （口径A）
+AssertionError: change.at 必须是注入 now 的返回值 4102444800000: expected [ 1792136112276, … ] to deeply equal [ 4102444800000, … ]  （口径B）
+
+FAIL  http  > web_http.occurred_at 必须来自注入的 now > record 产出事件的 occurred_at 等于注入值 4102444800000
+AssertionError: occurred_at 必须是注入 now 的返回值 4102444800000（Date.now 或丢弃返回值都会在此变红）:
+  expected 1792136118602 to be 4102444800000 // Object.is equality  （口径A）
+AssertionError: … expected 1792136123507 to be 4102444800000 // Object.is equality  （口径B）
+  ❯ packages/plugins/src/http/capture.test.ts:320:7
+
+FAIL  perf/long-task  > C05-AC-06 web_long_task.occurred_at 必须来自注入的 now > 长任务事件的 occurred_at 等于注入值 4102444800000
+AssertionError: occurred_at 必须是注入 now 的返回值 4102444800000（Date.now 或丢弃返回值都会在此变红）:
+  expected 1792136129326 to be 4102444800000 // Object.is equality  （口径A）
+FAIL  perf/vitals  > C05-F2 插件面 now 接线（vitals 路径）必须被真实读取 > 加载完成上报的 FCP 事件 occurred_at 等于注入值 4102444800000
+AssertionError: occurred_at 必须是注入 now 的返回值 4102444800000: expected 1792136129326 to be 4102444800000 // Object.is equality
+  （口径A；口径B 同形，实收 1792136134053 / 1792136134054）
+```
+
+**恢复后 sha256 与基线一致（硬要求）**：
+
+```
+0a50e3babb22a66ec65bcb166761fafc363eead062a12ca1bf7c527f7c3f0f5d  packages/plugins/src/route/plugin.ts
+b4f583680cfdefd2e5104e57500b53a56a9cfa0f9711ae9619e228e7176c7551  packages/plugins/src/http/plugin.ts
+966df988884bc8055ab5a83fc7c269118ae619314f01c9bbe2c74ab64664d482  packages/plugins/src/perf/plugin.ts
+```
+
+**回归（最终状态实跑）**：`packages/plugins` = **20 files / 128 tests 全绿**（基线 124，**+4** 即 G1–G4）；
+`pnpm exec tsc -p packages/plugins` exit 0；`pnpm exec eslint packages/plugins/src` exit 0。
+
+**补完后全量钉常量法复核（34 个读取点，方法与 §11.7/§11.8 相同）**：**32 红 / 2 绿**，逐点红计数：
+
+```
+R1_mode 7 / R2_templates 4 / R3_match 1 / R4_now 1 / R5_currentUrl 4 / R6_history 4 / R8_listen 5 /
+H1_urlTemplate 1 / H2_traceScope 1 / H3_traceCtxProv 1 / H4_now 1 / H5_refs 7 /
+V1_vitals_now 4 / V2_respStartProv 3 / V3_perf_now 2 / V4_portsRespStart 2 / V5_createObserver 11 / V6_completion 5 /
+E1_error_now 4 / E2_error_windowMs 1 / E3_reportRepeats 1 / E4_sources 2 / E5_globalContext 1 /
+E6_captureResErr 1 / E7_onLeave 1 / E8_dedup_windowMs 2 /
+A1_forward 4 / A2_resolve 2 / A3_fieldMap 1 / A4_constants 1 / A5_eventTypes 1 / C1_apmCoexist 2
+```
+
+**尚未达到"零绿点"**：仍有 **2 个绿点**，是**本轮新发现**的同类缺口，**只报告、不扩大改动**：
+
+| 字段 | 读取点 | 钉常量证据 | 为什么没有判别性用例 |
+|---|---|---|---|
+| `RoutePorts.hooker` | `route/plugin.ts:194` `const hooker = ports?.hooker ?? createInlineHooker();` | 钉法 `→ createInlineHooker()`（丢弃注入分支；确认文件确有变化，非无效钉法）⇒ **128/128 全绿** | `history.test.ts:79/120/142/175` 注入的是**手工复刻 `createInlineHooker` 语义**的 `createHooker()`（同文件 `:49`），`edge-cases.test.ts:94` 直接注入 `createInlineHooker()`；断言只覆盖"转发到原层 + 恢复原引用"，这两点在注入实现与降级实现下**完全同形**，故"注入的 hooker 是否被使用"无人能判 |
+| `HttpPorts.hooker` | `http/plugin.ts:262` `const hooker = ports?.hooker ?? createInlineHooker();` | 同上，仅在 `http/plugin.ts` 上钉 `→ createInlineHooker()` ⇒ **128/128 全绿** | `capture.test.ts:168/193/224/253/286`、`trace-header.test.ts:96/126` 同样只注入语义等价的 `createHooker()`/`createInlineHooker()`，无"内核注册表确实被调用"的判别性断言（例如注入一个 `hook` 抛错/计数的桩） |
+
+修法建议（留给有所有权的人）：给 `ports.hooker` 注入一个**可观测的桩**（如 `hook` 被调用次数计数，或
+"只有注入 hooker 才记录的标记"），断言包装确实经过它；两处同法即可把剩下 2 个绿点清零。
+
+**本轮改动文件**：`packages/plugins/src/{route/history,http/capture,perf/long-task,perf/vitals}.test.ts`（各 +1 用例）
+与本报告。**未做任何 git 写操作**；实现文件、契约、决策、验收用例、门禁配置均未改。
+**注意**：复核期间工作区另有 lane 在写 `CHANGELOG.md` 与 `tests/compat/results/*.json`（mtime 15:36–15:39），
+与本 lane 无关，本 lane 未触碰。全量钉常量探针的临时改动在 `/tmp/pinsweep.*` 备份下逐点恢复并已 `cmp` 复核。
