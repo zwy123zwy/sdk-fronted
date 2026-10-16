@@ -21,6 +21,15 @@ import { fileURLToPath } from 'node:url';
 import { resolveBrowser } from './browsers.mjs';
 import { startStaticServer } from './static-server.mjs';
 import {
+  DEFAULT_MAX_ROUNDS,
+  DEFAULT_REQUIRED_STREAK,
+  GATED_CELLS,
+  assertNoBlankAsZeroLoss,
+  classifyRound,
+  guardEnabled,
+  judgeCaptureRounds,
+} from './d004-capture.mjs';
+import {
   browserPids,
   closeQuietly,
   freshProfile,
@@ -44,7 +53,9 @@ export const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
 
 const DEFAULT_CELLS = [
   { name: 'durable', group: 'oncomplete', delayMs: null, awaitSettled: true },
-  { name: 'pending-d0', group: 'unsettled', delayMs: 0, awaitSettled: false },
+  // Δt=0 的暴露窗口格：T29 尾部在这类格上实测到「锚点合并残余窗口」（计数 10，而期望 1000），
+  // 因此它们参加「连续 N 轮完整」的捕获判定（`captureRequired`）。判定逻辑见 `d004-capture.mjs`。
+  { name: 'pending-d0', group: 'unsettled', delayMs: 0, awaitSettled: false, captureRequired: true },
   { name: 'pending-d5', group: 'unsettled', delayMs: 5, awaitSettled: false },
   { name: 'pending-d20', group: 'unsettled', delayMs: 20, awaitSettled: false },
   { name: 'pending-d60', group: 'unsettled', delayMs: 60, awaitSettled: false },
@@ -68,11 +79,12 @@ const DEFAULT_CELLS = [
     group: 'preflush',
     delayMs: 0,
     awaitSettled: false,
+    captureRequired: true,
     limits: { commitBatchSize: 1_000_000_000, commitIntervalMs: 1_000_000_000 },
   },
   // 同一现象在**默认配置**下的最小复现：10 批 < commitBatchSize(100)，
   // 所以 flush 要等 200 ms 定时器；在此之前硬杀 → 事务从未发起。
-  { name: 'preflush-small', group: 'preflush', delayMs: 0, awaitSettled: false, count: 10 },
+  { name: 'preflush-small', group: 'preflush', delayMs: 0, awaitSettled: false, count: 10, captureRequired: true },
 ];
 
 function buildInfo() {
@@ -89,7 +101,17 @@ function buildInfo() {
 }
 
 function parseArgs(argv) {
-  const args = { browser: 'chromium', out: null, cells: null, count: 100, eventsPerBatch: 10, bulkPad: null };
+  const args = {
+    browser: 'chromium',
+    out: null,
+    cells: null,
+    count: 100,
+    eventsPerBatch: 10,
+    bulkPad: null,
+    streak: null,
+    maxRounds: null,
+    gate: null,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i];
     const value = argv[i + 1];
@@ -99,8 +121,27 @@ function parseArgs(argv) {
     else if (key === '--count') args.count = Number(value);
     else if (key === '--events-per-batch') args.eventsPerBatch = Number(value);
     else if (key === '--bulk-pad') args.bulkPad = Number(value);
+    else if (key === '--streak') args.streak = Number(value);
+    else if (key === '--max-rounds') args.maxRounds = Number(value);
+    else if (key === '--no-gate') args.gate = false;
   }
   return args;
+}
+
+/**
+ * 捕获判定策略：`--streak` / `--max-rounds`（或同名环境变量）覆盖；
+ * `--no-gate` 等价于 `--streak 1 --max-rounds 1`（只跑单轮，用于观察原始抖动）。
+ */
+function capturePolicy(args) {
+  const env = globalThis.process?.env ?? {};
+  const requiredStreak = args.streak ?? Number(env['D004_CAPTURE_STREAK'] ?? DEFAULT_REQUIRED_STREAK);
+  const maxRounds = args.maxRounds ?? Number(env['D004_CAPTURE_MAX_ROUNDS'] ?? DEFAULT_MAX_ROUNDS);
+  return {
+    requiredStreak: Number.isFinite(requiredStreak) && requiredStreak > 0 ? requiredStreak : DEFAULT_REQUIRED_STREAK,
+    maxRounds: Number.isFinite(maxRounds) && maxRounds > 0 ? maxRounds : DEFAULT_MAX_ROUNDS,
+    enabled: args.gate !== false && guardEnabled(),
+    gateNames: GATED_CELLS,
+  };
 }
 
 function expectedIds(prefix, count, eventsPerBatch) {
@@ -111,16 +152,18 @@ function expectedIds(prefix, count, eventsPerBatch) {
   return ids;
 }
 
-/** 跑一个格子（含一次硬杀 + 一次重启读回）。 */
-async function runCell({ info, server, runDir, cell, appId, count, eventsPerBatch, log }) {
+/** 跑一个格子（含一次硬杀 + 一次重启读回）。`round` 用于同一格的多轮捕获判定（每轮全新 profile / 库）。 */
+async function runCell({ info, server, runDir, cell, appId, count, eventsPerBatch, log, round = 0 }) {
   const cellCount = cell.count ?? count;
-  const dbName = `e2e-d004-${cell.name}`;
+  const suffix = round === 0 ? '' : `-r${round}`;
+  const dbName = `e2e-d004-${cell.name}${suffix}`;
   const prefix = `${cell.name}`;
   const expected = expectedIds(prefix, cellCount, eventsPerBatch);
-  const profileDir = freshProfile(runDir, `profile-${cell.name}`);
+  const profileDir = freshProfile(runDir, `profile-${cell.name}${suffix}`);
   const result = {
     name: cell.name,
     group: cell.group,
+    round,
     scheduledDelayMs: cell.delayMs,
     awaitSettled: cell.awaitSettled,
     count: cellCount,
@@ -244,16 +287,74 @@ async function runCell({ info, server, runDir, cell, appId, count, eventsPerBatc
   await closeQuietly(context);
   void pidsBefore2;
   log(
-    `  格 ${cell.name}: 存活事件 ${survivedIds.size}/${expected.size}，` +
+    `  格 ${cell.name}${suffix}: 存活事件 ${survivedIds.size}/${expected.size}，` +
       `intent 未提交 ${inventory.commitLoss.events}（窗口捕获=${result.windowCaptured}），kill=${result.kill.mode}`,
   );
   return result;
 }
 
-export async function runD004({ browser = 'chromium', cells = null, count = 100, eventsPerBatch = 10, bulkPad = null, out = null, log = console.log } = {}) {
+/**
+ * 捕获格：重复 N 轮，要求**连续 `requiredStreak` 轮完整**才算捕获成立。
+ *
+ * - 不完整的轮**不判失败**，记为「抖动/未捕获」（`blank` / `undercounted` / `window-missed`），
+ *   继续跑下一轮，最多 `maxRounds` 轮；
+ * - 最终判定由 N 轮结果给出（`judgeCaptureRounds`）：`stable-complete` / `complete-with-jitter` /
+ *   `never-complete` / `blank-only` / `window-never-captured`；
+ * - 交给既有 D004-A/B/C 断言的是 `gate.selectedRoundIndex` 那一轮 —— **既有通过标准一个字都没动**：
+ *   若本格一次完整轮都没有，交给既有断言的仍是未对账的那一轮。
+ */
+async function runCaptureGatedCell({ info, server, runDir, cell, appId, count, eventsPerBatch, log, policy }) {
+  const cells = [];
+  const rounds = [];
+  let streak = 0;
+  let index = 0;
+  for (; index < policy.maxRounds && streak < policy.requiredStreak; index += 1) {
+    const result = await runCell({ info, server, runDir, cell, appId, count, eventsPerBatch, log, round: index });
+    const round = classifyRound(result, { round: index });
+    // 护栏不变量：任何一轮都不得把「空白/欠计数」读成「0 丢失」。
+    assertNoBlankAsZeroLoss([round]);
+    cells.push(result);
+    rounds.push(round);
+    streak = round.complete ? streak + 1 : 0;
+    if (!round.complete) {
+      log(
+        `  格 ${cell.name} 第 ${index + 1} 轮**不完整**（${round.verdict}）—— 记为抖动/未捕获，` +
+          `连续完整 ${streak}/${policy.requiredStreak}，继续；${round.windowCaptured ? `已捕获窗口但计数 ${round.commitLost} ≠ 期望 ${round.expectedEvents}` : ''}`,
+      );
+    }
+  }
+  const gate = judgeCaptureRounds(cell.name, rounds, {
+    requiredStreak: policy.requiredStreak,
+    maxRounds: policy.maxRounds,
+    gated: true,
+  });
+  const selected = cells[gate.selectedRoundIndex] ?? cells[cells.length - 1];
+  selected.captureGate = gate;
+  selected.captureRounds = cells.length;
+  selected.captureSelectedRound = gate.selectedRoundIndex;
+  log(
+    `  格 ${cell.name} 捕获判定：${gate.verdict}（${gate.passed ? '通过' : '**未通过**'}；${gate.roundCount} 轮，最长连续完整 ${gate.bestStreak}/` +
+      `${policy.requiredStreak}，抖动率 ${(gate.jitterRate * 100).toFixed(0)}%）；报告第 ${gate.selectedRoundIndex + 1} 轮`,
+  );
+  return selected;
+}
+
+export async function runD004({
+  browser = 'chromium',
+  cells = null,
+  count = 100,
+  eventsPerBatch = 10,
+  bulkPad = null,
+  out = null,
+  log = console.log,
+  streak = null,
+  maxRounds = null,
+  gate = null,
+} = {}) {
   const info = await resolveBrowser(browser);
   const transport = buildInfo();
   const runDir = makeRunDir(`d004-${browser}`);
+  const policy = capturePolicy({ streak, maxRounds, gate });
   const server = await startStaticServer({
     repoRoot: REPO_ROOT,
     mounts: [
@@ -264,15 +365,27 @@ export async function runD004({ browser = 'chromium', cells = null, count = 100,
   log(`D004 复测：browser=${browser} driver=${info.driverId} exe=${info.executablePath}`);
   log(`  被测实现 ${transport.path} sha256=${transport.sha256} mtime=${transport.mtime}`);
   log(`  静态页 ${server.url}`);
+  log(
+    `  捕获判定：${policy.enabled ? `连续 ${policy.requiredStreak} 轮完整才算捕获（最多 ${policy.maxRounds} 轮/格）` : '关闭（单轮）'}` +
+      `，捕获格 ${policy.gateNames.join('/')}`,
+  );
 
   const selected = DEFAULT_CELLS.filter((cell) => cells === null || cells.includes(cell.name)).map((cell) =>
     bulkPad !== null && cell.name === 'bulk-d0' ? { ...cell, padBytes: bulkPad } : cell,
   );
   const appId = 'e2e-d004';
   const results = [];
+  const captureGates = {};
   try {
     for (const cell of selected) {
-      let outcome = await runCell({ info, server, runDir, cell, appId, count, eventsPerBatch, log });
+      const gated = policy.enabled && cell.captureRequired === true;
+      let outcome;
+      if (gated) {
+        outcome = await runCaptureGatedCell({ info, server, runDir, cell, appId, count, eventsPerBatch, log, policy });
+        captureGates[cell.name] = outcome.captureGate;
+      } else {
+        outcome = await runCell({ info, server, runDir, cell, appId, count, eventsPerBatch, log });
+      }
       // 并行负载下 pgrep/往返延迟可能让事务先提交完，窗口没被捕获 → 加大负载重试（确定性优先）。
       if (cell.name === 'bulk-d0' && !outcome.windowCaptured) {
         for (let attempt = 2; attempt <= 3 && !outcome.windowCaptured; attempt += 1) {
@@ -283,6 +396,20 @@ export async function runD004({ browser = 'chromium', cells = null, count = 100,
           outcome = retried;
         }
         outcome.attempts = outcome.retryAttempt ?? 1;
+      }
+      if (!gated) {
+        // 非捕获格也逐格分类（用于「空白 ≠ 0 丢失」的显式上报），但不参与连续 N 轮判定。
+        const round = classifyRound(outcome, { round: 0 });
+        // 护栏不变量只在护栏生效时施加：`D004_CAPTURE_GUARD=off` 是**变异体**，
+        // 它必须能跑完测量、让 spec 的断言变红，而不是让 runner 自己抛错（那就不叫「护栏前」了）。
+        if (policy.enabled) assertNoBlankAsZeroLoss([round]);
+        captureGates[cell.name] = judgeCaptureRounds(cell.name, [round], {
+          requiredStreak: policy.requiredStreak,
+          maxRounds: 1,
+          gated: false,
+        });
+        outcome.captureGate = captureGates[cell.name];
+        outcome.captureRounds = 1;
       }
       results.push(outcome);
     }
@@ -304,6 +431,9 @@ export async function runD004({ browser = 'chromium', cells = null, count = 100,
     commitLostWindowMs: cell.d004.commitLostWindowMs,
     windowCaptured: cell.windowCaptured,
     reconciles: cell.exposureReconciles,
+    // 捕获判定（T29 尾部的残余窗口护栏）：单轮不完整不判失败，最终判定由 N 轮结果给出。
+    captureVerdict: cell.captureGate?.verdict ?? null,
+    captureRounds: cell.captureRounds ?? 1,
   });
   const summary = {
     task: 'T29 / D004 硬杀落盘复测',
@@ -313,6 +443,17 @@ export async function runD004({ browser = 'chromium', cells = null, count = 100,
     transport,
     serverUrl: server.url,
     profileRoot: runDir,
+    capturePolicy: {
+      guard: policy.enabled ? 'on' : 'off',
+      requiredStreak: policy.requiredStreak,
+      maxRounds: policy.maxRounds,
+      gatedCells: policy.gateNames,
+      note:
+        '捕获格必须**连续 requiredStreak 轮完整**（windowCaptured && reconciles）才算捕获成立；' +
+        '不完整的轮记为抖动/未捕获（不判失败）并继续，最多 maxRounds 轮；' +
+        '空白（无计数证据）与 0 丢失在每轮判定里用 lostEvents: null vs 0 显式区分。',
+    },
+    captureGates,
     cells: results,
     grouped: {
       oncomplete: oncomplete.map(brief),
@@ -323,6 +464,10 @@ export async function runD004({ browser = 'chromium', cells = null, count = 100,
   const target = out ?? path.join(REPO_ROOT, 'tests/e2e/results', `d004-${browser}.json`);
   writeJson(target, summary);
   log(`结果写入 ${path.relative(REPO_ROOT, target)}`);
+  log(
+    '捕获判定逐格：' +
+      results.map((cell) => `${cell.name}=${cell.captureGate?.verdict ?? '—'}(${cell.captureRounds ?? 1}轮)`).join('，'),
+  );
   return summary;
 }
 

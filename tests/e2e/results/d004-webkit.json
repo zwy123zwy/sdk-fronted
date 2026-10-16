@@ -1,6 +1,6 @@
 {
   "task": "T29 / D004 硬杀落盘复测",
-  "generatedAt": "2026-10-15T08:55:08.990Z",
+  "generatedAt": "2026-10-16T07:16:38.330Z",
   "browser": "webkit",
   "driver": {
     "id": "npx-cache-playwright-core-1.60.0",
@@ -10,16 +10,607 @@
   "transport": {
     "path": "packages/transport/dist/index.js",
     "bytes": 116082,
-    "mtime": "2026-10-15T08:49:36.076Z",
+    "mtime": "2026-10-15T09:32:48.516Z",
     "sha256": "23d3de1440433527",
     "note": "被复测的真实实现（单包 build 产物，源码 packages/transport/src/offline/**）"
   },
-  "serverUrl": "http://127.0.0.1:53152",
-  "profileRoot": "/var/folders/tz/dg5xqq7n68v05f2rbtnjsvp80000gn/T/t29-e2e-d004-webkit-1792054496375",
+  "serverUrl": "http://127.0.0.1:61536",
+  "profileRoot": "/var/folders/tz/dg5xqq7n68v05f2rbtnjsvp80000gn/T/t29-e2e-d004-webkit-1792134949288",
+  "capturePolicy": {
+    "guard": "on",
+    "requiredStreak": 3,
+    "maxRounds": 6,
+    "gatedCells": [
+      "pending-d0",
+      "preflush-d0",
+      "preflush-small"
+    ],
+    "note": "捕获格必须**连续 requiredStreak 轮完整**（windowCaptured && reconciles）才算捕获成立；不完整的轮记为抖动/未捕获（不判失败）并继续，最多 maxRounds 轮；空白（无计数证据）与 0 丢失在每轮判定里用 lostEvents: null vs 0 显式区分。"
+  },
+  "captureGates": {
+    "durable": {
+      "name": "durable",
+      "gated": false,
+      "requiredStreak": 3,
+      "maxRounds": 1,
+      "roundCount": 1,
+      "verdict": "not-gated",
+      "passed": null,
+      "bestStreak": 0,
+      "discardedRounds": 1,
+      "jitterRate": 1,
+      "classes": {
+        "complete": 0,
+        "undercounted": 0,
+        "blank": 0,
+        "overcounted": 0,
+        "torn": 0,
+        "window-missed": 1
+      },
+      "selectedRoundIndex": 0,
+      "blankIsNotZeroLoss": true,
+      "rounds": [
+        {
+          "round": 0,
+          "verdict": "window-missed",
+          "complete": false,
+          "windowCaptured": false,
+          "reconciles": true,
+          "expectedEvents": 1000,
+          "survivors": 1000,
+          "commitLost": 0,
+          "unaccountedEvents": 0,
+          "zeroLoss": true,
+          "lostEvents": 0,
+          "lostEventsLowerBound": 0,
+          "blankIsNotZeroLoss": true,
+          "text": "第 1 轮 durable：存活 1000/1000，计数 0，差值 0 → **杀在提交之后**：1000/1000 全部读回、计数 0（唯一的「0 丢失」）"
+        }
+      ],
+      "guard": "on"
+    },
+    "pending-d0": {
+      "name": "pending-d0",
+      "gated": true,
+      "requiredStreak": 3,
+      "maxRounds": 6,
+      "roundCount": 6,
+      "verdict": "never-complete",
+      "passed": false,
+      "bestStreak": 1,
+      "discardedRounds": 5,
+      "jitterRate": 0.8333333333333334,
+      "classes": {
+        "complete": 1,
+        "undercounted": 4,
+        "blank": 1,
+        "overcounted": 0,
+        "torn": 0,
+        "window-missed": 0
+      },
+      "selectedRoundIndex": 0,
+      "blankIsNotZeroLoss": true,
+      "rounds": [
+        {
+          "round": 0,
+          "verdict": "complete",
+          "complete": true,
+          "windowCaptured": true,
+          "reconciles": true,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 1000,
+          "unaccountedEvents": 0,
+          "zeroLoss": false,
+          "lostEvents": 1000,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 1 轮 pending-d0：存活 0/1000，计数 1000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+        },
+        {
+          "round": 1,
+          "verdict": "undercounted",
+          "complete": false,
+          "windowCaptured": true,
+          "reconciles": false,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 10,
+          "unaccountedEvents": 990,
+          "zeroLoss": false,
+          "lostEvents": null,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 2 轮 pending-d0：存活 0/1000，计数 10，差值 990 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：990 个事件**未被单独计数**；已读回 0，至少丢 1000 —— **≠0 丢失**"
+        },
+        {
+          "round": 2,
+          "verdict": "undercounted",
+          "complete": false,
+          "windowCaptured": true,
+          "reconciles": false,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 10,
+          "unaccountedEvents": 990,
+          "zeroLoss": false,
+          "lostEvents": null,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 3 轮 pending-d0：存活 0/1000，计数 10，差值 990 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：990 个事件**未被单独计数**；已读回 0，至少丢 1000 —— **≠0 丢失**"
+        },
+        {
+          "round": 3,
+          "verdict": "blank",
+          "complete": false,
+          "windowCaptured": false,
+          "reconciles": false,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 0,
+          "unaccountedEvents": 1000,
+          "zeroLoss": false,
+          "lostEvents": null,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 4 轮 pending-d0：存活 0/1000，计数 0，差值 1000 → **窗口未捕获（空白）**：没有任何计数证据，至少丢 1000 —— **≠0 丢失，不得计入「已对账」**"
+        },
+        {
+          "round": 4,
+          "verdict": "undercounted",
+          "complete": false,
+          "windowCaptured": true,
+          "reconciles": false,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 10,
+          "unaccountedEvents": 990,
+          "zeroLoss": false,
+          "lostEvents": null,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 5 轮 pending-d0：存活 0/1000，计数 10，差值 990 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：990 个事件**未被单独计数**；已读回 0，至少丢 1000 —— **≠0 丢失**"
+        },
+        {
+          "round": 5,
+          "verdict": "undercounted",
+          "complete": false,
+          "windowCaptured": true,
+          "reconciles": false,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 10,
+          "unaccountedEvents": 990,
+          "zeroLoss": false,
+          "lostEvents": null,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 6 轮 pending-d0：存活 0/1000，计数 10，差值 990 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：990 个事件**未被单独计数**；已读回 0，至少丢 1000 —— **≠0 丢失**"
+        }
+      ],
+      "guard": "on"
+    },
+    "pending-d5": {
+      "name": "pending-d5",
+      "gated": false,
+      "requiredStreak": 3,
+      "maxRounds": 1,
+      "roundCount": 1,
+      "verdict": "not-gated",
+      "passed": null,
+      "bestStreak": 1,
+      "discardedRounds": 0,
+      "jitterRate": 0,
+      "classes": {
+        "complete": 1,
+        "undercounted": 0,
+        "blank": 0,
+        "overcounted": 0,
+        "torn": 0,
+        "window-missed": 0
+      },
+      "selectedRoundIndex": 0,
+      "blankIsNotZeroLoss": true,
+      "rounds": [
+        {
+          "round": 0,
+          "verdict": "complete",
+          "complete": true,
+          "windowCaptured": true,
+          "reconciles": true,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 1000,
+          "unaccountedEvents": 0,
+          "zeroLoss": false,
+          "lostEvents": 1000,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 1 轮 pending-d5：存活 0/1000，计数 1000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+        }
+      ],
+      "guard": "on"
+    },
+    "pending-d20": {
+      "name": "pending-d20",
+      "gated": false,
+      "requiredStreak": 3,
+      "maxRounds": 1,
+      "roundCount": 1,
+      "verdict": "not-gated",
+      "passed": null,
+      "bestStreak": 0,
+      "discardedRounds": 1,
+      "jitterRate": 1,
+      "classes": {
+        "complete": 0,
+        "undercounted": 0,
+        "blank": 0,
+        "overcounted": 0,
+        "torn": 0,
+        "window-missed": 1
+      },
+      "selectedRoundIndex": 0,
+      "blankIsNotZeroLoss": true,
+      "rounds": [
+        {
+          "round": 0,
+          "verdict": "window-missed",
+          "complete": false,
+          "windowCaptured": false,
+          "reconciles": true,
+          "expectedEvents": 1000,
+          "survivors": 1000,
+          "commitLost": 0,
+          "unaccountedEvents": 0,
+          "zeroLoss": true,
+          "lostEvents": 0,
+          "lostEventsLowerBound": 0,
+          "blankIsNotZeroLoss": true,
+          "text": "第 1 轮 pending-d20：存活 1000/1000，计数 0，差值 0 → **杀在提交之后**：1000/1000 全部读回、计数 0（唯一的「0 丢失」）"
+        }
+      ],
+      "guard": "on"
+    },
+    "pending-d60": {
+      "name": "pending-d60",
+      "gated": false,
+      "requiredStreak": 3,
+      "maxRounds": 1,
+      "roundCount": 1,
+      "verdict": "not-gated",
+      "passed": null,
+      "bestStreak": 0,
+      "discardedRounds": 1,
+      "jitterRate": 1,
+      "classes": {
+        "complete": 0,
+        "undercounted": 0,
+        "blank": 0,
+        "overcounted": 0,
+        "torn": 0,
+        "window-missed": 1
+      },
+      "selectedRoundIndex": 0,
+      "blankIsNotZeroLoss": true,
+      "rounds": [
+        {
+          "round": 0,
+          "verdict": "window-missed",
+          "complete": false,
+          "windowCaptured": false,
+          "reconciles": true,
+          "expectedEvents": 1000,
+          "survivors": 1000,
+          "commitLost": 0,
+          "unaccountedEvents": 0,
+          "zeroLoss": true,
+          "lostEvents": 0,
+          "lostEventsLowerBound": 0,
+          "blankIsNotZeroLoss": true,
+          "text": "第 1 轮 pending-d60：存活 1000/1000，计数 0，差值 0 → **杀在提交之后**：1000/1000 全部读回、计数 0（唯一的「0 丢失」）"
+        }
+      ],
+      "guard": "on"
+    },
+    "pending-d200": {
+      "name": "pending-d200",
+      "gated": false,
+      "requiredStreak": 3,
+      "maxRounds": 1,
+      "roundCount": 1,
+      "verdict": "not-gated",
+      "passed": null,
+      "bestStreak": 0,
+      "discardedRounds": 1,
+      "jitterRate": 1,
+      "classes": {
+        "complete": 0,
+        "undercounted": 0,
+        "blank": 0,
+        "overcounted": 0,
+        "torn": 0,
+        "window-missed": 1
+      },
+      "selectedRoundIndex": 0,
+      "blankIsNotZeroLoss": true,
+      "rounds": [
+        {
+          "round": 0,
+          "verdict": "window-missed",
+          "complete": false,
+          "windowCaptured": false,
+          "reconciles": true,
+          "expectedEvents": 1000,
+          "survivors": 1000,
+          "commitLost": 0,
+          "unaccountedEvents": 0,
+          "zeroLoss": true,
+          "lostEvents": 0,
+          "lostEventsLowerBound": 0,
+          "blankIsNotZeroLoss": true,
+          "text": "第 1 轮 pending-d200：存活 1000/1000，计数 0，差值 0 → **杀在提交之后**：1000/1000 全部读回、计数 0（唯一的「0 丢失」）"
+        }
+      ],
+      "guard": "on"
+    },
+    "bulk-d0": {
+      "name": "bulk-d0",
+      "gated": false,
+      "requiredStreak": 3,
+      "maxRounds": 1,
+      "roundCount": 1,
+      "verdict": "not-gated",
+      "passed": null,
+      "bestStreak": 1,
+      "discardedRounds": 0,
+      "jitterRate": 0,
+      "classes": {
+        "complete": 1,
+        "undercounted": 0,
+        "blank": 0,
+        "overcounted": 0,
+        "torn": 0,
+        "window-missed": 0
+      },
+      "selectedRoundIndex": 0,
+      "blankIsNotZeroLoss": true,
+      "rounds": [
+        {
+          "round": 0,
+          "verdict": "complete",
+          "complete": true,
+          "windowCaptured": true,
+          "reconciles": true,
+          "expectedEvents": 5000,
+          "survivors": 0,
+          "commitLost": 5000,
+          "unaccountedEvents": 0,
+          "zeroLoss": false,
+          "lostEvents": 5000,
+          "lostEventsLowerBound": 5000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 1 轮 bulk-d0：存活 0/5000，计数 5000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+        }
+      ],
+      "guard": "on"
+    },
+    "preflush-d0": {
+      "name": "preflush-d0",
+      "gated": true,
+      "requiredStreak": 3,
+      "maxRounds": 6,
+      "roundCount": 6,
+      "verdict": "never-complete",
+      "passed": false,
+      "bestStreak": 2,
+      "discardedRounds": 2,
+      "jitterRate": 0.3333333333333333,
+      "classes": {
+        "complete": 4,
+        "undercounted": 2,
+        "blank": 0,
+        "overcounted": 0,
+        "torn": 0,
+        "window-missed": 0
+      },
+      "selectedRoundIndex": 0,
+      "blankIsNotZeroLoss": true,
+      "rounds": [
+        {
+          "round": 0,
+          "verdict": "complete",
+          "complete": true,
+          "windowCaptured": true,
+          "reconciles": true,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 1000,
+          "unaccountedEvents": 0,
+          "zeroLoss": false,
+          "lostEvents": 1000,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 1 轮 preflush-d0：存活 0/1000，计数 1000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+        },
+        {
+          "round": 1,
+          "verdict": "complete",
+          "complete": true,
+          "windowCaptured": true,
+          "reconciles": true,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 1000,
+          "unaccountedEvents": 0,
+          "zeroLoss": false,
+          "lostEvents": 1000,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 2 轮 preflush-d0：存活 0/1000，计数 1000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+        },
+        {
+          "round": 2,
+          "verdict": "undercounted",
+          "complete": false,
+          "windowCaptured": true,
+          "reconciles": false,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 10,
+          "unaccountedEvents": 990,
+          "zeroLoss": false,
+          "lostEvents": null,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 3 轮 preflush-d0：存活 0/1000，计数 10，差值 990 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：990 个事件**未被单独计数**；已读回 0，至少丢 1000 —— **≠0 丢失**"
+        },
+        {
+          "round": 3,
+          "verdict": "complete",
+          "complete": true,
+          "windowCaptured": true,
+          "reconciles": true,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 1000,
+          "unaccountedEvents": 0,
+          "zeroLoss": false,
+          "lostEvents": 1000,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 4 轮 preflush-d0：存活 0/1000，计数 1000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+        },
+        {
+          "round": 4,
+          "verdict": "complete",
+          "complete": true,
+          "windowCaptured": true,
+          "reconciles": true,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 1000,
+          "unaccountedEvents": 0,
+          "zeroLoss": false,
+          "lostEvents": 1000,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 5 轮 preflush-d0：存活 0/1000，计数 1000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+        },
+        {
+          "round": 5,
+          "verdict": "undercounted",
+          "complete": false,
+          "windowCaptured": true,
+          "reconciles": false,
+          "expectedEvents": 1000,
+          "survivors": 0,
+          "commitLost": 10,
+          "unaccountedEvents": 990,
+          "zeroLoss": false,
+          "lostEvents": null,
+          "lostEventsLowerBound": 1000,
+          "blankIsNotZeroLoss": true,
+          "text": "第 6 轮 preflush-d0：存活 0/1000，计数 10，差值 990 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：990 个事件**未被单独计数**；已读回 0，至少丢 1000 —— **≠0 丢失**"
+        }
+      ],
+      "guard": "on"
+    },
+    "preflush-small": {
+      "name": "preflush-small",
+      "gated": true,
+      "requiredStreak": 3,
+      "maxRounds": 6,
+      "roundCount": 4,
+      "verdict": "complete-with-jitter",
+      "passed": true,
+      "bestStreak": 3,
+      "discardedRounds": 1,
+      "jitterRate": 0.25,
+      "classes": {
+        "complete": 3,
+        "undercounted": 1,
+        "blank": 0,
+        "overcounted": 0,
+        "torn": 0,
+        "window-missed": 0
+      },
+      "selectedRoundIndex": 3,
+      "blankIsNotZeroLoss": true,
+      "rounds": [
+        {
+          "round": 0,
+          "verdict": "undercounted",
+          "complete": false,
+          "windowCaptured": true,
+          "reconciles": false,
+          "expectedEvents": 100,
+          "survivors": 0,
+          "commitLost": 10,
+          "unaccountedEvents": 90,
+          "zeroLoss": false,
+          "lostEvents": null,
+          "lostEventsLowerBound": 100,
+          "blankIsNotZeroLoss": true,
+          "text": "第 1 轮 preflush-small：存活 0/100，计数 10，差值 90 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：90 个事件**未被单独计数**；已读回 0，至少丢 100 —— **≠0 丢失**"
+        },
+        {
+          "round": 1,
+          "verdict": "complete",
+          "complete": true,
+          "windowCaptured": true,
+          "reconciles": true,
+          "expectedEvents": 100,
+          "survivors": 0,
+          "commitLost": 100,
+          "unaccountedEvents": 0,
+          "zeroLoss": false,
+          "lostEvents": 100,
+          "lostEventsLowerBound": 100,
+          "blankIsNotZeroLoss": true,
+          "text": "第 2 轮 preflush-small：存活 0/100，计数 100，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+        },
+        {
+          "round": 2,
+          "verdict": "complete",
+          "complete": true,
+          "windowCaptured": true,
+          "reconciles": true,
+          "expectedEvents": 100,
+          "survivors": 0,
+          "commitLost": 100,
+          "unaccountedEvents": 0,
+          "zeroLoss": false,
+          "lostEvents": 100,
+          "lostEventsLowerBound": 100,
+          "blankIsNotZeroLoss": true,
+          "text": "第 3 轮 preflush-small：存活 0/100，计数 100，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+        },
+        {
+          "round": 3,
+          "verdict": "complete",
+          "complete": true,
+          "windowCaptured": true,
+          "reconciles": true,
+          "expectedEvents": 100,
+          "survivors": 0,
+          "commitLost": 100,
+          "unaccountedEvents": 0,
+          "zeroLoss": false,
+          "lostEvents": 100,
+          "lostEventsLowerBound": 100,
+          "blankIsNotZeroLoss": true,
+          "text": "第 4 轮 preflush-small：存活 0/100，计数 100，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+        }
+      ],
+      "guard": "on"
+    }
+  },
   "cells": [
     {
       "name": "durable",
       "group": "oncomplete",
+      "round": 0,
       "scheduledDelayMs": null,
       "awaitSettled": true,
       "count": 100,
@@ -59,7 +650,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 3,
+        "ms": 1,
         "batchIds": [
           "durable-batch-0",
           "durable-batch-1",
@@ -570,14 +1161,14 @@
             "status": "durable"
           }
         ],
-        "elapsedMs": 7
+        "elapsedMs": 5.999999999999993
       },
       "kill": {
-        "mode": "SIGKILL via launch-pids=77214,77220",
-        "pid": 77214,
-        "killAt": 1792054498006
+        "mode": "SIGKILL via launch-pids=41959,41966",
+        "pid": 41959,
+        "killAt": 1792134949895
       },
-      "measuredMsAfterIssue": 16,
+      "measuredMsAfterIssue": 8,
       "processExited": true,
       "rawDumpBeforeOpen": {
         "stores": [
@@ -597,7 +1188,7 @@
           },
           {
             "key": "intent:durable-first",
-            "value": "{\"session_id\":\"durable-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1792054498000,\"updated_at\":1792054498000}"
+            "value": "{\"session_id\":\"durable-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1792134949893,\"updated_at\":1792134949893}"
           }
         ],
         "metaParsed": [
@@ -611,8 +1202,8 @@
               "session_id": "durable-first",
               "total_enqueued": 1000,
               "total_committed": 1000,
-              "first_pending_at": 1792054498000,
-              "updated_at": 1792054498000
+              "first_pending_at": 1792134949893,
+              "updated_at": 1792134949893
             }
           }
         ]
@@ -692,11 +1283,54 @@
       },
       "exposureReconciles": true,
       "windowCaptured": false,
-      "nothingCommitted": false
+      "nothingCommitted": false,
+      "captureGate": {
+        "name": "durable",
+        "gated": false,
+        "requiredStreak": 3,
+        "maxRounds": 1,
+        "roundCount": 1,
+        "verdict": "not-gated",
+        "passed": null,
+        "bestStreak": 0,
+        "discardedRounds": 1,
+        "jitterRate": 1,
+        "classes": {
+          "complete": 0,
+          "undercounted": 0,
+          "blank": 0,
+          "overcounted": 0,
+          "torn": 0,
+          "window-missed": 1
+        },
+        "selectedRoundIndex": 0,
+        "blankIsNotZeroLoss": true,
+        "rounds": [
+          {
+            "round": 0,
+            "verdict": "window-missed",
+            "complete": false,
+            "windowCaptured": false,
+            "reconciles": true,
+            "expectedEvents": 1000,
+            "survivors": 1000,
+            "commitLost": 0,
+            "unaccountedEvents": 0,
+            "zeroLoss": true,
+            "lostEvents": 0,
+            "lostEventsLowerBound": 0,
+            "blankIsNotZeroLoss": true,
+            "text": "第 1 轮 durable：存活 1000/1000，计数 0，差值 0 → **杀在提交之后**：1000/1000 全部读回、计数 0（唯一的「0 丢失」）"
+          }
+        ],
+        "guard": "on"
+      },
+      "captureRounds": 1
     },
     {
       "name": "pending-d0",
       "group": "unsettled",
+      "round": 0,
       "scheduledDelayMs": 0,
       "awaitSettled": false,
       "count": 100,
@@ -736,7 +1370,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 3,
+        "ms": 0.9999999999999929,
         "batchIds": [
           "pending-d0-batch-0",
           "pending-d0-batch-1",
@@ -841,9 +1475,9 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via launch-pids=77445,77452",
-        "pid": 77445,
-        "killAt": 1792054499769
+        "mode": "SIGKILL via launch-pids=42311,42328",
+        "pid": 42311,
+        "killAt": 1792134951027
       },
       "measuredMsAfterIssue": 0,
       "processExited": true,
@@ -865,7 +1499,7 @@
           },
           {
             "key": "intent:pending-d0-first",
-            "value": "{\"session_id\":\"pending-d0-first\",\"total_enqueued\":10,\"total_committed\":0,\"first_pending_at\":1792054499764,\"updated_at\":1792054499765}"
+            "value": "{\"session_id\":\"pending-d0-first\",\"total_enqueued\":1000,\"total_committed\":0,\"first_pending_at\":1792134951024,\"updated_at\":1792134951026}"
           }
         ],
         "metaParsed": [
@@ -877,10 +1511,10 @@
             "key": "intent:pending-d0-first",
             "value": {
               "session_id": "pending-d0-first",
-              "total_enqueued": 10,
+              "total_enqueued": 1000,
               "total_committed": 0,
-              "first_pending_at": 1792054499764,
-              "updated_at": 1792054499765
+              "first_pending_at": 1792134951024,
+              "updated_at": 1792134951026
             }
           }
         ]
@@ -901,15 +1535,15 @@
             "oldestPendingMs": null,
             "commitLatencyP50Ms": null,
             "commitLatencyP95Ms": null,
-            "commitLostEvents": 10,
-            "commitLostWindowMs": 680,
-            "commitLostObservedWindowMs": 1
+            "commitLostEvents": 1000,
+            "commitLostWindowMs": 608,
+            "commitLostObservedWindowMs": 2
           }
         },
         "commitLoss": {
-          "events": 10,
-          "windowMs": 680,
-          "observedWindowMs": 1,
+          "events": 1000,
+          "windowMs": 608,
+          "observedWindowMs": 2,
           "sessionIds": [
             "pending-d0-first"
           ]
@@ -933,15 +1567,15 @@
           "oldestPendingMs": null,
           "commitLatencyP50Ms": null,
           "commitLatencyP95Ms": null,
-          "commitLostEvents": 10,
-          "commitLostWindowMs": 680,
-          "commitLostObservedWindowMs": 1
+          "commitLostEvents": 1000,
+          "commitLostWindowMs": 608,
+          "commitLostObservedWindowMs": 2
         }
       },
       "reopenCommitLoss": {
-        "events": 10,
-        "windowMs": 680,
-        "observedWindowMs": 1,
+        "events": 1000,
+        "windowMs": 608,
+        "observedWindowMs": 2,
         "sessionIds": [
           "pending-d0-first"
         ]
@@ -965,20 +1599,140 @@
       },
       "d004": {
         "oncompleteSurvivors": null,
-        "uncommittedFromIntent": 10,
-        "commitLostWindowMs": 680
+        "uncommittedFromIntent": 1000,
+        "commitLostWindowMs": 608
       },
-      "exposureReconciles": {
-        "survivors": 0,
-        "commitLost": 10,
-        "expected": 1000
-      },
+      "exposureReconciles": true,
       "windowCaptured": true,
-      "nothingCommitted": false
+      "nothingCommitted": false,
+      "captureGate": {
+        "name": "pending-d0",
+        "gated": true,
+        "requiredStreak": 3,
+        "maxRounds": 6,
+        "roundCount": 6,
+        "verdict": "never-complete",
+        "passed": false,
+        "bestStreak": 1,
+        "discardedRounds": 5,
+        "jitterRate": 0.8333333333333334,
+        "classes": {
+          "complete": 1,
+          "undercounted": 4,
+          "blank": 1,
+          "overcounted": 0,
+          "torn": 0,
+          "window-missed": 0
+        },
+        "selectedRoundIndex": 0,
+        "blankIsNotZeroLoss": true,
+        "rounds": [
+          {
+            "round": 0,
+            "verdict": "complete",
+            "complete": true,
+            "windowCaptured": true,
+            "reconciles": true,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 1000,
+            "unaccountedEvents": 0,
+            "zeroLoss": false,
+            "lostEvents": 1000,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 1 轮 pending-d0：存活 0/1000，计数 1000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+          },
+          {
+            "round": 1,
+            "verdict": "undercounted",
+            "complete": false,
+            "windowCaptured": true,
+            "reconciles": false,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 10,
+            "unaccountedEvents": 990,
+            "zeroLoss": false,
+            "lostEvents": null,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 2 轮 pending-d0：存活 0/1000，计数 10，差值 990 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：990 个事件**未被单独计数**；已读回 0，至少丢 1000 —— **≠0 丢失**"
+          },
+          {
+            "round": 2,
+            "verdict": "undercounted",
+            "complete": false,
+            "windowCaptured": true,
+            "reconciles": false,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 10,
+            "unaccountedEvents": 990,
+            "zeroLoss": false,
+            "lostEvents": null,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 3 轮 pending-d0：存活 0/1000，计数 10，差值 990 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：990 个事件**未被单独计数**；已读回 0，至少丢 1000 —— **≠0 丢失**"
+          },
+          {
+            "round": 3,
+            "verdict": "blank",
+            "complete": false,
+            "windowCaptured": false,
+            "reconciles": false,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 0,
+            "unaccountedEvents": 1000,
+            "zeroLoss": false,
+            "lostEvents": null,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 4 轮 pending-d0：存活 0/1000，计数 0，差值 1000 → **窗口未捕获（空白）**：没有任何计数证据，至少丢 1000 —— **≠0 丢失，不得计入「已对账」**"
+          },
+          {
+            "round": 4,
+            "verdict": "undercounted",
+            "complete": false,
+            "windowCaptured": true,
+            "reconciles": false,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 10,
+            "unaccountedEvents": 990,
+            "zeroLoss": false,
+            "lostEvents": null,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 5 轮 pending-d0：存活 0/1000，计数 10，差值 990 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：990 个事件**未被单独计数**；已读回 0，至少丢 1000 —— **≠0 丢失**"
+          },
+          {
+            "round": 5,
+            "verdict": "undercounted",
+            "complete": false,
+            "windowCaptured": true,
+            "reconciles": false,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 10,
+            "unaccountedEvents": 990,
+            "zeroLoss": false,
+            "lostEvents": null,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 6 轮 pending-d0：存活 0/1000，计数 10，差值 990 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：990 个事件**未被单独计数**；已读回 0，至少丢 1000 —— **≠0 丢失**"
+          }
+        ],
+        "guard": "on"
+      },
+      "captureRounds": 6,
+      "captureSelectedRound": 0
     },
     {
       "name": "pending-d5",
       "group": "unsettled",
+      "round": 0,
       "scheduledDelayMs": 5,
       "awaitSettled": false,
       "count": 100,
@@ -1018,7 +1772,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 1,
+        "ms": 2,
         "batchIds": [
           "pending-d5-batch-0",
           "pending-d5-batch-1",
@@ -1123,11 +1877,11 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via launch-pids=77649,77655",
-        "pid": 77649,
-        "killAt": 1792054500989
+        "mode": "SIGKILL via launch-pids=44690,44699",
+        "pid": 44690,
+        "killAt": 1792134965410
       },
-      "measuredMsAfterIssue": 5,
+      "measuredMsAfterIssue": 6,
       "processExited": true,
       "rawDumpBeforeOpen": {
         "stores": [
@@ -1147,7 +1901,7 @@
           },
           {
             "key": "intent:pending-d5-first",
-            "value": "{\"session_id\":\"pending-d5-first\",\"total_enqueued\":1000,\"total_committed\":0,\"first_pending_at\":1792054500982,\"updated_at\":1792054500984}"
+            "value": "{\"session_id\":\"pending-d5-first\",\"total_enqueued\":1000,\"total_committed\":0,\"first_pending_at\":1792134965401,\"updated_at\":1792134965404}"
           }
         ],
         "metaParsed": [
@@ -1161,8 +1915,8 @@
               "session_id": "pending-d5-first",
               "total_enqueued": 1000,
               "total_committed": 0,
-              "first_pending_at": 1792054500982,
-              "updated_at": 1792054500984
+              "first_pending_at": 1792134965401,
+              "updated_at": 1792134965404
             }
           }
         ]
@@ -1184,14 +1938,14 @@
             "commitLatencyP50Ms": null,
             "commitLatencyP95Ms": null,
             "commitLostEvents": 1000,
-            "commitLostWindowMs": 596,
-            "commitLostObservedWindowMs": 2
+            "commitLostWindowMs": 1147,
+            "commitLostObservedWindowMs": 3
           }
         },
         "commitLoss": {
           "events": 1000,
-          "windowMs": 596,
-          "observedWindowMs": 2,
+          "windowMs": 1147,
+          "observedWindowMs": 3,
           "sessionIds": [
             "pending-d5-first"
           ]
@@ -1216,14 +1970,14 @@
           "commitLatencyP50Ms": null,
           "commitLatencyP95Ms": null,
           "commitLostEvents": 1000,
-          "commitLostWindowMs": 596,
-          "commitLostObservedWindowMs": 2
+          "commitLostWindowMs": 1147,
+          "commitLostObservedWindowMs": 3
         }
       },
       "reopenCommitLoss": {
         "events": 1000,
-        "windowMs": 596,
-        "observedWindowMs": 2,
+        "windowMs": 1147,
+        "observedWindowMs": 3,
         "sessionIds": [
           "pending-d5-first"
         ]
@@ -1248,15 +2002,58 @@
       "d004": {
         "oncompleteSurvivors": null,
         "uncommittedFromIntent": 1000,
-        "commitLostWindowMs": 596
+        "commitLostWindowMs": 1147
       },
       "exposureReconciles": true,
       "windowCaptured": true,
-      "nothingCommitted": false
+      "nothingCommitted": false,
+      "captureGate": {
+        "name": "pending-d5",
+        "gated": false,
+        "requiredStreak": 3,
+        "maxRounds": 1,
+        "roundCount": 1,
+        "verdict": "not-gated",
+        "passed": null,
+        "bestStreak": 1,
+        "discardedRounds": 0,
+        "jitterRate": 0,
+        "classes": {
+          "complete": 1,
+          "undercounted": 0,
+          "blank": 0,
+          "overcounted": 0,
+          "torn": 0,
+          "window-missed": 0
+        },
+        "selectedRoundIndex": 0,
+        "blankIsNotZeroLoss": true,
+        "rounds": [
+          {
+            "round": 0,
+            "verdict": "complete",
+            "complete": true,
+            "windowCaptured": true,
+            "reconciles": true,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 1000,
+            "unaccountedEvents": 0,
+            "zeroLoss": false,
+            "lostEvents": 1000,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 1 轮 pending-d5：存活 0/1000，计数 1000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+          }
+        ],
+        "guard": "on"
+      },
+      "captureRounds": 1
     },
     {
       "name": "pending-d20",
       "group": "unsettled",
+      "round": 0,
       "scheduledDelayMs": 20,
       "awaitSettled": false,
       "count": 100,
@@ -1296,7 +2093,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 1.000000000000007,
+        "ms": 6,
         "batchIds": [
           "pending-d20-batch-0",
           "pending-d20-batch-1",
@@ -1401,11 +2198,11 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via launch-pids=77804,77810",
-        "pid": 77804,
-        "killAt": 1792054502117
+        "mode": "SIGKILL via launch-pids=45189,45195",
+        "pid": 45189,
+        "killAt": 1792134968207
       },
-      "measuredMsAfterIssue": 20,
+      "measuredMsAfterIssue": 22,
       "processExited": true,
       "rawDumpBeforeOpen": {
         "stores": [
@@ -1425,7 +2222,7 @@
           },
           {
             "key": "intent:pending-d20-first",
-            "value": "{\"session_id\":\"pending-d20-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1792054502103,\"updated_at\":1792054502103}"
+            "value": "{\"session_id\":\"pending-d20-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1792134968205,\"updated_at\":1792134968205}"
           }
         ],
         "metaParsed": [
@@ -1439,8 +2236,8 @@
               "session_id": "pending-d20-first",
               "total_enqueued": 1000,
               "total_committed": 1000,
-              "first_pending_at": 1792054502103,
-              "updated_at": 1792054502103
+              "first_pending_at": 1792134968205,
+              "updated_at": 1792134968205
             }
           }
         ]
@@ -1520,11 +2317,54 @@
       },
       "exposureReconciles": true,
       "windowCaptured": false,
-      "nothingCommitted": false
+      "nothingCommitted": false,
+      "captureGate": {
+        "name": "pending-d20",
+        "gated": false,
+        "requiredStreak": 3,
+        "maxRounds": 1,
+        "roundCount": 1,
+        "verdict": "not-gated",
+        "passed": null,
+        "bestStreak": 0,
+        "discardedRounds": 1,
+        "jitterRate": 1,
+        "classes": {
+          "complete": 0,
+          "undercounted": 0,
+          "blank": 0,
+          "overcounted": 0,
+          "torn": 0,
+          "window-missed": 1
+        },
+        "selectedRoundIndex": 0,
+        "blankIsNotZeroLoss": true,
+        "rounds": [
+          {
+            "round": 0,
+            "verdict": "window-missed",
+            "complete": false,
+            "windowCaptured": false,
+            "reconciles": true,
+            "expectedEvents": 1000,
+            "survivors": 1000,
+            "commitLost": 0,
+            "unaccountedEvents": 0,
+            "zeroLoss": true,
+            "lostEvents": 0,
+            "lostEventsLowerBound": 0,
+            "blankIsNotZeroLoss": true,
+            "text": "第 1 轮 pending-d20：存活 1000/1000，计数 0，差值 0 → **杀在提交之后**：1000/1000 全部读回、计数 0（唯一的「0 丢失」）"
+          }
+        ],
+        "guard": "on"
+      },
+      "captureRounds": 1
     },
     {
       "name": "pending-d60",
       "group": "unsettled",
+      "round": 0,
       "scheduledDelayMs": 60,
       "awaitSettled": false,
       "count": 100,
@@ -1564,7 +2404,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 1.000000000000007,
+        "ms": 2,
         "batchIds": [
           "pending-d60-batch-0",
           "pending-d60-batch-1",
@@ -1669,11 +2509,11 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via launch-pids=77980,77986",
-        "pid": 77980,
-        "killAt": 1792054503377
+        "mode": "SIGKILL via launch-pids=45597,45607",
+        "pid": 45597,
+        "killAt": 1792134970713
       },
-      "measuredMsAfterIssue": 62,
+      "measuredMsAfterIssue": 61,
       "processExited": true,
       "rawDumpBeforeOpen": {
         "stores": [
@@ -1693,7 +2533,7 @@
           },
           {
             "key": "intent:pending-d60-first",
-            "value": "{\"session_id\":\"pending-d60-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1792054503321,\"updated_at\":1792054503321}"
+            "value": "{\"session_id\":\"pending-d60-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1792134970668,\"updated_at\":1792134970668}"
           }
         ],
         "metaParsed": [
@@ -1707,8 +2547,8 @@
               "session_id": "pending-d60-first",
               "total_enqueued": 1000,
               "total_committed": 1000,
-              "first_pending_at": 1792054503321,
-              "updated_at": 1792054503321
+              "first_pending_at": 1792134970668,
+              "updated_at": 1792134970668
             }
           }
         ]
@@ -1788,11 +2628,54 @@
       },
       "exposureReconciles": true,
       "windowCaptured": false,
-      "nothingCommitted": false
+      "nothingCommitted": false,
+      "captureGate": {
+        "name": "pending-d60",
+        "gated": false,
+        "requiredStreak": 3,
+        "maxRounds": 1,
+        "roundCount": 1,
+        "verdict": "not-gated",
+        "passed": null,
+        "bestStreak": 0,
+        "discardedRounds": 1,
+        "jitterRate": 1,
+        "classes": {
+          "complete": 0,
+          "undercounted": 0,
+          "blank": 0,
+          "overcounted": 0,
+          "torn": 0,
+          "window-missed": 1
+        },
+        "selectedRoundIndex": 0,
+        "blankIsNotZeroLoss": true,
+        "rounds": [
+          {
+            "round": 0,
+            "verdict": "window-missed",
+            "complete": false,
+            "windowCaptured": false,
+            "reconciles": true,
+            "expectedEvents": 1000,
+            "survivors": 1000,
+            "commitLost": 0,
+            "unaccountedEvents": 0,
+            "zeroLoss": true,
+            "lostEvents": 0,
+            "lostEventsLowerBound": 0,
+            "blankIsNotZeroLoss": true,
+            "text": "第 1 轮 pending-d60：存活 1000/1000，计数 0，差值 0 → **杀在提交之后**：1000/1000 全部读回、计数 0（唯一的「0 丢失」）"
+          }
+        ],
+        "guard": "on"
+      },
+      "captureRounds": 1
     },
     {
       "name": "pending-d200",
       "group": "unsettled",
+      "round": 0,
       "scheduledDelayMs": 200,
       "awaitSettled": false,
       "count": 100,
@@ -1832,7 +2715,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 1,
+        "ms": 3.000000000000014,
         "batchIds": [
           "pending-d200-batch-0",
           "pending-d200-batch-1",
@@ -1937,11 +2820,11 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via launch-pids=78146,78152",
-        "pid": 78146,
-        "killAt": 1792054504773
+        "mode": "SIGKILL via launch-pids=46018,46025",
+        "pid": 46018,
+        "killAt": 1792134973957
       },
-      "measuredMsAfterIssue": 202,
+      "measuredMsAfterIssue": 201,
       "processExited": true,
       "rawDumpBeforeOpen": {
         "stores": [
@@ -1961,7 +2844,7 @@
           },
           {
             "key": "intent:pending-d200-first",
-            "value": "{\"session_id\":\"pending-d200-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1792054504576,\"updated_at\":1792054504576}"
+            "value": "{\"session_id\":\"pending-d200-first\",\"total_enqueued\":1000,\"total_committed\":1000,\"first_pending_at\":1792134973769,\"updated_at\":1792134973769}"
           }
         ],
         "metaParsed": [
@@ -1975,8 +2858,8 @@
               "session_id": "pending-d200-first",
               "total_enqueued": 1000,
               "total_committed": 1000,
-              "first_pending_at": 1792054504576,
-              "updated_at": 1792054504576
+              "first_pending_at": 1792134973769,
+              "updated_at": 1792134973769
             }
           }
         ]
@@ -2056,11 +2939,54 @@
       },
       "exposureReconciles": true,
       "windowCaptured": false,
-      "nothingCommitted": false
+      "nothingCommitted": false,
+      "captureGate": {
+        "name": "pending-d200",
+        "gated": false,
+        "requiredStreak": 3,
+        "maxRounds": 1,
+        "roundCount": 1,
+        "verdict": "not-gated",
+        "passed": null,
+        "bestStreak": 0,
+        "discardedRounds": 1,
+        "jitterRate": 1,
+        "classes": {
+          "complete": 0,
+          "undercounted": 0,
+          "blank": 0,
+          "overcounted": 0,
+          "torn": 0,
+          "window-missed": 1
+        },
+        "selectedRoundIndex": 0,
+        "blankIsNotZeroLoss": true,
+        "rounds": [
+          {
+            "round": 0,
+            "verdict": "window-missed",
+            "complete": false,
+            "windowCaptured": false,
+            "reconciles": true,
+            "expectedEvents": 1000,
+            "survivors": 1000,
+            "commitLost": 0,
+            "unaccountedEvents": 0,
+            "zeroLoss": true,
+            "lostEvents": 0,
+            "lostEventsLowerBound": 0,
+            "blankIsNotZeroLoss": true,
+            "text": "第 1 轮 pending-d200：存活 1000/1000，计数 0，差值 0 → **杀在提交之后**：1000/1000 全部读回、计数 0（唯一的「0 丢失」）"
+          }
+        ],
+        "guard": "on"
+      },
+      "captureRounds": 1
     },
     {
       "name": "bulk-d0",
       "group": "unsettled",
+      "round": 0,
       "scheduledDelayMs": 10,
       "awaitSettled": false,
       "count": 500,
@@ -2105,7 +3031,7 @@
       },
       "issue": {
         "issued": 500,
-        "ms": 6,
+        "ms": 7,
         "batchIds": [
           "bulk-d0-batch-0",
           "bulk-d0-batch-1",
@@ -2610,11 +3536,11 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via launch-pids=78301,78307",
-        "pid": 78301,
-        "killAt": 1792054505910
+        "mode": "SIGKILL via launch-pids=46549,46557",
+        "pid": 46549,
+        "killAt": 1792134975582
       },
-      "measuredMsAfterIssue": 12,
+      "measuredMsAfterIssue": 11,
       "processExited": true,
       "rawDumpBeforeOpen": {
         "stores": [
@@ -2634,7 +3560,7 @@
           },
           {
             "key": "intent:bulk-d0-first",
-            "value": "{\"session_id\":\"bulk-d0-first\",\"total_enqueued\":5000,\"total_committed\":0,\"first_pending_at\":1792054505890,\"updated_at\":1792054505898}"
+            "value": "{\"session_id\":\"bulk-d0-first\",\"total_enqueued\":5000,\"total_committed\":0,\"first_pending_at\":1792134975562,\"updated_at\":1792134975570}"
           }
         ],
         "metaParsed": [
@@ -2648,8 +3574,8 @@
               "session_id": "bulk-d0-first",
               "total_enqueued": 5000,
               "total_committed": 0,
-              "first_pending_at": 1792054505890,
-              "updated_at": 1792054505898
+              "first_pending_at": 1792134975562,
+              "updated_at": 1792134975570
             }
           }
         ]
@@ -2671,13 +3597,13 @@
             "commitLatencyP50Ms": null,
             "commitLatencyP95Ms": null,
             "commitLostEvents": 5000,
-            "commitLostWindowMs": 615,
+            "commitLostWindowMs": 712,
             "commitLostObservedWindowMs": 8
           }
         },
         "commitLoss": {
           "events": 5000,
-          "windowMs": 615,
+          "windowMs": 712,
           "observedWindowMs": 8,
           "sessionIds": [
             "bulk-d0-first"
@@ -2703,13 +3629,13 @@
           "commitLatencyP50Ms": null,
           "commitLatencyP95Ms": null,
           "commitLostEvents": 5000,
-          "commitLostWindowMs": 615,
+          "commitLostWindowMs": 712,
           "commitLostObservedWindowMs": 8
         }
       },
       "reopenCommitLoss": {
         "events": 5000,
-        "windowMs": 615,
+        "windowMs": 712,
         "observedWindowMs": 8,
         "sessionIds": [
           "bulk-d0-first"
@@ -2735,15 +3661,58 @@
       "d004": {
         "oncompleteSurvivors": null,
         "uncommittedFromIntent": 5000,
-        "commitLostWindowMs": 615
+        "commitLostWindowMs": 712
       },
       "exposureReconciles": true,
       "windowCaptured": true,
-      "nothingCommitted": false
+      "nothingCommitted": false,
+      "captureGate": {
+        "name": "bulk-d0",
+        "gated": false,
+        "requiredStreak": 3,
+        "maxRounds": 1,
+        "roundCount": 1,
+        "verdict": "not-gated",
+        "passed": null,
+        "bestStreak": 1,
+        "discardedRounds": 0,
+        "jitterRate": 0,
+        "classes": {
+          "complete": 1,
+          "undercounted": 0,
+          "blank": 0,
+          "overcounted": 0,
+          "torn": 0,
+          "window-missed": 0
+        },
+        "selectedRoundIndex": 0,
+        "blankIsNotZeroLoss": true,
+        "rounds": [
+          {
+            "round": 0,
+            "verdict": "complete",
+            "complete": true,
+            "windowCaptured": true,
+            "reconciles": true,
+            "expectedEvents": 5000,
+            "survivors": 0,
+            "commitLost": 5000,
+            "unaccountedEvents": 0,
+            "zeroLoss": false,
+            "lostEvents": 5000,
+            "lostEventsLowerBound": 5000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 1 轮 bulk-d0：存活 0/5000，计数 5000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+          }
+        ],
+        "guard": "on"
+      },
+      "captureRounds": 1
     },
     {
       "name": "preflush-d0",
       "group": "preflush",
+      "round": 0,
       "scheduledDelayMs": 0,
       "awaitSettled": false,
       "count": 100,
@@ -2786,7 +3755,7 @@
       },
       "issue": {
         "issued": 100,
-        "ms": 3.000000000000007,
+        "ms": 1.999999999999993,
         "batchIds": [
           "preflush-d0-batch-0",
           "preflush-d0-batch-1",
@@ -2891,9 +3860,9 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via launch-pids=78495,78501",
-        "pid": 78495,
-        "killAt": 1792054507113
+        "mode": "SIGKILL via launch-pids=46971,46979",
+        "pid": 46971,
+        "killAt": 1792134977005
       },
       "measuredMsAfterIssue": 0,
       "processExited": true,
@@ -2915,7 +3884,7 @@
           },
           {
             "key": "intent:preflush-d0-first",
-            "value": "{\"session_id\":\"preflush-d0-first\",\"total_enqueued\":1000,\"total_committed\":0,\"first_pending_at\":1792054507104,\"updated_at\":1792054507112}"
+            "value": "{\"session_id\":\"preflush-d0-first\",\"total_enqueued\":1000,\"total_committed\":0,\"first_pending_at\":1792134977002,\"updated_at\":1792134977004}"
           }
         ],
         "metaParsed": [
@@ -2929,8 +3898,8 @@
               "session_id": "preflush-d0-first",
               "total_enqueued": 1000,
               "total_committed": 0,
-              "first_pending_at": 1792054507104,
-              "updated_at": 1792054507112
+              "first_pending_at": 1792134977002,
+              "updated_at": 1792134977004
             }
           }
         ]
@@ -2952,14 +3921,14 @@
             "commitLatencyP50Ms": null,
             "commitLatencyP95Ms": null,
             "commitLostEvents": 1000,
-            "commitLostWindowMs": 618,
-            "commitLostObservedWindowMs": 8
+            "commitLostWindowMs": 1386,
+            "commitLostObservedWindowMs": 2
           }
         },
         "commitLoss": {
           "events": 1000,
-          "windowMs": 618,
-          "observedWindowMs": 8,
+          "windowMs": 1386,
+          "observedWindowMs": 2,
           "sessionIds": [
             "preflush-d0-first"
           ]
@@ -2984,14 +3953,14 @@
           "commitLatencyP50Ms": null,
           "commitLatencyP95Ms": null,
           "commitLostEvents": 1000,
-          "commitLostWindowMs": 618,
-          "commitLostObservedWindowMs": 8
+          "commitLostWindowMs": 1386,
+          "commitLostObservedWindowMs": 2
         }
       },
       "reopenCommitLoss": {
         "events": 1000,
-        "windowMs": 618,
-        "observedWindowMs": 8,
+        "windowMs": 1386,
+        "observedWindowMs": 2,
         "sessionIds": [
           "preflush-d0-first"
         ]
@@ -3016,15 +3985,139 @@
       "d004": {
         "oncompleteSurvivors": null,
         "uncommittedFromIntent": 1000,
-        "commitLostWindowMs": 618
+        "commitLostWindowMs": 1386
       },
       "exposureReconciles": true,
       "windowCaptured": true,
-      "nothingCommitted": false
+      "nothingCommitted": false,
+      "captureGate": {
+        "name": "preflush-d0",
+        "gated": true,
+        "requiredStreak": 3,
+        "maxRounds": 6,
+        "roundCount": 6,
+        "verdict": "never-complete",
+        "passed": false,
+        "bestStreak": 2,
+        "discardedRounds": 2,
+        "jitterRate": 0.3333333333333333,
+        "classes": {
+          "complete": 4,
+          "undercounted": 2,
+          "blank": 0,
+          "overcounted": 0,
+          "torn": 0,
+          "window-missed": 0
+        },
+        "selectedRoundIndex": 0,
+        "blankIsNotZeroLoss": true,
+        "rounds": [
+          {
+            "round": 0,
+            "verdict": "complete",
+            "complete": true,
+            "windowCaptured": true,
+            "reconciles": true,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 1000,
+            "unaccountedEvents": 0,
+            "zeroLoss": false,
+            "lostEvents": 1000,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 1 轮 preflush-d0：存活 0/1000，计数 1000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+          },
+          {
+            "round": 1,
+            "verdict": "complete",
+            "complete": true,
+            "windowCaptured": true,
+            "reconciles": true,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 1000,
+            "unaccountedEvents": 0,
+            "zeroLoss": false,
+            "lostEvents": 1000,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 2 轮 preflush-d0：存活 0/1000，计数 1000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+          },
+          {
+            "round": 2,
+            "verdict": "undercounted",
+            "complete": false,
+            "windowCaptured": true,
+            "reconciles": false,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 10,
+            "unaccountedEvents": 990,
+            "zeroLoss": false,
+            "lostEvents": null,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 3 轮 preflush-d0：存活 0/1000，计数 10，差值 990 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：990 个事件**未被单独计数**；已读回 0，至少丢 1000 —— **≠0 丢失**"
+          },
+          {
+            "round": 3,
+            "verdict": "complete",
+            "complete": true,
+            "windowCaptured": true,
+            "reconciles": true,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 1000,
+            "unaccountedEvents": 0,
+            "zeroLoss": false,
+            "lostEvents": 1000,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 4 轮 preflush-d0：存活 0/1000，计数 1000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+          },
+          {
+            "round": 4,
+            "verdict": "complete",
+            "complete": true,
+            "windowCaptured": true,
+            "reconciles": true,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 1000,
+            "unaccountedEvents": 0,
+            "zeroLoss": false,
+            "lostEvents": 1000,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 5 轮 preflush-d0：存活 0/1000，计数 1000，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+          },
+          {
+            "round": 5,
+            "verdict": "undercounted",
+            "complete": false,
+            "windowCaptured": true,
+            "reconciles": false,
+            "expectedEvents": 1000,
+            "survivors": 0,
+            "commitLost": 10,
+            "unaccountedEvents": 990,
+            "zeroLoss": false,
+            "lostEvents": null,
+            "lostEventsLowerBound": 1000,
+            "blankIsNotZeroLoss": true,
+            "text": "第 6 轮 preflush-d0：存活 0/1000，计数 10，差值 990 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：990 个事件**未被单独计数**；已读回 0，至少丢 1000 —— **≠0 丢失**"
+          }
+        ],
+        "guard": "on"
+      },
+      "captureRounds": 6,
+      "captureSelectedRound": 0
     },
     {
       "name": "preflush-small",
       "group": "preflush",
+      "round": 3,
       "scheduledDelayMs": 0,
       "awaitSettled": false,
       "count": 10,
@@ -3032,8 +4125,8 @@
       "padBytes": 0,
       "limits": null,
       "expectedEvents": 100,
-      "dbName": "e2e-d004-preflush-small",
-      "profile": "profile-preflush-small",
+      "dbName": "e2e-d004-preflush-small-r3",
+      "profile": "profile-preflush-small-r3",
       "open": {
         "stats": {
           "storedBatches": 0,
@@ -3079,9 +4172,9 @@
         ]
       },
       "kill": {
-        "mode": "SIGKILL via launch-pids=78667,78673",
-        "pid": 78667,
-        "killAt": 1792054508274
+        "mode": "SIGKILL via launch-pids=50741,50748",
+        "pid": 50741,
+        "killAt": 1792134997566
       },
       "measuredMsAfterIssue": 0,
       "processExited": true,
@@ -3092,7 +4185,7 @@
           "summaries"
         ],
         "counts": {
-          "meta": 1,
+          "meta": 2,
           "records": 0,
           "summaries": 0
         },
@@ -3100,12 +4193,26 @@
           {
             "key": "format",
             "value": "1"
+          },
+          {
+            "key": "intent:preflush-small-first",
+            "value": "{\"session_id\":\"preflush-small-first\",\"total_enqueued\":100,\"total_committed\":0,\"first_pending_at\":1792134997566,\"updated_at\":1792134997566}"
           }
         ],
         "metaParsed": [
           {
             "key": "format",
             "value": 1
+          },
+          {
+            "key": "intent:preflush-small-first",
+            "value": {
+              "session_id": "preflush-small-first",
+              "total_enqueued": 100,
+              "total_committed": 0,
+              "first_pending_at": 1792134997566,
+              "updated_at": 1792134997566
+            }
           }
         ]
       },
@@ -3125,16 +4232,18 @@
             "oldestPendingMs": null,
             "commitLatencyP50Ms": null,
             "commitLatencyP95Ms": null,
-            "commitLostEvents": 0,
-            "commitLostWindowMs": null,
-            "commitLostObservedWindowMs": null
+            "commitLostEvents": 100,
+            "commitLostWindowMs": 739,
+            "commitLostObservedWindowMs": 0
           }
         },
         "commitLoss": {
-          "events": 0,
-          "windowMs": 0,
+          "events": 100,
+          "windowMs": 739,
           "observedWindowMs": 0,
-          "sessionIds": []
+          "sessionIds": [
+            "preflush-small-first"
+          ]
         }
       },
       "inventoryCounts": {
@@ -3155,16 +4264,18 @@
           "oldestPendingMs": null,
           "commitLatencyP50Ms": null,
           "commitLatencyP95Ms": null,
-          "commitLostEvents": 0,
-          "commitLostWindowMs": null,
-          "commitLostObservedWindowMs": null
+          "commitLostEvents": 100,
+          "commitLostWindowMs": 739,
+          "commitLostObservedWindowMs": 0
         }
       },
       "reopenCommitLoss": {
-        "events": 0,
-        "windowMs": 0,
+        "events": 100,
+        "windowMs": 739,
         "observedWindowMs": 0,
-        "sessionIds": []
+        "sessionIds": [
+          "preflush-small-first"
+        ]
       },
       "evictedOnReopen": false,
       "expectedBatchIds": 10,
@@ -3185,16 +4296,103 @@
       },
       "d004": {
         "oncompleteSurvivors": null,
-        "uncommittedFromIntent": 0,
-        "commitLostWindowMs": 0
+        "uncommittedFromIntent": 100,
+        "commitLostWindowMs": 739
       },
-      "exposureReconciles": {
-        "survivors": 0,
-        "commitLost": 0,
-        "expected": 100
+      "exposureReconciles": true,
+      "windowCaptured": true,
+      "nothingCommitted": false,
+      "captureGate": {
+        "name": "preflush-small",
+        "gated": true,
+        "requiredStreak": 3,
+        "maxRounds": 6,
+        "roundCount": 4,
+        "verdict": "complete-with-jitter",
+        "passed": true,
+        "bestStreak": 3,
+        "discardedRounds": 1,
+        "jitterRate": 0.25,
+        "classes": {
+          "complete": 3,
+          "undercounted": 1,
+          "blank": 0,
+          "overcounted": 0,
+          "torn": 0,
+          "window-missed": 0
+        },
+        "selectedRoundIndex": 3,
+        "blankIsNotZeroLoss": true,
+        "rounds": [
+          {
+            "round": 0,
+            "verdict": "undercounted",
+            "complete": false,
+            "windowCaptured": true,
+            "reconciles": false,
+            "expectedEvents": 100,
+            "survivors": 0,
+            "commitLost": 10,
+            "unaccountedEvents": 90,
+            "zeroLoss": false,
+            "lostEvents": null,
+            "lostEventsLowerBound": 100,
+            "blankIsNotZeroLoss": true,
+            "text": "第 1 轮 preflush-small：存活 0/100，计数 10，差值 90 → **窗口已捕获但计数偏小**（锚点合并残余窗口）：90 个事件**未被单独计数**；已读回 0，至少丢 100 —— **≠0 丢失**"
+          },
+          {
+            "round": 1,
+            "verdict": "complete",
+            "complete": true,
+            "windowCaptured": true,
+            "reconciles": true,
+            "expectedEvents": 100,
+            "survivors": 0,
+            "commitLost": 100,
+            "unaccountedEvents": 0,
+            "zeroLoss": false,
+            "lostEvents": 100,
+            "lostEventsLowerBound": 100,
+            "blankIsNotZeroLoss": true,
+            "text": "第 2 轮 preflush-small：存活 0/100，计数 100，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+          },
+          {
+            "round": 2,
+            "verdict": "complete",
+            "complete": true,
+            "windowCaptured": true,
+            "reconciles": true,
+            "expectedEvents": 100,
+            "survivors": 0,
+            "commitLost": 100,
+            "unaccountedEvents": 0,
+            "zeroLoss": false,
+            "lostEvents": 100,
+            "lostEventsLowerBound": 100,
+            "blankIsNotZeroLoss": true,
+            "text": "第 3 轮 preflush-small：存活 0/100，计数 100，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+          },
+          {
+            "round": 3,
+            "verdict": "complete",
+            "complete": true,
+            "windowCaptured": true,
+            "reconciles": true,
+            "expectedEvents": 100,
+            "survivors": 0,
+            "commitLost": 100,
+            "unaccountedEvents": 0,
+            "zeroLoss": false,
+            "lostEvents": 100,
+            "lostEventsLowerBound": 100,
+            "blankIsNotZeroLoss": true,
+            "text": "第 4 轮 preflush-small：存活 0/100，计数 100，差值 0 → **完整**（窗口已捕获且对账等式成立）"
+          }
+        ],
+        "guard": "on"
       },
-      "windowCaptured": false,
-      "nothingCommitted": true
+      "captureRounds": 4,
+      "captureSelectedRound": 3
     }
   ],
   "grouped": {
@@ -3202,14 +4400,16 @@
       {
         "name": "durable",
         "scheduledDelayMs": null,
-        "measuredMsAfterIssue": 16,
+        "measuredMsAfterIssue": 8,
         "survivedEvents": 1000,
         "expectedEvents": 1000,
         "rate": 1,
         "commitLostEvents": 0,
         "commitLostWindowMs": 0,
         "windowCaptured": false,
-        "reconciles": true
+        "reconciles": true,
+        "captureVerdict": "not-gated",
+        "captureRounds": 1
       }
     ],
     "unsettled": [
@@ -3220,74 +4420,82 @@
         "survivedEvents": 0,
         "expectedEvents": 1000,
         "rate": 0,
-        "commitLostEvents": 10,
-        "commitLostWindowMs": 680,
+        "commitLostEvents": 1000,
+        "commitLostWindowMs": 608,
         "windowCaptured": true,
-        "reconciles": {
-          "survivors": 0,
-          "commitLost": 10,
-          "expected": 1000
-        }
+        "reconciles": true,
+        "captureVerdict": "never-complete",
+        "captureRounds": 6
       },
       {
         "name": "pending-d5",
         "scheduledDelayMs": 5,
-        "measuredMsAfterIssue": 5,
+        "measuredMsAfterIssue": 6,
         "survivedEvents": 0,
         "expectedEvents": 1000,
         "rate": 0,
         "commitLostEvents": 1000,
-        "commitLostWindowMs": 596,
+        "commitLostWindowMs": 1147,
         "windowCaptured": true,
-        "reconciles": true
+        "reconciles": true,
+        "captureVerdict": "not-gated",
+        "captureRounds": 1
       },
       {
         "name": "pending-d20",
         "scheduledDelayMs": 20,
-        "measuredMsAfterIssue": 20,
+        "measuredMsAfterIssue": 22,
         "survivedEvents": 1000,
         "expectedEvents": 1000,
         "rate": 1,
         "commitLostEvents": 0,
         "commitLostWindowMs": 0,
         "windowCaptured": false,
-        "reconciles": true
+        "reconciles": true,
+        "captureVerdict": "not-gated",
+        "captureRounds": 1
       },
       {
         "name": "pending-d60",
         "scheduledDelayMs": 60,
-        "measuredMsAfterIssue": 62,
+        "measuredMsAfterIssue": 61,
         "survivedEvents": 1000,
         "expectedEvents": 1000,
         "rate": 1,
         "commitLostEvents": 0,
         "commitLostWindowMs": 0,
         "windowCaptured": false,
-        "reconciles": true
+        "reconciles": true,
+        "captureVerdict": "not-gated",
+        "captureRounds": 1
       },
       {
         "name": "pending-d200",
         "scheduledDelayMs": 200,
-        "measuredMsAfterIssue": 202,
+        "measuredMsAfterIssue": 201,
         "survivedEvents": 1000,
         "expectedEvents": 1000,
         "rate": 1,
         "commitLostEvents": 0,
         "commitLostWindowMs": 0,
         "windowCaptured": false,
-        "reconciles": true
+        "reconciles": true,
+        "captureVerdict": "not-gated",
+        "captureRounds": 1
       },
       {
         "name": "bulk-d0",
         "scheduledDelayMs": 10,
-        "measuredMsAfterIssue": 12,
+        "measuredMsAfterIssue": 11,
         "survivedEvents": 0,
         "expectedEvents": 5000,
         "rate": 0,
         "commitLostEvents": 5000,
-        "commitLostWindowMs": 615,
+        "commitLostWindowMs": 712,
         "windowCaptured": true,
-        "reconciles": true
+        "reconciles": true,
+        "captureVerdict": "not-gated",
+        "captureRounds": 1
       }
     ],
     "preflush": [
@@ -3299,9 +4507,11 @@
         "expectedEvents": 1000,
         "rate": 0,
         "commitLostEvents": 1000,
-        "commitLostWindowMs": 618,
+        "commitLostWindowMs": 1386,
         "windowCaptured": true,
-        "reconciles": true
+        "reconciles": true,
+        "captureVerdict": "never-complete",
+        "captureRounds": 6
       },
       {
         "name": "preflush-small",
@@ -3310,14 +4520,12 @@
         "survivedEvents": 0,
         "expectedEvents": 100,
         "rate": 0,
-        "commitLostEvents": 0,
-        "commitLostWindowMs": 0,
-        "windowCaptured": false,
-        "reconciles": {
-          "survivors": 0,
-          "commitLost": 0,
-          "expected": 100
-        }
+        "commitLostEvents": 100,
+        "commitLostWindowMs": 739,
+        "windowCaptured": true,
+        "reconciles": true,
+        "captureVerdict": "complete-with-jitter",
+        "captureRounds": 4
       }
     ]
   }

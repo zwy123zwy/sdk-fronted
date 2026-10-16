@@ -1,10 +1,10 @@
 {
   "task": "T30",
-  "generatedAt": "2026-10-15T09:23:59.163Z",
+  "generatedAt": "2026-10-16T07:21:32.774Z",
   "engine": "webpack 5.104.1 + webpack-dev-server / node v24.16.0",
   "command": "node examples/webpack/scripts/dev-server.mjs",
   "webpackResolvedFrom": "examples/webpack/node_modules",
-  "origin": "http://127.0.0.1:63408",
+  "origin": "http://127.0.0.1:63613",
   "checks": {
     "indexHtml200": true,
     "indexHtmlIsExample": true,
@@ -17,13 +17,13 @@
   "http": {
     "indexStatus": 200,
     "bundleStatus": 200,
-    "bundleBytes": 863984,
+    "bundleBytes": 865823,
     "bundleContentType": "text/javascript; charset=utf-8"
   },
   "sandbox": {
-    "bundlePath": "http://127.0.0.1:63408/main.js",
-    "bundleBytes": 863984,
-    "evaluatedMs": 14,
+    "bundlePath": "http://127.0.0.1:63613/main.js",
+    "bundleBytes": 865823,
+    "evaluatedMs": 23,
     "sdkVersion": "0.1.0",
     "expectedSdkVersion": "0.1.0",
     "domText": "web-report-sdk 0.1.0",

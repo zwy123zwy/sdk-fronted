@@ -71,6 +71,25 @@ function summarizeCell(cell, index, browser) {
     reconciles,
     reconcilesBool,
     reconcilesObj,
+    // ---- 捕获判定（T29 尾部护栏；旧产物没有这一段，字段为 null，不补数）----
+    captureVerdict: cell.captureGate?.verdict ?? null,
+    captureGated: cell.captureGate?.gated ?? null,
+    capturePassed: cell.captureGate?.passed ?? null,
+    captureRounds: cell.captureRounds ?? cell.captureGate?.roundCount ?? null,
+    captureBestStreak: cell.captureGate?.bestStreak ?? null,
+    captureRequiredStreak: cell.captureGate?.requiredStreak ?? null,
+    captureJitterRate: cell.captureGate?.jitterRate ?? null,
+    captureClasses: cell.captureGate?.classes ?? null,
+    captureRoundVerdicts: Array.isArray(cell.captureGate?.rounds)
+      ? cell.captureGate.rounds.map((r) => ({
+          round: r.round,
+          verdict: r.verdict,
+          survivors: r.survivors,
+          commitLost: r.commitLost,
+          lostEvents: r.lostEvents,
+          zeroLoss: r.zeroLoss,
+        }))
+      : null,
     // 对账等式：存活 + 未提交计数 == 期望？（与 T29 spec 的 D004-B/C 判据一致）
     identity: survived + commitLost - exp,
     identityHolds: survived + commitLost === exp,
@@ -318,8 +337,81 @@ export function renderReconciliation() {
   p('');
   p(renderExposureBounds());
   p('');
+  p(renderCaptureGate());
 
   return L.join('\n');
+}
+
+// ------------------------------------------------- 捕获判定（T29 尾部护栏，只增不改）
+
+/**
+ * 3.4 捕获判定：**只增不改**。
+ *
+ * 本节不改 3.0–3.3 的任何判定，只把 T29 尾部新增的护栏读数（`captureGates`）列出来 ——
+ * 因为 3.0/3.1 看到的是**被报告的那一轮**（护栏刻意选一轮完整捕获），
+ * 单看它会把「捕获不稳定」读成「完全对账」。
+ *
+ * 口径（与 `tests/e2e/lib/d004-capture.mjs` 同源）：
+ *   - `passed=true` 仅当**连续 `requiredStreak` 轮完整**（窗口已捕获且 `存活+计数=期望`）；
+ *   - `never-complete` / `blank-only` / `window-never-captured` 都是**未通过**捕获判定，
+ *     且**不得**读作「0 丢失」；
+ *   - 逐轮判定里 `blank`/`undercounted` 的 `lostEvents` 是 `null`（无计数证据），
+ *     只有 `window-missed`（全部读回）才是 `0`。
+ */
+export function renderCaptureGate() {
+  const out = [];
+  out.push('### 3.4 捕获判定（T29 尾部护栏「锚点合并残余窗口」，只增不改）');
+  out.push('');
+  out.push('> 背景：intent 锚点是**异步**写入且取值取自发起那一刻（`offline-store.ts:367-396`），');
+  out.push('> SIGKILL 落在 Δt=0 时只有最早那份锚点落盘 → `prewrite_commit_lost` **偏小**（不是数据丢失）。');
+  out.push('> 出处：`docs/reports/e2e-d004-hardkill.md` 局限第 6 条（已预报）。本节只报判定，不改上面任何结论。');
+  out.push('');
+
+  const summaries = loadSummaries();
+  const withGate = summaries.filter((s) => !s.missing && s.cells.some((c) => c.captureVerdict !== null));
+  if (withGate.length === 0) {
+    out.push('> ⚠️ 现有 d004 产物里没有 `captureGate` 字段（早于本护栏），本节无数据（不补数）。');
+    return out.join('\n');
+  }
+
+  out.push('| 引擎 | 格子 | 捕获判定 | 通过 | 轮数 | 最长连续完整 / 要求 | 抖动率 | 逐轮判定（存活/计数/lostEvents） |');
+  out.push('|---|---|---|---|---|---|---|---|');
+  for (const s of summaries) {
+    if (s.missing) continue;
+    for (const c of s.cells) {
+      if (c.captureVerdict === null) continue;
+      const rounds = (c.captureRoundVerdicts ?? [])
+        .map((r) => `#${r.round + 1} ${r.verdict}(${r.survivors}/${r.commitLost}/${r.lostEvents === null ? 'null' : r.lostEvents})`)
+        .join('、');
+      out.push(
+        `| ${s.browser} | \`${c.name}\` | \`${c.captureVerdict}\` | ` +
+          `${c.capturePassed === null ? '—（非捕获格）' : c.capturePassed ? '✅' : '❌ **未通过**'} | ` +
+          `${c.captureRounds ?? '—'} | ${c.captureBestStreak ?? '—'} / ${c.captureRequiredStreak ?? '—'} | ` +
+          `${c.captureJitterRate === null || c.captureJitterRate === undefined ? '—' : (c.captureJitterRate * 100).toFixed(0) + '%'} | ` +
+          `${rounds === '' ? '—' : rounds} |`,
+      );
+    }
+  }
+  out.push('');
+  const notPassed = [];
+  for (const s of summaries) {
+    if (s.missing) continue;
+    for (const c of s.cells) if (c.captureGated === true && c.capturePassed === false) notPassed.push(`${s.browser} \`${c.name}\`（${c.captureVerdict}，抖动 ${((c.captureJitterRate ?? 0) * 100).toFixed(0)}%）`);
+  }
+  if (notPassed.length === 0) {
+    out.push('- 所有捕获格都**通过**了捕获判定（连续 N 轮完整）。');
+  } else {
+    out.push(
+      `- **未通过捕获判定的捕获格（${notPassed.length} 个）**：${notPassed.join('、')}。` +
+        '它们是**捕获不稳定/无计数证据**，既不是「0 丢失」也不是「数据丢失」；' +
+        '逐轮判定里 `lostEvents: null` 表示**没有计数证据**（不得读成 0）。',
+    );
+  }
+  out.push(
+    '- 注意：3.0/3.1/3.2 的表格读的是**被报告的那一轮**（护栏刻意挑一轮完整捕获，以免单轮抖动被读成红/绿）；' +
+      '单看那几张表**看不出**捕获是否稳定 —— 稳定性只在本节。',
+  );
+  return out.join('\n');
 }
 
 // ---------------------------------------------------------------- CR-008 夹逼读数（只增不改）
