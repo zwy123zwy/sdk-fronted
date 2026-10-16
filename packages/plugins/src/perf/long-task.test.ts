@@ -52,3 +52,47 @@ describe('C05-AC-06 长任务上报 duration_ms', () => {
     expect(event?.dimensions, 'dimensions 必须是空对象').toEqual({});
   });
 });
+
+/**
+ * 覆盖缺口（T33 §11.8 第 3 处）：`web_long_task.occurred_at` 必须来自注入的 `now` 端口。
+ *
+ * 判别口径：注入**不可能自然出现**的 `4102444800000`（2100-01-01T00:00:00Z），
+ * 断言产出的 `occurred_at` **等于该注入值**。既有用例只断言条数 /
+ * `duration_ms`（取自条目）/ 空 `dimensions`，因此插件面接线错误不会变红。
+ */
+describe('C05-AC-06 web_long_task.occurred_at 必须来自注入的 now', () => {
+  it('长任务事件的 occurred_at 等于注入值 4102444800000', () => {
+    const injectedNow = 4_102_444_800_000;
+    const longTasks: LongTaskEvent[] = [];
+    let callback: PerfObserverCallback | undefined;
+
+    createPerfCapture(
+      {
+        vitals: () => undefined,
+        longTask: (event) => {
+          longTasks.push(event);
+        },
+      },
+      {
+        createObserver: (cb): PerfObserverLike => {
+          callback = cb;
+          return {
+            observe: () => undefined,
+            disconnect: () => undefined,
+          };
+        },
+        now: () => injectedNow,
+      },
+    );
+
+    callback?.({
+      getEntries: () => [{ entryType: 'longtask', name: 'self', startTime: 340, duration: 120 }],
+    });
+
+    expect(longTasks, '应上报一条 web_long_task').toHaveLength(1);
+    expect(
+      longTasks[0]?.occurred_at,
+      `occurred_at 必须是注入 now 的返回值 ${String(injectedNow)}（Date.now 或丢弃返回值都会在此变红）`,
+    ).toBe(injectedNow);
+  });
+});

@@ -289,3 +289,56 @@ describe('C05-F2 VitalsAccumulatorOptions.now 必须被真实读取（注入即�
     }
   });
 });
+
+/**
+ * 覆盖缺口（T33 §11.8 第 3 处的 vitals 侧）：**插件面**把 `ports.now` 接进
+ * `VitalsAccumulator` 的这条接线本身也必须钉住 —— 累加器自身有覆盖（上一节）不等于插件接线有覆盖。
+ * 这里只补插件面的值断言：注入不可能自然出现的 `4102444800000` 并断言事件 `occurred_at` 等于它。
+ */
+describe('C05-F2 插件面 now 接线（vitals 路径）必须被真实读取', () => {
+  it('加载完成上报的 FCP 事件 occurred_at 等于注入值 4102444800000', () => {
+    const injectedNow = 4_102_444_800_000;
+    const vitalsEvents: VitalsEvent[] = [];
+    const loadCallbacks: (() => void)[] = [];
+    let callback: PerfObserverCallback | undefined;
+
+    createPerfCapture(
+      {
+        vitals: (event) => {
+          vitalsEvents.push(event);
+        },
+        longTask: () => undefined,
+      },
+      {
+        createObserver: (cb): PerfObserverLike => {
+          callback = cb;
+          return {
+            observe: () => undefined,
+            disconnect: () => undefined,
+          };
+        },
+        now: () => injectedNow,
+        completion: {
+          onHidden: () => () => undefined,
+          onInteraction: () => () => undefined,
+          onLoad: (cb) => {
+            loadCallbacks.push(cb);
+            return () => undefined;
+          },
+        },
+      },
+    );
+
+    callback?.({
+      getEntries: () => [entry({ entryType: 'paint', name: 'first-contentful-paint', startTime: 800 })],
+    });
+    for (const cb of loadCallbacks) cb();
+
+    const fcp = vitalsEvents.find((event) => event.dimensions.metric_name === 'FCP');
+    expect(fcp, 'FCP 必须上报').toBeDefined();
+    expect(
+      fcp?.occurred_at,
+      `occurred_at 必须是注入 now 的返回值 ${String(injectedNow)}（Date.now 或丢弃返回值都会在此变红）`,
+    ).toBe(injectedNow);
+  });
+});

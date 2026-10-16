@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createRouteCapture } from './index';
+import type { RouteChange } from './index';
 
 type PushState = (data: unknown, unused: string, url?: string | URL | null) => void;
 
@@ -151,5 +152,50 @@ describe('C05-AC-08 History 三种变化各上报一次且 page_id 为模板', (
     expect(() => {
       capture.uninstall();
     }).not.toThrow();
+  });
+});
+
+/**
+ * 覆盖缺口（T33 §11.8 第 1 处）：`RouteChange.at` 必须来自注入的 `now` 端口。
+ *
+ * 判别口径：注入一个**不可能自然出现**的时间戳（`4102444800000` = 2100-01-01T00:00:00Z），
+ * 断言产出的 `change.at` **等于该注入值**。此前多处用例注入了 `now` 却只断言
+ * `via`/`path`/`template`，因此"不调用注入值（改用 `Date.now`）"与"调用了但丢弃
+ * 返回值"两种接线错误都不会变红；本用例断言的是**值**。
+ */
+describe('RouteChange.at 必须来自注入的 now', () => {
+  it('push / replace / pop 三种变化的 change.at 都等于注入值 4102444800000', () => {
+    const injectedNow = 4_102_444_800_000;
+    const fake = createFakeHistory();
+    const listeners: (() => void)[] = [];
+    const changes: RouteChange[] = [];
+
+    const capture = createRouteCapture({
+      history: fake.history,
+      hooker: createHooker(),
+      listen: (_type, handler) => {
+        listeners.push(handler);
+        return () => undefined;
+      },
+      currentUrl: () => ({ pathname: '/task/123', hash: '' }),
+      now: () => injectedNow,
+      options: { mode: 'history', templates: ['/task/:id'] },
+    });
+    capture.onRouteChange((change) => {
+      changes.push(change);
+    });
+
+    fake.history.pushState({}, '', '/task/123');
+    fake.history.replaceState({}, '', '/task/456');
+    for (const handler of listeners) handler();
+
+    expect(changes, '三种路由变化各产生一条 change').toHaveLength(3);
+    expect(
+      changes.map((change) => change.at),
+      `change.at 必须是注入 now 的返回值 ${String(injectedNow)}（Date.now 或丢弃返回值都会在此变红）`,
+    ).toEqual([injectedNow, injectedNow, injectedNow]);
+    for (const change of changes) {
+      expect(change.at, 'change.at 不得是 Date.now()').not.toBe(Date.now());
+    }
   });
 });

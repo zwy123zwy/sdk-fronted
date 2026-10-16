@@ -291,3 +291,32 @@ describe('C05-AC-11 真实包装链路上的隐私（不采集 Authorization 与
     expect(SDK_INTERNAL_HEADER).toBe('x-web-report-sdk-internal');
   });
 });
+
+/**
+ * 覆盖缺口（T33 §11.8 第 2 处）：事件 `occurred_at` 必须来自注入的 `now` 端口。
+ *
+ * 判别口径：注入**不可能自然出现**的 `4102444800000`（2100-01-01T00:00:00Z），
+ * 断言产出的 `occurred_at` **等于该注入值**。既有用例只断言 `metrics.duration_ms`
+ * （同一假时钟做差），因此"不调用注入值"与"调用了但丢弃返回值"都不会变红。
+ */
+describe('web_http.occurred_at 必须来自注入的 now', () => {
+  it('record 产出事件的 occurred_at 等于注入值 4102444800000', () => {
+    const injectedNow = 4_102_444_800_000;
+    const events: HttpEvent[] = [];
+    const capture = createHttpCapture(
+      (event) => {
+        events.push(event);
+      },
+      { now: () => injectedNow },
+    );
+    const record: RecordFn = capture.record;
+
+    record({ method: 'GET', url: '/api/task/1' }, { status: 200 }, 42);
+
+    expect(events, '一次成功请求产出一条 web_http').toHaveLength(1);
+    expect(
+      events[0]?.occurred_at,
+      `occurred_at 必须是注入 now 的返回值 ${String(injectedNow)}（Date.now 或丢弃返回值都会在此变红）`,
+    ).toBe(injectedNow);
+  });
+});
