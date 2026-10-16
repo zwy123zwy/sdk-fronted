@@ -1159,7 +1159,7 @@ b4f583680cfdefd2e5104e57500b53a56a9cfa0f9711ae9619e228e7176c7551  packages/plugi
 **回归（最终状态实跑）**：`packages/plugins` = **20 files / 128 tests 全绿**（基线 124，**+4** 即 G1–G4）；
 `pnpm exec tsc -p packages/plugins` exit 0；`pnpm exec eslint packages/plugins/src` exit 0。
 
-**补完后全量钉常量法复核（34 个读取点，方法与 §11.7/§11.8 相同）**：**32 红 / 2 绿**，逐点红计数：
+**补完后全量钉常量法复核（34 个读取点，方法与 §11.7/§11.8 相同）**：**32 红 / 2 绿**（该 2 绿 = 下表 `RoutePorts.hooker` / `HttpPorts.hooker`，**已由后续 lane 在 §11.10 补覆盖清零；最新一次同法全量复核为 34 红 / 0 绿**），逐点红计数：
 
 ```
 R1_mode 7 / R2_templates 4 / R3_match 1 / R4_now 1 / R5_currentUrl 4 / R6_history 4 / R8_listen 5 /
@@ -1170,17 +1170,127 @@ E6_captureResErr 1 / E7_onLeave 1 / E8_dedup_windowMs 2 /
 A1_forward 4 / A2_resolve 2 / A3_fieldMap 1 / A4_constants 1 / A5_eventTypes 1 / C1_apmCoexist 2
 ```
 
-**尚未达到"零绿点"**：仍有 **2 个绿点**，是**本轮新发现**的同类缺口，**只报告、不扩大改动**：
+**（历史记录）当时尚未达到"零绿点"**：仍有 **2 个绿点**，是**本轮新发现**的同类缺口，**只报告、不扩大改动**。
+**→ 后续 lane 已按下面的修法建议补齐并做实跑双口径变异（见 §11.10），这 2 个绿点已清零。**
 
 | 字段 | 读取点 | 钉常量证据 | 为什么没有判别性用例 |
 |---|---|---|---|
-| `RoutePorts.hooker` | `route/plugin.ts:194` `const hooker = ports?.hooker ?? createInlineHooker();` | 钉法 `→ createInlineHooker()`（丢弃注入分支；确认文件确有变化，非无效钉法）⇒ **128/128 全绿** | `history.test.ts:79/120/142/175` 注入的是**手工复刻 `createInlineHooker` 语义**的 `createHooker()`（同文件 `:49`），`edge-cases.test.ts:94` 直接注入 `createInlineHooker()`；断言只覆盖"转发到原层 + 恢复原引用"，这两点在注入实现与降级实现下**完全同形**，故"注入的 hooker 是否被使用"无人能判 |
-| `HttpPorts.hooker` | `http/plugin.ts:262` `const hooker = ports?.hooker ?? createInlineHooker();` | 同上，仅在 `http/plugin.ts` 上钉 `→ createInlineHooker()` ⇒ **128/128 全绿** | `capture.test.ts:168/193/224/253/286`、`trace-header.test.ts:96/126` 同样只注入语义等价的 `createHooker()`/`createInlineHooker()`，无"内核注册表确实被调用"的判别性断言（例如注入一个 `hook` 抛错/计数的桩） |
+| `RoutePorts.hooker` | `route/plugin.ts:194` `const hooker = ports?.hooker ?? createInlineHooker();` | 钉法 `→ createInlineHooker()`（丢弃注入分支；确认文件确有变化，非无效钉法）⇒ **128/128 全绿** | `history.test.ts:79/120/142/175` 注入的是**手工复刻 `createInlineHooker` 语义**的 `createHooker()`（同文件 `:49`），`edge-cases.test.ts:94` 直接注入 `createInlineHooker()`；断言只覆盖"转发到原层 + 恢复原引用"，这两点在注入实现与降级实现下**完全同形**，故"注入的 hooker 是否被使用"无人能判。**⇒ 已补覆盖 + 实跑口径A/B（2026-10-16，见 §11.10）**：新增 `route/hooker-port.test.ts` |
+| `HttpPorts.hooker` | `http/plugin.ts:262` `const hooker = ports?.hooker ?? createInlineHooker();` | 同上，仅在 `http/plugin.ts` 上钉 `→ createInlineHooker()` ⇒ **128/128 全绿** | `capture.test.ts:168/193/224/253/286`、`trace-header.test.ts:96/126` 同样只注入语义等价的 `createHooker()`/`createInlineHooker()`，无"内核注册表确实被调用"的判别性断言（例如注入一个 `hook` 抛错/计数的桩）。**⇒ 已补覆盖 + 实跑口径A/B（2026-10-16，见 §11.10）**：新增 `http/hooker-port.test.ts` |
 
 修法建议（留给有所有权的人）：给 `ports.hooker` 注入一个**可观测的桩**（如 `hook` 被调用次数计数，或
 "只有注入 hooker 才记录的标记"），断言包装确实经过它；两处同法即可把剩下 2 个绿点清零。
+**（已由后续 lane 按此落地：可观测桩 = 调用记录 + 装上层身份 + 注销簿记，两处各 1 条用例，见 §11.10。）**
 
 **本轮改动文件**：`packages/plugins/src/{route/history,http/capture,perf/long-task,perf/vitals}.test.ts`（各 +1 用例）
 与本报告。**未做任何 git 写操作**；实现文件、契约、决策、验收用例、门禁配置均未改。
 **注意**：复核期间工作区另有 lane 在写 `CHANGELOG.md` 与 `tests/compat/results/*.json`（mtime 15:36–15:39），
 与本 lane 无关，本 lane 未触碰。全量钉常量探针的临时改动在 `/tmp/pinsweep.*` 备份下逐点恢复并已 `cmp` 复核。
+
+### 11.10 最后 2 个绿点（`RoutePorts.hooker` / `HttpPorts.hooker`）已补覆盖（2026-10-16，后续 lane 收口）
+
+§11.9 末尾点名的 2 个绿点本轮清零。**实现文件零改动**（两处 `plugin.ts` 探针变异后逐字节恢复，
+sha256 与基线一致）；**未改任何既有断言**（只新增测试文件），未新增依赖，未动
+`docs/contracts/**`、`docs/decisions/**`、`tests/acceptance/**`、门禁配置。
+
+**桩的可观测方式与理由**（这是本轮的关键）：注入一个**自带簿记**的 hooker 桩
+（`route/hooker-port.test.ts:50` 起、`http/hooker-port.test.ts:50` 起，两文件各自独立一份）。
+它**语义仍与 `createInlineHooker()` 完全一致**（成对安装、条件恢复），但多留三样**只有"被真正调用过"才会存在**的记录：
+
+1. **调用记录**：每次 `hook(target, key, wrapper)` 记录 `target` 身份与 `key`（`calls()` / `keys()`），并在安装前记录 `saved`（`originalValue(key)`）；
+2. **装上层身份**：记录自己实际写进 `target[key]` 的那一层（`installedValue(key)`）；
+3. **注销簿记**：记录每个返回的注销函数被调用的 key，并维护未注销层数 `liveCount()`。
+
+**为什么这能与降级实现区分**：降级实现 `createInlineHooker()` 不产生任何簿记；因此
+"实现没读注入 hooker、改用降级实现"会让 `keys()` 为空、`installedValue()` 为 `undefined`；
+"读了但丢弃它返回的注销函数"会让卸载后 `liveCount()` 仍为 2、`disposedKeys()` 为空、
+`refs`/`history` 上不是原引用。这两类接线错误下，**断言红的是桩自己的簿记**，
+而不是"包装行为"（后者在两种实现下同形，正是旧用例打不死的原因）。
+断言对象都是**值/行为级**：调用参数身份、装上层身份、`web_pageview` 模板 / `web_http` 的
+`status`+`method`+`url_template` 实际值、注销前后的状态，没有一条是"事件存在"。
+
+**新增用例（只加不改，2 条，各 1 个 `it`）**：
+
+| # | 用例（文件:行） | 值/行为级断言 | 为什么与降级实现可区分 |
+|---|---|---|---|
+| G5 | `route/hooker-port.test.ts:114`「RoutePorts.hooker 必须真的被使用（注入桩的可观测簿记）」 | `expect(stub.keys()).toEqual(['pushState','replaceState'])`（`:130`）；`stub.calls().map(c=>c.target)` 等于伪造 `history`（`:135`）；`originalValue('pushState'/'replaceState')` 等于原生两个函数（`:136`–`:137`）；`history.pushState === installedValue('pushState')`、`replaceState` 同理（`:139`–`:142`）；`pushState(...)` 后 `changes === ['/task/:id']`（`:146`–`:147`）；`uninstall()` 后 `liveCount()===0`、`disposedKeys()===['pushState','replaceState']`、两个方法仍是原生引用（`:153`–`:156`） | 旧用例注入的 `createHooker()`/`createInlineHooker()` **没有这些记录**，所以两种实现下输出同形；本用例断的是**注入桩留下的簿记**，只有实现真的调用了它才会出现 |
+| G6 | `http/hooker-port.test.ts:105`「HttpPorts.hooker 必须真的被使用（注入桩的可观测簿记）」 | `expect(stub.keys()).toEqual(['fetch','XMLHttpRequest'])`（`:130`）；`calls()` 的 target 都是同一个 `refs` 容器（`:135`）；`originalValue('fetch') === originalFetch`、`originalValue('XMLHttpRequest') === FakeXhr`（`:136`–`:137`）；`holder.fetch === installedValue('fetch')`、`holder.XMLHttpRequest === installedValue('XMLHttpRequest')`（`:139`–`:141`）；驱动 fetch 与 XHR 后 `events.map(e=>e.metrics.status)===[200,201]`、`method===['GET','POST']`、`url_template` 去查询参数（`:146`–`:155`）；`uninstall()` 后 `liveCount()===0`、`disposedKeys()===['fetch','XMLHttpRequest']`、容器上两个引用恢复（`:163`–`:166`） | 同 G5；且**分别覆盖 http 插件的两条包装路径**（`fetch` 与 `XMLHttpRequest`），不是只覆盖其中一条 |
+
+**变异三要素（实跑原文）**：每处两个口径，命令 `pnpm exec vitest run --coverage.enabled=false --project unit packages/plugins`。
+每处先确认钉法确实改动了文件（非无效钉法），跑完 `cp` 回基线备份并 `shasum -a 256 -c` 复核。
+
+| 读取点 | 口径A：不读注入 hooker（改用 `createInlineHooker()`） | 口径B：调用了但丢弃它返回的注销函数 |
+|---|---|---|
+| `route/plugin.ts:194` | 红（1 failed / 129 passed） | 红（5 failed / 125 passed） |
+| `http/plugin.ts:262` | 红（1 failed / 129 passed） | 红（3 failed / 127 passed） |
+
+口径A 变异原文：`const hooker = ports?.hooker ?? createInlineHooker();` → `const hooker = createInlineHooker();`（两处各一次）。
+口径B 变异原文：把 `disposers.push(hooker.hook(...))` 的结果丢弃——
+`disposers.push(` → `void ((value: () => void): void => { void value; })(`，
+于是 `hooker.hook(...)` 的返回值（注销函数）被立刻丢弃（`route` 1 处、`http` 2 处：`fetch` 与 `XMLHttpRequest`）。
+**口径B 适用**：`Hooker.hook()` **有返回值**（`() => void` 注销函数，`internal/hooker.ts:13`–`:17`），
+且实现确实把该返回值交给 `uninstall()` 使用，因此 B 口径成立并已实跑为红。
+
+红断言原文（均为**值断言**，非"事件存在"）：
+
+```
+FAIL  route  > RoutePorts.hooker 必须真的被使用（注入桩的可观测簿记） > pushState/replaceState 各经过注入 hooker 一次；装的是桩那一层；卸载后桩的层全部注销
+AssertionError: 注入 hooker 必须被调用两次（pushState/replaceState）: expected [] to deeply equal [ 'pushState', 'replaceState' ]
+  ❯ packages/plugins/src/route/hooker-port.test.ts:130:70        （口径A）
+
+AssertionError: 卸载后注入 hooker 装上的层必须全部注销: expected 2 to be +0 // Object.is equality
+  ❯ packages/plugins/src/route/hooker-port.test.ts:153:57        （口径B）
+
+FAIL  http  > HttpPorts.hooker 必须真的被使用（注入桩的可观测簿记） > fetch 与 XMLHttpRequest 两条路径都经过注入 hooker；装的是桩那一层；卸载后桩的层全部注销
+AssertionError: 注入 hooker 必须覆盖 fetch 与 XMLHttpRequest 两条路径: expected [] to deeply equal [ 'fetch', 'XMLHttpRequest' ]
+  ❯ packages/plugins/src/http/hooker-port.test.ts:130:71         （口径A）
+
+AssertionError: 卸载后注入 hooker 装上的层必须全部注销: expected 2 to be +0 // Object.is equality
+  ❯ packages/plugins/src/http/hooker-port.test.ts:163:57         （口径B）
+```
+
+口径B 下另有既有用例一起变红（route：`route/history.test.ts`、`route/edge-cases.test.ts`×2、`coexist/order.test.ts`；
+http：`http/edge-cases.test.ts`、`coexist/order.test.ts`），说明 B 口径同时被"恢复原引用"类断言与
+本轮的注销簿记断言抓住；**口径A 下唯一变红的就是本轮新增的 2 条用例**（既有 128 条全绿）。
+
+**恢复后 sha256 与基线一致（硬要求）**：
+
+```
+0a50e3babb22a66ec65bcb166761fafc363eead062a12ca1bf7c527f7c3f0f5d  packages/plugins/src/route/plugin.ts
+b4f583680cfdefd2e5104e57500b53a56a9cfa0f9711ae9619e228e7176c7551  packages/plugins/src/http/plugin.ts
+```
+
+**回归（最终状态实跑）**：`packages/plugins` = **22 files / 130 tests 全绿**（§11.9 基线 128，**+2** 即 G5+G6）；
+`pnpm exec tsc -p packages/plugins` exit 0；`pnpm exec eslint packages/plugins/src` exit 0。
+
+**补完后全量钉常量法复核（同一 34 个读取点与同一脚本，方法和 §11.7/§11.8/§11.9 相同）**：**34 红 / 0 绿**。
+逐点红计数（本轮，数字 = 该探针下失败的测试数）：
+
+```
+R1_mode 8 / R2_templates 5 / R3_match 1 / R4_now 1 / R5_currentUrl 5 / R6_history 5 / R7_hooker 1 / R8_listen 5 /
+H1_urlTemplate 1 / H2_traceScope 1 / H3_traceCtxProv 1 / H4_now 1 / H5_refs 8 / H6_hooker 1 /
+V1_vitals_now 4 / V2_respStartProv 3 / V3_perf_now 2 / V4_portsRespStart 2 / V5_createObserver 11 / V6_completion 5 /
+E1_error_now 4 / E2_error_windowMs 1 / E3_reportRepeats 1 / E4_sources 2 / E5_globalContext 1 /
+E6_captureResErr 1 / E7_onLeave 1 / E8_dedup_windowMs 2 /
+A1_forward 4 / A2_resolve 2 / A3_fieldMap 1 / A4_constants 1 / A5_eventTypes 1 / C1_apmCoexist 2
+```
+
+与 §11.9 相比：`R7_hooker`、`H6_hooker` 由"128/128 全绿"转为**各 1 红**（正是本轮清零的两处）；
+`R1_mode` 7→8、`R2_templates` 4→5、`R5_currentUrl` 4→5、`R6_history` 4→5、`H5_refs` 7→8
+（本轮两条新用例在这些读取点被钉死时也一并变红，因为它们同样经由 mode/templates/currentUrl/history/refs 接线）；
+**其余 27 个读取点的红计数与 §11.9 完全一致**。脚本末尾 `restore` + `trap` 逐点恢复，结束时三个 `plugin.ts`
+的 sha256 与基线一致（见上），`git status` 只剩本 lane 新增的两个测试文件与工作区里**其它 lane** 的既有改动
+（`tests/compat/results/*.json`、`vitest.config.ts`）。**未再发现新的绿点。**
+
+**"零绿点"的边界（给后来人，必须连同结论一起读）**：
+"零绿点"只表示**在当前用例集下，这 34 个读取点每一个都至少有一条能被"钉成常量"打死的断言**，
+即"该读取点的注入值/返回值确实有人在守"。它**不等于"实现正确"**：钉常量法只能发现
+"读取点无判别性覆盖"，**不能**发现契约语义错误、边界取值错误、时序/竞态错误、
+契约与实现的一致性错误，也不能覆盖**不在探针清单里**的读取点（清单本身是人工枚举的）。
+因此本节的正确读法是"**已清零的覆盖缺口清单**"，而不是"实现已被证明正确"。
+
+**本轮改动文件**：新增 `packages/plugins/src/route/hooker-port.test.ts`、
+`packages/plugins/src/http/hooker-port.test.ts`（各 1 条用例）与本报告（§11.9 两行状态 + §11.10）。
+**未做任何 git 写操作**；实现文件、契约、决策、验收用例、既有测试断言、门禁配置均未改；
+临时变异在 `/tmp/hooker_route_plugin.baseline.ts`、`/tmp/hooker_http_plugin.baseline.ts` 备份下逐处恢复并
+`shasum -a 256 -c` 复核。
