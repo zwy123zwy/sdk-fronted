@@ -610,3 +610,178 @@ pnpm test:e2e --project=chromium --project=webkit     # 26 passed / 6 failed（1
   `D004-CAP` 红（`pending-d0: 必须显式声明空白≠0 丢失`）。**恢复**同一命令 → **3 passed**。
 - 非浏览器侧的确定性判别（同一份变异开关）见 `node tests/e2e/lib/d004-anchor-window.mjs`：
   护栏生效 `PASS 15/15`（exit 0），关掉护栏 `FAIL 6/15`（exit 1）。
+
+---
+
+## 追加节（跳过可见性 lane，2026-10-15/16）：写死的跳过 → 运行时探测 + **跳过审计**；eslint 覆盖 `.mjs`
+
+- 执行：跳过可见性 lane；工作目录 `/Users/spirit-ai/Desktop/sdk`，直接在 `main` 上工作，**无 git 写操作**。
+- 触发出处：`docs/reports/t33-access-blockers.md`「本轮**额外**发现的'永远不会失败的检查点'」第 5、6 条。
+- 改动面：`tests/e2e/**`（新增 3 个 lib 文件）、`eslint.config.js`、本报告、`tests/e2e/README.md`、
+  t33 报告（追加"已修"标记）。**未**改 `packages/**`、`docs/contracts/**`、`docs/decisions/**`、
+  `tests/acceptance/**`、`.size-limit.json`；**未**改任何既有 e2e 用例的通过标准（只加"跳过可见性"这一层）。
+- 合入：代码/配置交付物已由编排方合入 `6caa761`（"合入三条 lane 的交付物：gate-selftest 扩面 /
+  跳过可见化 / compat 产物幂等"）；本追加节的文字（含本行）在该次合入之后补写，数字全部来自合入前的实跑。
+
+### 1. 先复核实际状态：HEAD 已经不是"写死的 browserName 名单"
+
+| | t33 第 5 条的描述 | HEAD 实测（读码 + 实跑） |
+|---|---|---|
+| 跳过判据 | `test.skip(({ browserName }) => browserName !== 'chromium' && browserName !== 'webkit', '本机只支持 Chromium / WebKit')` | **已是运行时真启动探测**：`resolveBrowser()` → `launchPersistentContext(…, { timeout: 20_000 })`，起得来就 `ready:true` |
+| Firefox 可用时 | 照样跳过、整轮仍绿 | 探测成功即执行（§4 的路径证明）；不可用才跳过，且**某浏览器上全部跳过 = 判红**（§3） |
+| 用例条数 | "8 个用例" | 该文件实际 **6 条**；另外 2 条是 `beacon-quota.spec.mjs` 的同名 C07-AC-03 用例（本文注 6：`--grep C07-AC-03` 共 8 条）。那 2 条的问题**不是 skip**，见 §6 |
+
+⇒ 本轮**没有**"把写死名单改成探测"这一步可做（另一条 lane 已于 2026-10-15 做过）。按任务要求，重心转到：
+① 核实"能跑就跑"是否真的成立（**发现 3 处会误判/漏记，已修**）；② 让跳过不可能静默；③ 让 eslint 覆盖 `.mjs`。
+
+### 2. 复核"能跑就跑"：3 处缺陷（`tests/e2e/leave-slice.spec.mjs`）
+
+1. **`await context.close()` 原本在 `try` 里** —— 探测**已经启动成功**之后，只要关闭阶段报错，整条就被记成
+   `ready:false` 而跳过：这是"能跑却判成起不来"的真洞，在 Firefox 可用的机器上同样会命中。现在启动与关闭分开，
+   **启动成功即 `ready:true`**，关不上只记 `note`（打日志、不改变判定）。
+2. 失败原因没有结构化保留（只有一行字符串，无 stage/驱动）。现在探测返回
+   `{ready, stage, driver, reason, note}`：`stage` 区分 `resolve`（解析不出）与 `launch`（起不来），
+   原因逐字进 stdout 与 HTML 报告（annotation）。
+3. **探测结果没记账**（本轮第一次整轮跑自己暴露的）：能跑时 `probe` 恒为 `null`，汇总里是
+   `probeReady=unknown`，于是"探测说能跑却跳了"这条自相矛盾判据**永远不可能触发**。已改成无论可用与否都 `noteProbe()`。
+
+### 3. "跳过不可能静默"：一个入口 + 一层守卫 + run 级汇总
+
+| 新文件（均在 `tests/e2e/lib/`） | 作用 |
+|---|---|
+| `skip-audit.mjs` | 唯一跳过入口 `skipUnavailableBrowser()`（带真实原因）；`afterEach` 抓**旁路跳过**；每次 `afterAll` 输出一行机器可读汇总并落 JSON |
+| `skip-audit-summary.mjs` | **run 级**汇总与判定：把各段 JSON 相加（`node tests/e2e/lib/skip-audit-summary.mjs`） |
+| `skip-audit-selftest.mjs` | 上面两组判据的**确定性自检**（不用浏览器；14 个夹具，红/绿两侧都钉） |
+
+**为什么必须分两段（本轮实测教训）**：Playwright 在**每个失败用例之后丢弃整个 worker 进程、为后续用例起新 worker**，
+而记账状态在进程内 ⇒ 同一 spec 一次运行会产生多份互不相干的记账。实测 `--project=chromium`（6 条、3 红）：
+
+```
+[skip-audit] … browser=chromium worker=0 pid=49533 declared=6 observed=2 executed=2 skipped=0 probeReady=true
+[skip-audit] … browser=chromium worker=4 pid=49864 declared=6 observed=1 executed=1 skipped=0 probeReady=true
+[skip-audit] … browser=chromium worker=7 pid=50106 declared=6 observed=1 executed=1 skipped=0 probeReady=true
+[skip-audit] … browser=chromium worker=8 pid=50334 declared=6 observed=2 executed=2 skipped=0 probeReady=true
+⇒ run 级（4 段相加）：executed=6 / skipped=0
+```
+
+所以判据分两层；单看一份记账**不能**回答"整轮里跑了几条"。每次调用的 JSON 落在
+`test-results/skip-audit/`（文件名含 worker + pid，不会互相覆盖；该目录在 `.gitignore` 面内）。
+
+**红线**（`auditVerdicts()` 与 `summarizeReports()`）：
+
+| 情形 | 结果 |
+|---|---|
+| 用例被跳过但没经过探测登记（在 spec 里写死 `.skip`） | **红**（`afterEach` 当场红 + run 级点名） |
+| 某 (spec, 浏览器) `executed=0` 且 `skipped>0`（该浏览器上一条都没跑） | **红**（措辞明确区分"环境阻塞"与"用例失败"） |
+| 探测说 `ready=true` 却仍登记了跳过 | **红**（判据自相矛盾） |
+| 一条都没观察到（声明级/整文件写死跳过） | **红** |
+| run 级 `declared` 没跑满（有声明过的用例既没跑也没登记跳过） | **红**；`--allow-partial` 才降级为告警（只给 `--grep` 聚焦跑用） |
+| worker 重启导致某一段只观察到 1~2 条 | **不红**（负对照，见自检） |
+
+**"整 spec 在某浏览器上全部跳过"为什么选"显式失败"而不是"显式告警"**：本任务要消灭的形态就是
+"用例到处都不跑、而整轮仍绿"（t33 原文）。只打一行告警，绿色的整轮照旧 ⇒ 等于把"未运行的检查"读成"通过"，
+而指南第 6 节明令禁止这种读法。逐条 `test.skip` 仍然保留（"起不来"是环境事实，不该伪装成 6 条用例失败），
+`afterAll` 再补一记**明确标注"这不是用例失败，是环境阻塞"**的失败 —— 于是"整轮仍绿"在结构上不可能发生，
+而"红"的原因一眼可辨（见 §4 证明 ③ 的实际输出）。局部跳过、`--grep` 过滤**不判红**，避免误伤既有工作流。
+
+### 4. 证明（三要素：改了什么 / 什么命令 / 观察到什么）
+
+**证明 ①：故意让用例被跳过 → 新增可见性必须红**
+
+- 改动：临时新增 `tests/e2e/proof-bypass-skip.spec.mjs`（3 条；第 2 条**不登记**就 `test.skip(true, …)`），跑完删除。
+- 命令与结果：
+```
+pnpm exec playwright test tests/e2e/proof-bypass-skip.spec.mjs --project=chromium --reporter=list
+  → PLAYWRIGHT_EXIT=1
+  → Error: [skip-audit] … [chromium]：用例「这一条被旁路跳过（未经探测登记）」被跳过了，
+     但它没有经过环境探测登记 —— 这条跳过是旁路来的（写死的 .skip？）
+  → Error: [skip-audit] …：跳过可见性判据不通过（1 条）
+```
+- 负对照：同形状但**没有**旁路跳过的记账 problems=0（`skip-audit-selftest.mjs` 的绿侧夹具）⇒ 判据不是"永远在报警"。
+
+**证明 ②：在 `.mjs` 里写 `.skip` / 条件跳过 → eslint 必须红**
+
+```
+# 写死的引擎名单 + 无条件跳过，两种形态写在同一个 .mjs 用例里
+pnpm exec eslint tests/e2e/proof-eslint-skip.spec.mjs
+  → 3:3  error 不得跳过测试（指南第 6 节）
+  → 7:3  error 不得跳过测试（指南第 6 节）            EXIT=1
+# 负对照：同一个文件、合入前（`67f1cfd`）的配置 ⇒ 两个写死跳过全都看不见
+git show 67f1cfd:eslint.config.js > ./eslint.config.prechange.mjs
+pnpm exec eslint --config ./eslint.config.prechange.mjs tests/e2e/proof-eslint-skip.spec.mjs
+  → EXIT=0
+# 豁免不是"整文件放行"：把唯一放行的形状改成写死的，同一个受审计文件也必须红
+perl -pi -e 's/test\.skip\(!probe\.ready, note\);/test.skip(true, note);/' tests/e2e/lib/skip-audit.mjs
+pnpm exec eslint tests/e2e/lib/skip-audit.mjs
+  → 199:7  error 写死的跳过：只允许 test.skip(<运行时探测结果表达式>, 原因)   EXIT=1
+（改成 `test.skip(browserName !== 'chromium', note)` 同样 EXIT=1；改回 `!probe.ready` 后 EXIT=0）
+```
+
+**证明 ③：本机 Firefox 起不来 → 逐条可见跳过 + **整轮判红**（而不是绿）**
+
+```
+pnpm exec playwright test tests/e2e/leave-slice.spec.mjs \
+  --project=chromium --project=webkit --project=firefox --reporter=list     # 一次整轮
+  → 7 failed / 5 skipped / 6 passed
+    （7 = 6 条既有 AC-03 判定红 + 1 条 skip-audit 的"环境阻塞"红；5 skipped = Firefox 的跳过）
+  → [skip-audit] … browser=firefox worker=1 declared=6 observed=6 executed=0 skipped=6 probeReady=false
+  → [skip-audit] Error: … [firefox]：本次观察到的 6 条全部被跳过、执行 0 条 —— 该浏览器在本机起不来，
+      这批用例一条都没跑。这不是用例失败，是环境阻塞：browserType.launchPersistentContext: Timeout 20000ms exceeded。
+node tests/e2e/lib/skip-audit-summary.mjs     # run 级判定 → EXIT=1，只点名 firefox
+  → chromium declared=6 executed=6 skipped=0 unregistered=0 invocations=4 probeReady=[true,true,true,true]
+  → webkit   declared=6 executed=6 skipped=0 unregistered=0 invocations=4 probeReady=[true,true,true,true]
+  → firefox  declared=6 executed=0 skipped=6 unregistered=0 invocations=1 probeReady=[false]
+```
+
+**"探测成功即执行"这条路径的证明（不依赖 Firefox 是否可用）**：同一个 spec 在 `--project=chromium` /
+`--project=webkit` 上探测 `ready=true`，run 级 `executed=6 / skipped=0`（上面的 `probeReady=[true,…]`
+就是这条路径的记账）。判据里**没有任何** `browserName` 名单，Firefox 走的是**同一条路径**。
+
+**钩子证明（强制走"能跑"分支 ⇒ 真的去起，不是跳过）**：
+```
+AC03_FORCE_RUN_BROWSER=firefox pnpm exec playwright test tests/e2e/leave-slice.spec.mjs \
+  --project=firefox --reporter=list --grep "对照"
+  → [AC03_FORCE_RUN_BROWSER] 强制按"能跑"执行 [firefox]（真实探测 ready=false，原因：…Timeout 20000ms exceeded.）
+  → PLAYWRIGHT_EXIT=1；TimeoutError: browserType.launchPersistentContext: Timeout 60000ms exceeded.
+      - [err] sandbox initialization failed: Operation not permitted
+      - [err] Sandbox error: sandbox_init() failed with error "Operation not permitted"
+```
+即：写死跳过的旧代码在 Firefox 上**恒**跳过；现在判据说"能跑"就**真的去起**，起不来就**真红**。
+（本轮**未**设置任何 `MOZ_*` 变量。）
+
+### 5. eslint：把"不得跳过测试"覆盖到 `.mjs`，以及误伤处理
+
+- 现状（合入前 `67f1cfd`）：规则只覆盖 `**/*.test.ts` / `**/*.spec.ts` / `tests/**/*.ts` ⇒ `tests/e2e/*.spec.mjs`
+  里的写死跳过**不会被拦**（证明 ② 的负对照实测 EXIT=0）。
+- 改法：`files` 扩到 `**/*.test.mjs` / `**/*.spec.mjs` / `tests/**/*.mjs`。该块会**替换**规则的整个数组，
+  故同时把基块原有的 `ClassDeclaration` 禁令补回（否则等于放宽；`tests/**` 下实测 0 处 class，无实际影响）。
+- **误伤**：扩规则后，那一处**合法**的运行时跳过（`test.skip(true, note)`）会被拦。处理办法不是"整文件豁免"，
+  而是把它挪进**唯一**一个受审计文件 `tests/e2e/lib/skip-audit.mjs`，并在该文件的块里换成**更窄**的形状判据：
+  - 放行：`test.skip(<非字面量表达式>, 原因)` —— 由运行时探测结果驱动、且带原因；
+  - 仍然禁止：`test.skip()`（无条件）、`test.skip(true, …)`、`test.skip(browserName !== …)`（写死名单）、`.only`。
+  净效果：全仓**唯一**一处 `test.skip` 也必须带运行时条件，且只在 `skipUnavailableBrowser()` 里出现。
+  （备选做法"在 `.mjs` 里只禁字面量/比较条件、其余条件放行"被**否决**：它放过了 `test.skip(browserName !== …)`
+  这个本案的原始形态。**注意**：这块形状判据属**门禁配置变更**，需人类负责人追认。）
+- 无其他误伤：`pnpm exec eslint tests/e2e eslint.config.js` → exit 0；`pnpm exec eslint .` → exit 0。
+
+### 6. 同源残留（本轮只报告、未改，需授权）
+
+`tests/e2e/beacon-quota.spec.mjs:56` 的 `for (const browserName of ['chromium', 'webkit'])` 也是**写死的引擎名单**：
+它不用 project 的 `browserName`，所以在 `--project=firefox` 下会**重复测 Chromium/WebKit**，
+Gecko 的信标额度永远取不到数（即 t33 说的"8 个用例"里另外那 2 条）。它不是 `skip`（用例在跑，只是跑错了引擎），
+本轮的"跳过不可静默"机制覆盖不到它；其产物 `results/beacon-quota-*.json` 又是既有报告引用的证据，故未擅自改。
+
+### 7. 回归
+
+| 命令 | 结果 |
+|---|---|
+| `node tests/e2e/lib/skip-audit-selftest.mjs` | **14/14 通过**，exit 0 |
+| `pnpm exec eslint tests/e2e eslint.config.js` | exit 0 |
+| `pnpm exec eslint .` | exit 0 |
+| `pnpm exec playwright test tests/e2e/leave-slice.spec.mjs --project=chromium --project=webkit` | **6 failed / 6 passed**，与改动**前**基线**逐项相同**（同样那 3 条 × 2 引擎的既有 AC-03 判定；本层没有新增任何红或跳过） |
+| 同上再加 `--project=firefox`（一次整轮） | 7 failed / 5 skipped / 6 passed：多出来的 1 红就是 §4 证明 ③ 的**环境阻塞**判定 |
+| `pnpm gates` | `lint` / `build` / `typecheck` 三个阶段**通过**；`test` 阶段两次被**另一条 lane 在途的文件**打断，都没到本轮改动面上：（1）`packages/plugins/src/apm-dual-write/apm-dual-write.test.ts` 半写状态 → `ReferenceError: src is not defined`（报错位置落在一个**注释行**上），立刻单跑该文件 → **10 passed**；（2）`packages/core/src/privacy/mask-adversarial.test.ts` 的计时预算断言在负载下超预算（中位 27.85 ms > 20 ms），立刻单跑 → **7 passed**。故本轮未取得一次完整的 gates 全绿；受本次改动影响的唯一阶段（`lint`）已单独验证：`pnpm exec eslint .` → exit 0 |
+
+**本报告不宣称的事**：Firefox 的 AC-03 判定**没有被验证过**（本机沙箱内 Firefox 起不来；§4 证明 ③ 证明的是
+"该浏览器上一条都没跑会被判红"，不是"Firefox 上通过"）。若要在 Gecko 上取数，需在能起 Firefox 的机器上跑
+`pnpm test:e2e --project=firefox`（**不得设置任何 `MOZ_*`**）。
