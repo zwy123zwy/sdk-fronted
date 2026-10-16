@@ -90,153 +90,207 @@ function untrackedSnapshot(): readonly string[] {
     .sort();
 }
 
+/**
+ * 本文件的超时预算，以及「跑得慢会被发现」的护栏（2026-10-17 经负责人裁定后加）。
+ *
+ * **为什么超时是显式的 15 s、而不是 vitest 默认的 5 s**：本文件三条用例的成本是
+ * **I/O 主导**（读仓库全部 843 个文件约 8.7 MB、每个用例再起 `git` 子进程），不是计算量。
+ * 受控负载实测（2 并发 `vitest --project unit tools/config-signer`、`loadavg` 130–164，30 次）：
+ * 第 1/2/3 条用例的**墙钟**中位数 1230 / 642 / 247 ms、**最大值** 1859 / 940 / 609 ms，
+ * 而它们的 **CPU 时间**中位数只有 200 / 241 / 123 ms。
+ * 更极端的超订（4 并发，10 核机上 32 个 worker、`loadavg` 峰值 214）实测 12/20 个 vitest 进程红，
+ * 原文 `Error: Test timed out in 5000ms.`，同一批里第 1 条用例的墙钟中位数已达 4243 ms、
+ * 最大 8845 ms（第 2 条最大 9313 ms）——**5 s 的默认守卫在这个量级下必然被抢爆**，
+ * 而它守的并不是任何 K02-AC-08 判据（本文件没有墙钟断言）。故取 15 s：
+ * 对上述超订下实测最大值（8.8 s）仍有约 1.7× 余量，对「一个 vitest 进程」的真实门禁条件
+ * （最大值 1.9 s）有约 8× 余量。
+ *
+ * **为什么超时之外还要 CPU 护栏**：预算放宽之后，光靠「跑得慢」已经发现不了回归了
+ * （15 s 才撞死）。所以每条用例都断言**它自己被测工作量的 CPU 时间上限**——CPU 时间
+ * 与负载无关（同一批实测里 `loadavg` 从 44 涨到 214，CPU 时间始终在 100–570 ms 内），
+ * 因此它既能抓住真实回归（同类回归至少 5–10× 才会触发），又不会被机器忙误报。
+ */
+const LEAK_SCAN_TIMEOUT_MS = 15_000;
+/** 每条用例被测工作量的 CPU 时间上限（毫秒）：实测中位数 123–241 ms，留 6× 以上余量。 */
+const SCAN_CPU_BUDGET_MS = 3_000;
+
+/** 测一段用例主体的 **CPU 时间**（毫秒）——与负载无关，不读墙钟。 */
+async function measuredCpuMs(operation: () => Promise<void>): Promise<number> {
+  const started = process.cpuUsage();
+  await operation();
+  const finished = process.cpuUsage();
+  return (finished.user - started.user + finished.system - started.system) / 1000;
+}
+
 describe('K02-AC-08 私钥不泄漏', () => {
   it('K02 全部子命令的输出中不含本次使用的任何密钥材料', async () => {
     const before = untrackedSnapshot();
     const outputs: string[] = [];
     const fragments = new Set<string>();
 
-    const workflow = await runFullWorkflow();
-    try {
-      for (const fragment of workflow.fragments) fragments.add(fragment);
-      for (const step of workflow.steps) {
-        outputs.push(`[${step.name}] exit=${String(step.result.code)}`);
-        outputs.push(step.result.stdout);
-        outputs.push(step.result.stderr);
-      }
-      // 故意触发各类失败路径，确保错误信息也不泄漏
-      const tokenBody = await writeJsonFile(join(workflow.directory, 'token-body.json'), {
-        ...makeBody(),
-        sampling: { allow_users: ['eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghijklmnop'] },
-      });
-      const tokenFailure = await runFail(['validate', '--body', tokenBody]);
-      outputs.push(tokenFailure.stdout, tokenFailure.stderr);
-
-      const brokenEnvelope = await writeJsonFile(join(workflow.directory, 'broken.json'), {
-        format_version: 1,
-      });
-      const verifyFailure = await runFail([
-        'verify',
-        '--envelope',
-        brokenEnvelope,
-        '--public-key',
-        workflow.publicKeysPath,
-      ]);
-      outputs.push(verifyFailure.stdout, verifyFailure.stderr);
-
-      const missingBody = await runFail(['validate', '--body', join(workflow.directory, 'nope.json')]);
-      outputs.push(missingBody.stdout, missingBody.stderr);
-
-      const badKey = await runFail([
-        'sign',
-        '--body',
-        workflow.bodyPath,
-        '--private-key',
-        join(workflow.directory, 'not-a-key.pem'),
-        '--key-id',
-        'test-key-2026a',
-      ]);
-      outputs.push(badKey.stdout, badKey.stderr);
-    } finally {
-      await workflow.cleanup();
-    }
-
-    const external = await runExternalSignWorkflow({ publicKeyFrom: makeTestKeyPair() });
-    try {
-      for (const fragment of secretFragments(external.keyPair)) fragments.add(fragment);
-      outputs.push(external.result.stdout, external.result.stderr);
-    } finally {
-      await external.cleanup();
-    }
-
-    expect(fragments.size).toBeGreaterThan(4);
-    expect(countSecretHits(outputs, [...fragments])).toBe(0);
-    for (const text of outputs) {
-      expect(text.includes(PRIVATE_KEY_MARKER)).toBe(false);
-      expect(text.includes('"d":')).toBe(false);
-    }
-
-    // 零新增密钥文件（K02-AC-08 的落盘判定）。
-    //
-    // **这里不能再断言「窗口内新增的未跟踪文件必须都在 `tools/config-signer/` 内」**：
-    // `git ls-files -o --exclude-standard` 是**仓库级共享可变状态**，窗口内任何别的进程
-    // （并发的 vitest 套件、其它 lane 的在途文件、构建脚本）新增一个未跟踪文件都会落进差集，
-    // 于是那条断言实际在判「**别人**有没有写文件」，与 K02 是否泄漏密钥无关。
-    //
-    // 实测（2026-10-16）：在窗口内落下 `packages/plugins/dist-apm-adapter/pollute.js` 这类文件
-    // （C05-AC-18 的度量脚本就会短暂生成同名目录）→ 本用例必红，原文是
-    // `AssertionError: expected false to be true`；不在窗口内落 → 必绿。
-    // 「全量偶发红、单跑 4/4 绿」正是因为**窗口期重合与否只取决于调度**。
-    // 另注：多 lane 并行时 `git ls-files -o` 的集合本身就在变（本会话实测到其它 lane 的
-    // `tests/e2e/lib/*.mjs`、`tests/compat/lib/*.mjs`、`docs/reports/*.md` 在窗口内外进出）。
-    //
-    // 修法：把判定收回到**本用例真正拥有的范围**，并把内容判定**加强**（原来只看扩展名）：
-    //   ① 仓库任意位置都不得新增密钥文件形态（`.pem` / `.key`）——与原判据一致；
-    //   ② 本工具目录内不得新增未跟踪文件——保留原判据里属于「本任务自身」的那一半；
-    //   ③ **任何**新增的未跟踪文件（任意目录、任意扩展名）的内容里都不得出现本次运行的
-    //      任何密钥材料或私钥 PEM 头——这条比原来更强，且与别的进程写不写文件无关。
-    const after = untrackedSnapshot();
-    const added = after.filter((file) => !before.includes(file));
-    expect(added.some((file) => file.endsWith('.pem') || file.endsWith('.key'))).toBe(false);
-    expect(added.filter((file) => file.startsWith('tools/config-signer/'))).toEqual([]);
-
-    const addedTexts: string[] = [];
-    for (const file of added) {
+    const scannedCpuMs = await measuredCpuMs(async () => {
+      const workflow = await runFullWorkflow();
       try {
-        addedTexts.push(await readFile(join(REPO_ROOT, file), 'utf8'));
-      } catch {
-        // 二进制、或并发进程刚好删掉了它：跳过内容扫描（形态判定已在上面做过）
+        for (const fragment of workflow.fragments) fragments.add(fragment);
+        for (const step of workflow.steps) {
+          outputs.push(`[${step.name}] exit=${String(step.result.code)}`);
+          outputs.push(step.result.stdout);
+          outputs.push(step.result.stderr);
+        }
+        // 故意触发各类失败路径，确保错误信息也不泄漏
+        const tokenBody = await writeJsonFile(join(workflow.directory, 'token-body.json'), {
+          ...makeBody(),
+          sampling: { allow_users: ['eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghijklmnop'] },
+        });
+        const tokenFailure = await runFail(['validate', '--body', tokenBody]);
+        outputs.push(tokenFailure.stdout, tokenFailure.stderr);
+
+        const brokenEnvelope = await writeJsonFile(join(workflow.directory, 'broken.json'), {
+          format_version: 1,
+        });
+        const verifyFailure = await runFail([
+          'verify',
+          '--envelope',
+          brokenEnvelope,
+          '--public-key',
+          workflow.publicKeysPath,
+        ]);
+        outputs.push(verifyFailure.stdout, verifyFailure.stderr);
+
+        const missingBody = await runFail(['validate', '--body', join(workflow.directory, 'nope.json')]);
+        outputs.push(missingBody.stdout, missingBody.stderr);
+
+        const badKey = await runFail([
+          'sign',
+          '--body',
+          workflow.bodyPath,
+          '--private-key',
+          join(workflow.directory, 'not-a-key.pem'),
+          '--key-id',
+          'test-key-2026a',
+        ]);
+        outputs.push(badKey.stdout, badKey.stderr);
+      } finally {
+        await workflow.cleanup();
       }
-    }
-    expect(countSecretHits(addedTexts, [...fragments])).toBe(0);
-    for (const text of addedTexts) {
-      expect(text.includes(PRIVATE_KEY_MARKER)).toBe(false);
-    }
-  });
+
+      const external = await runExternalSignWorkflow({ publicKeyFrom: makeTestKeyPair() });
+      try {
+        for (const fragment of secretFragments(external.keyPair)) fragments.add(fragment);
+        outputs.push(external.result.stdout, external.result.stderr);
+      } finally {
+        await external.cleanup();
+      }
+
+      expect(fragments.size).toBeGreaterThan(4);
+      expect(countSecretHits(outputs, [...fragments])).toBe(0);
+      for (const text of outputs) {
+        expect(text.includes(PRIVATE_KEY_MARKER)).toBe(false);
+        expect(text.includes('"d":')).toBe(false);
+      }
+
+      // 零新增密钥文件（K02-AC-08 的落盘判定）。
+      //
+      // **这里不能再断言「窗口内新增的未跟踪文件必须都在 `tools/config-signer/` 内」**：
+      // `git ls-files -o --exclude-standard` 是**仓库级共享可变状态**，窗口内任何别的进程
+      // （并发的 vitest 套件、其它 lane 的在途文件、构建脚本）新增一个未跟踪文件都会落进差集，
+      // 于是那条断言实际在判「**别人**有没有写文件」，与 K02 是否泄漏密钥无关。
+      //
+      // 实测（2026-10-16）：在窗口内落下 `packages/plugins/dist-apm-adapter/pollute.js` 这类文件
+      // （C05-AC-18 的度量脚本就会短暂生成同名目录）→ 本用例必红，原文是
+      // `AssertionError: expected false to be true`；不在窗口内落 → 必绿。
+      // 「全量偶发红、单跑 4/4 绿」正是因为**窗口期重合与否只取决于调度**。
+      // 另注：多 lane 并行时 `git ls-files -o` 的集合本身就在变（本会话实测到其它 lane 的
+      // `tests/e2e/lib/*.mjs`、`tests/compat/lib/*.mjs`、`docs/reports/*.md` 在窗口内外进出）。
+      //
+      // 修法：把判定收回到**本用例真正拥有的范围**，并把内容判定**加强**（原来只看扩展名）：
+      //   ① 仓库任意位置都不得新增密钥文件形态（`.pem` / `.key`）——与原判据一致；
+      //   ② 本工具目录内不得新增未跟踪文件——保留原判据里属于「本任务自身」的那一半；
+      //   ③ **任何**新增的未跟踪文件（任意目录、任意扩展名）的内容里都不得出现本次运行的
+      //      任何密钥材料或私钥 PEM 头——这条比原来更强，且与别的进程写不写文件无关。
+      const after = untrackedSnapshot();
+      const added = after.filter((file) => !before.includes(file));
+      expect(added.some((file) => file.endsWith('.pem') || file.endsWith('.key'))).toBe(false);
+      expect(added.filter((file) => file.startsWith('tools/config-signer/'))).toEqual([]);
+
+      const addedTexts: string[] = [];
+      for (const file of added) {
+        try {
+          addedTexts.push(await readFile(join(REPO_ROOT, file), 'utf8'));
+        } catch {
+          // 二进制、或并发进程刚好删掉了它：跳过内容扫描（形态判定已在上面做过）
+        }
+      }
+      expect(countSecretHits(addedTexts, [...fragments])).toBe(0);
+      for (const text of addedTexts) {
+        expect(text.includes(PRIVATE_KEY_MARKER)).toBe(false);
+      }
+    });
+
+    // 这条护栏与负载无关：预算放宽到 15 s 之后，「跑得慢」不再会撞死，
+    // 所以回归要靠用例自身工作量的 CPU 时间上限来发现（见文件顶部注释）。
+    expect(
+      scannedCpuMs,
+      `本用例自身工作量的 CPU 耗时 ${scannedCpuMs.toFixed(1)} ms 应低于 ${String(SCAN_CPU_BUDGET_MS)} ms`,
+    ).toBeLessThan(SCAN_CPU_BUDGET_MS);
+  }, LEAK_SCAN_TIMEOUT_MS);
 
   it('仓库中没有可解析的私钥文件，也没有新增密钥文件', async () => {
     const violations: string[] = [];
     const pemHeaderFiles: string[] = [];
-    for (const file of scanTargets()) {
-      if (file.endsWith('.pem') || file.endsWith('.key')) violations.push(`私钥文件形态：${file}`);
-      let text: string;
-      try {
-        text = await readFile(join(REPO_ROOT, file), 'utf8');
-      } catch {
-        continue; // 二进制或不可读文件跳过
+    const scannedCpuMs = await measuredCpuMs(async () => {
+      for (const file of scanTargets()) {
+        if (file.endsWith('.pem') || file.endsWith('.key')) violations.push(`私钥文件形态：${file}`);
+        let text: string;
+        try {
+          text = await readFile(join(REPO_ROOT, file), 'utf8');
+        } catch {
+          continue; // 二进制或不可读文件跳过
+        }
+        if (!text.includes(PRIVATE_KEY_MARKER)) continue;
+        pemHeaderFiles.push(file);
+        if (findParsablePrivateKey(text)) violations.push(`含可解析私钥：${file}`);
       }
-      if (!text.includes(PRIVATE_KEY_MARKER)) continue;
-      pemHeaderFiles.push(file);
-      if (findParsablePrivateKey(text)) violations.push(`含可解析私钥：${file}`);
-    }
+    });
     expect(violations).toEqual([]);
 
     const unexpected = pemHeaderFiles.filter((file) => !PEM_HEADER_TEXT_ALLOWLIST.includes(file));
     expect(unexpected).toEqual([]);
     expect(untrackedSnapshot().some((file) => file.endsWith('.pem') || file.endsWith('.key'))).toBe(false);
-  });
+    expect(
+      scannedCpuMs,
+      `本用例自身工作量的 CPU 耗时 ${scannedCpuMs.toFixed(1)} ms 应低于 ${String(SCAN_CPU_BUDGET_MS)} ms`,
+    ).toBeLessThan(SCAN_CPU_BUDGET_MS);
+  }, LEAK_SCAN_TIMEOUT_MS);
 
   it('测试密钥只落在操作系统临时目录：仓库目录内不存在本次生成的私钥', async () => {
     const pair = makeTestKeyPair();
     const directory = await makeTempDir();
+    let scannedCpuMs: number;
     try {
-      expect(directory.startsWith(REPO_ROOT)).toBe(false);
-      const tracked = scanTargets();
-      for (const file of tracked.slice(0, 400)) {
-        let text: string;
-        try {
-          text = await readFile(join(REPO_ROOT, file), 'utf8');
-        } catch {
-          continue;
+      scannedCpuMs = await measuredCpuMs(async () => {
+        expect(directory.startsWith(REPO_ROOT)).toBe(false);
+        const tracked = scanTargets();
+        for (const file of tracked.slice(0, 400)) {
+          let text: string;
+          try {
+            text = await readFile(join(REPO_ROOT, file), 'utf8');
+          } catch {
+            continue;
+          }
+          for (const line of pair.privatePemLines) {
+            expect(text.startsWith(line)).toBe(false);
+          }
         }
-        for (const line of pair.privatePemLines) {
-          expect(text.startsWith(line)).toBe(false);
-        }
-      }
+      });
     } finally {
       await removeTempDir(directory);
     }
-  });
+    expect(
+      scannedCpuMs,
+      `本用例自身工作量的 CPU 耗时 ${scannedCpuMs.toFixed(1)} ms 应低于 ${String(SCAN_CPU_BUDGET_MS)} ms`,
+    ).toBeLessThan(SCAN_CPU_BUDGET_MS);
+  }, LEAK_SCAN_TIMEOUT_MS);
 
   it('仓库工作树里不存在被提交的私钥 PEM', async () => {
     const text = await readTextFile(join(REPO_ROOT, 'tools/config-signer/package.json'));

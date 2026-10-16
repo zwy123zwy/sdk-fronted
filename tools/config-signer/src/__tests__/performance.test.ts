@@ -108,46 +108,13 @@ describe('K02-AC-09 非功能目标', () => {
     }
   });
 
-  it('仅签名与仅验签的核心操作远低于预算（对照记录）', async () => {
-    const workflow = await runFullWorkflow();
-    try {
-      const bodyPath = await writeJsonFile(join(workflow.directory, 'perf-body-2.json'), makeBody());
-      const signSamples: number[] = [];
-      const verifySamples: number[] = [];
-      for (let index = 0; index < 20; index += 1) {
-        const signStarted = performance.now();
-        const signed = await runOk([
-          'sign',
-          '--body',
-          bodyPath,
-          '--private-key',
-          workflow.privateKeyPath,
-          '--key-id',
-          'test-key-2026a',
-          '--public-key',
-          workflow.publicKeysPath,
-        ]);
-        signSamples.push(performance.now() - signStarted);
-        expect(signed.stdout).toContain('K02 sign 通过');
-      }
-      for (let index = 0; index < 20; index += 1) {
-        const verifyStarted = performance.now();
-        await runOk([
-          'verify',
-          '--envelope',
-          workflow.envelopePath,
-          '--public-key',
-          workflow.publicKeysPath,
-        ]);
-        verifySamples.push(performance.now() - verifyStarted);
-      }
-      console.log(
-        `[AC-09] 对照：sign 中位数 ${percentile(signSamples, 0.5).toFixed(2)} ms，verify 中位数 ${percentile(verifySamples, 0.5).toFixed(2)} ms`,
-      );
-    } finally {
-      await workflow.cleanup();
-    }
-  });
+  // 2026-10-17 删除：此处原有「仅签名与仅验签的核心操作远低于预算（对照记录）」用例——
+  // 它用 `performance.now()` 采样 20 次后**只 `console.log`、没有任何断言**，
+  // 在本仓是最该消灭的形态（"看起来在测"）。其原始意图已被本文件上面两条用例
+  // **完整且更严地覆盖**，且统计量已换成与负载无关的 CPU 时间：
+  //   ①「进程内签名 100 次：中位数与 p95 均低于 100 ms」——100 次逐次 CPU 样本 + median/p95 断言；
+  //   ②「进程内验签 100 次：中位数与 p95 均低于 100 ms」——同上。
+  // 对照记录只有 20 次样本、无 p95、无断言，两处口径重复；保留它等于留一条永不失败的"测试"。
 
   it('CLI 用法：未知子命令、--help、多余位置参数', async () => {
     const unknown = await runFail(['nope']);

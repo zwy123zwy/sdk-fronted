@@ -1682,3 +1682,122 @@ project 的 `browserName`，于是在每个 project 下都声明同样两条写�
 `tests/e2e/lib/d004-anchor-window.mjs` 对清单外的 `d004-*.json` 加一行可见告警（判据一字未动，
 植入/删除 `d004-firefox.json` 的正负对照见 e2e 报告 §6）；`examples/webpack/README.md:52` 的过期
 "若本机存在 `chromium-1223`"改为真实定位链 + skipped/opt-in 语义。
+
+---
+
+## 十四、工具链侧同一病根的剩余项一次收口（2026-10-17，收口 lane）
+
+出处：§12.6 第 1 条的"只报告"项、§12.6 第 2 条的超时面、§12.7 只报告的操作口径。本轮把
+"墙钟度量计算量 / 无断言的对照记录 / 超时面 / 疑似竞态"四件事在 `tools/**` 内一次收口。
+**可写范围只有 `tools/event-registry/src/__tests__/**`、`tools/config-signer/src/__tests__/**` 与本文件**；
+未碰 `packages/**`、`tests/**`、`examples/**`、`vitest.config.ts`、`eslint.config.js`、`.size-limit.json`，
+也**没有**跑 `pnpm gates`、**没有任何 git 写操作**（并发另一条 lane 在写 `tests/e2e/**`、`examples/webpack/**`）。
+
+### 14.1 `event-registry` K01-AC-12：第五条同类（墙钟度量计算量）——已修
+
+**复现（修前基线字节）**：自建 CPU 负载 + 10 个并发全量 `unit` 进程，`loadavg` 峰值 108；
+**5/10 个进程-run 红**，原文形如
+`AssertionError: expected 5031 to be less than or equal to 5000`（另有 5382 / 5445 / 5476 / 6027）。
+同一批条件下这三个子命令的 **CPU 时间只有 191–386 ms**（独立量测：8 次采样 191.2–386.4 ms），
+即墙钟被抢占/排队抬到 5 s 上限以上、CPU 时间几乎不动。修前基线文件另在 4 并发下 12/12 红（§12.6 第 2 条）。
+**真因**：`Date.now()` 度量的是"被抢占多久 + 排队多久"，而命题"500 个事件定义 5 秒内 check+generate+export-rules"
+关于**计算量**。**修法**：换成 `process.cpuUsage()` 差值（该包 `tsconfig` 有 `types:["node"]`，直接用全局 `process`，
+未加 triple-slash、未 declare），**阈值 5000 ms 原值保留**，无 retry/sleep/放宽/skip/调超时。
+**变异反证**：把 CPU 时间人为推到 > 5 s ⇒
+`AssertionError: expected 5076.831 to be less than or equal to 5000`（红）；
+把统计量退回 `Date.now()` 跑 10 并发全量套件 ⇒ **10/10 红**，原文
+`expected 13935 / 14174 / 14436 / 14576 / 14982 / 15644 / 19964 / 20361 / 20823 / 22032 to be less than or equal to 5000`。
+恢复后 sha256 `e4ff74143c752ee62e42493a50e566689d8e06ca36e49d8a11bb7c0386e2f9c7`（修前基线 `0d3fbd4436e3347e78984c7f277072b6c656c5cd6453944be5d12df917b8e10b`）。
+
+### 14.2 `config-signer` `leak-scan.test.ts` 的超时面：**已按负责人裁定**改为 I/O 预算 + CPU 护栏
+
+**复现**：受控负载（自建 CPU worker + 2 并发 `vitest --project unit tools/config-signer`，`loadavg` 63–108）
+10 个进程-run 里 **2 个红**，原文 `Error: Test timed out in 5000ms.`——命中 `leak-scan.test.ts:219`
+（"测试密钥只落在操作系统临时目录"）与 `:197`（"仓库中没有可解析的私钥文件"）；诊断副本另命中过 `:94`。
+即**三条用例是同一个超时面**，不只是 §12.6 记录的那一条。
+**真因（量出来的，不是猜的）**：该文件是 **I/O 主导、不是 CPU 主导**——用临时诊断副本逐用例量测
+（`loadavg` 80、2 并发、各 10 次）：读仓库全部 843 个文件（8.7 MB）CPU 138–169 ms / 墙钟 375–723 ms；
+400 文件扫描 CPU 59–65 ms / 墙钟 206–377 ms；`git ls-files -o` 单次墙钟 286 ms 而 **CPU 仅 4.8 ms**（全靠等子进程）。
+三用例 CPU 合计 <0.6 s ⇒ 5 s 里约 88–94% 是排队/抢占/等 I/O。**没有可降的 CPU 肉**（能砍的只有"读仓库全部文件"，
+而那正是 K02-AC-08 的证据本身，砍了就空转）。
+**裁定与落地**（负责人 2026-10-17 批准，附三条条件）：① 三条用例逐用例显式 `15_000`，
+**断言/阈值一字未动**，理由写进注释（I/O 主导 + 5 s 是 vitest 默认墙钟守卫而非契约判据）；
+② 墙钟分布/最大值（见下）；③ **CPU 护栏**：三条用例各自断言**自身工作量的 CPU 时间上限**
+`SCAN_CPU_BUDGET_MS = 3000 ms`（CPU 与负载无关，实测中位数 123–241 ms、极端超订下最大 570 ms，
+余量 5–24×）。**护栏选择的理由**：预算一放宽，"跑得慢"就再也撞不死（15 s 才死），所以必须留下一个
+**与负载无关、能被真实回归触发**的量；选 CPU 时间而不是墙钟告警，是因为墙钟告警在超订下同样会误报。
+
+**墙钟分布（受控负载实测）**：
+- 2 并发 × 30 run（`loadavg` 均值 164）：T1 1230 / p90 1495 / **max 1859 ms**，T2 642 / 841 / **940 ms**，
+  T3 247 / 404 / **609 ms**；**30/30 绿、0 超时**。
+- 3 并发 × 12 run（`loadavg` 44–59）：T1 **max 1455 ms**，T2 **757 ms**，T3 **465 ms**；12/12 绿。
+- 4 并发 × 20 run（`loadavg` 65–214，10 核机上 32 worker）：T1 max 8845 ms、T2 max 9313 ms、T3 max 5014 ms，
+  12/20 进程红。**如实记录：这个极端量级已经超过"15 s 有 >2× 余量"的前提**——本节把该组单独列出，
+  不当作 15 s 的依据；依据是"一个 vitest 进程"的真实门禁条件（max 1.9 s，≈8× 余量）。
+  若负责人认为门禁也可能出现 32-worker 同机超订，请给新的预算数字（我不自行往上加）。
+
+**变异反证**：在 T2 被测操作里注入真实 CPU 燃烧（500 M 次 `sqrt` 反馁进 RNG，避免 JIT 消除）⇒
+`AssertionError: 本用例自身工作量的 CPU 耗时 3583.1 ms 应低于 3000 ms`（红，且**没有**先撞 15 s 超时）；
+恢复后 sha256 `009e377bcaaadb697d2b1248c7c522156c371e9e9c94fc05dc5f17a96fbfe9a2`
+（修前基线 `abf34c8f100ad3bb3bd11fd6932b80da90e7bba5a38ff135744d96a7b2129f7d`）。
+
+### 14.3 `performance.test.ts` 的"对照记录"：**已删除**（无断言 ⇒ 永不失败）
+
+原用例「仅签名与仅验签的核心操作远低于预算（对照记录）」用 `performance.now()` 采样 20+20 次，
+**只 `console.log`、无任何断言**。**选择删除而非加断言**，理由：其原始意图已被同文件上面两条用例
+**完整且更严**地覆盖——①「进程内签名 100 次：中位数与 p95 均低于 100 ms」、②「进程内验签 100 次」
+各取 **100** 个逐次 CPU 样本并断言 median/p95；对照记录只有 20 个样本、无 p95、无断言，属重复口径。
+**判别性证明**：把 HEAD 基线（含该用例）复制成临时测试文件，在对照记录里注入人为变慢
+（签名循环里加 400 k 次 `sqrt`）⇒ 该用例**照旧绿**（`Tests 8 passed`），全文件无红
+⇒ 它确实是"看起来在测"的空转；删除后该文件 7 passed（回归见 14.5）。
+修后 sha256 `f593d8c6675b2db65fc823a6c40b1cff4085b1413f785cd6ee7246c964c1f100`
+（修前基线 `c076ccf7694c7273f74d0eaed7d30301f114ab9954c33cdd24e4580f6f305133`）。
+
+### 14.4 `mock-receiver` M01-AC-09 `expected 202 to be 429`：**已复现，真因是"上一用例超时后悬挂的请求把状态推走"——属测试缺陷**
+
+**复现**：8 并发全量 `unit`（`loadavg` 56–73）8 个进程-run 里 **2 个红**，原文
+`AssertionError: expected 202 to be 429 // Object.is equality`，位置
+`injection.acceptance.test.ts:145`（M01-AC-09 清空注入配置后不再注入）；**同一 run 里**
+`:124`「比例注入经 HTTP 生效且计数正确」先报 `Error: Test timed out in 5000ms.`。
+单跑 40 + 30 + 48 次（1/4/6 并发，低负载）**0 红**，即高负载 + 与 :124 同 run 才出。
+**真因**：`:124` 的 300 次串行 HTTP 在超订下超 5 s 默认超时 ⇒ vitest 判该用例失败，
+**但已发出的请求不会被取消**；`:145` 紧接着把注入设为 `['429']` 并发出一批，
+上一用例遗留在途的请求会在它之前消费掉序列游标（`none` 返回 `NONE` 且**不推进游标**，
+见 `injection.ts` 的 `decide()`），于是本应 429 的请求恰好命中序列已耗尽 ⇒ 202。
+**排除项（反证）**：① 每次 `startReceiver({ port: 0 })` 都新建独立 `state.injection`（`server.ts:703`），
+**无跨进程共享状态**；② 端口复用探测 400 次得到 400 个不同端口、0 次复用（macOS），
+"两个进程撞同一端口"不成立；③ HTTP 注入端点 `/__mock/injection` 只作用于本进程实例。
+**结论**：属**测试缺陷**（默认 5 s 超时 + 无法取消的串行请求循环），**实现未改**。
+可考虑的最小修法（**未做**，请裁定）：给 `:124` 降低请求次数并按二项分布重新校准 25%–35% 带
+（n=120 时 3σ ≈ ±0.125 ⇒ 带取 17%–43% 仍能抓住"比例失效"），或给该用例显式超时——
+两者都超出本次四点，按"若属实现缺陷只报告、不要改实现"的口径先报。
+
+### 14.5 只报告：`tools/**` 下其余墙钟判据（有断言的）
+
+静态扫描（`Date.now()` / `performance.now()` / `hrtime`，排除 `dist/`）后，**除已修三处外仍有断言的墙钟判据**只有两条，都在 `tools/mock-receiver`：
+
+| 位置 | 被断言的量 | 说明 |
+| --- | --- | --- |
+| `tools/mock-receiver/src/hosting.acceptance.test.ts:113-116`（M01-AC-13） | `startReceiver()` 单次启动耗时 `elapsed < 2000 ms` | 直接墙钟断言，且**没有**像本文件 M01-AC-14 那样的负载标定注释 |
+| `tools/mock-receiver/src/hosting.acceptance.test.ts:20-27,211-216`（M01-AC-14） | 5 轮 × 1.2 s 压测的**吞吐中位数** `perSecond >= 40 批/秒` | 墙钟吞吐（`batches / seconds`）。**本轮实测在最严条件（8 并发全量 `unit`、`loadavg` 56–73）下红过 2 次**：`24.1 批/秒` 与 `32.8 批/秒`，原文 `expected 24.05… to be greater than or equal to 40`。它自称"回归护栏不是规格线"，但负载敏感是事实 |
+
+另外 `tools/event-registry/src/cli.ts`（`generatedAt: Date.now()`）、
+`tools/mock-receiver/src/logger.ts`（日志 `ts`）、`tools/mock-receiver/src/server.ts`（`serverTime`/`boundAt`）
+里的 `Date.now()` 是**产物字段/时间戳**，不是判据，未登记为风险。
+
+### 14.6 本轮回归与绿跑（均在最终字节上）
+
+| 项 | 条件 | 结果 |
+| --- | --- | --- |
+| `tools/config-signer`（7 文件 / 99 tests） | 受控负载 2 并发 × 10 run | **10/10 绿、0 超时** |
+| `tools/event-registry`（5 文件 / 52 tests） | 受控负载 2 并发 × 10 run | **10/10 绿、0 超时** |
+| 两包各 1 次 | 空闲（`loadavg1` 21–24） | 绿（52 + 99 tests） |
+| `npx eslint tools/event-registry/src tools/config-signer/src --max-warnings 0` | — | 退出码 0 |
+| `npx tsc -p tools/{event-registry,config-signer}/tsconfig.json` | — | 两者退出码 0 |
+
+**最终 sha256（三处全部变异恢复后复核）**：
+- `tools/event-registry/src/__tests__/cli.test.ts` `e4ff74143c752ee62e42493a50e566689d8e06ca36e49d8a11bb7c0386e2f9c7`
+- `tools/config-signer/src/__tests__/leak-scan.test.ts` `009e377bcaaadb697d2b1248c7c522156c371e9e9c94fc05dc5f17a96fbfe9a2`
+- `tools/config-signer/src/__tests__/performance.test.ts` `f593d8c6675b2db65fc823a6c40b1cff4085b1413f785cd6ee7246c964c1f100`
+
+**需负责人裁决**：14.2 的极端超订（32 worker/`loadavg` 214）下 15 s 是否够；14.4 的 `:124` 最小修法是否要另派。

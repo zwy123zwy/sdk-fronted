@@ -465,6 +465,31 @@ describe('K01-AC-11 未登记事件报告', () => {
 });
 
 describe('K01-AC-12 500 个事件定义的检查与生成', () => {
+  /**
+   * 度量一次「check + generate + export-rules」的 **CPU 时间**（毫秒），全程不读墙钟。
+   *
+   * **口径是「计算量」，不是墙钟**（2026-10-17 修；与
+   * `packages/core/src/privacy/mask-adversarial.test.ts`、
+   * `tools/config-signer/src/__tests__/performance.test.ts`、`docs/reports/t33-access-blockers.md` §12.3 同一病根、同一修法）：
+   * 本仓的 `unit` project 有 140+ 个文件，`K01-AC-08` 的 `tsc --noEmit` 单次就要 44–53 s；
+   * 门禁/多进程并发时机器会**超订**，此时**墙钟度量的不是代码，而是「被抢占多久 + 排队多久」**。
+   * 受控负载（自建 CPU 负载 + 10 个并发全量 `unit` 进程、`loadavg` 108）实测：
+   * 本用例 5/10 个进程-run 红，原文 `AssertionError: expected 5031 to be less than or equal to 5000`
+   * （另有 5382 / 5445 / 5476 / 6027），而**同一批条件下这三个子命令的 CPU 时间只有 191–386 ms**
+   * （余量 13–26×）——被抢占的等待只加在墙钟上、不加在 CPU 时间上，
+   * 而「500 个事件定义在 5 秒内检查/生成完」是关于**计算量**的命题 ⇒ CPU 时间才是它的正确度量。
+   * **阈值（5 s）与统计量之外的一切判据都保持原值**，没有 retry / sleep / 放宽 / 跳过。
+   *
+   * 统计量取三个子命令**一次连续执行**的 CPU 时间总和（原判据就是这三个子命令的合计），
+   * 而不是逐子命令求分位数：原判据没有逐次样本，故这里也不新造样本口径。
+   */
+  async function measureCpuMs(operation: () => Promise<void>): Promise<number> {
+    const started = process.cpuUsage();
+    await operation();
+    const finished = process.cpuUsage();
+    return (finished.user - started.user + finished.system - started.system) / 1000;
+  }
+
   it('K01-AC-12 500 个事件定义的 check + generate + export-rules 总耗时不超过 5 秒', async () => {
     const root = await makeTempDir();
     try {
@@ -481,29 +506,32 @@ describe('K01-AC-12 500 个事件定义的检查与生成', () => {
       const warmup = await run(['check', '--registry', registryPattern]);
       expect(warmup.code).toBe(0);
 
-      const startedAt = Date.now();
-      const check = await run(['check', '--registry', registryPattern]);
-      const generate = await run([
-        'generate',
-        '--registry',
-        registryPattern,
-        '--out',
-        typesFile,
-      ]);
-      const rules = await run([
-        'export-rules',
-        '--registry',
-        registryPattern,
-        '--out',
-        rulesFile,
-      ]);
-      const elapsed = Date.now() - startedAt;
+      let check: RunResult = { code: -1, stdout: [], stderr: [] };
+      let generate: RunResult = { code: -1, stdout: [], stderr: [] };
+      let rules: RunResult = { code: -1, stdout: [], stderr: [] };
+      const elapsedCpu = await measureCpuMs(async () => {
+        check = await run(['check', '--registry', registryPattern]);
+        generate = await run([
+          'generate',
+          '--registry',
+          registryPattern,
+          '--out',
+          typesFile,
+        ]);
+        rules = await run([
+          'export-rules',
+          '--registry',
+          registryPattern,
+          '--out',
+          rulesFile,
+        ]);
+      });
       expect(check.code).toBe(0);
       expect(generate.code).toBe(0);
       expect(rules.code).toBe(0);
-      expect(elapsed).toBeLessThanOrEqual(5_000);
-      // 把实测耗时写进断言消息，失败时便于定位
-      expect(elapsed, `500 个事件定义共用时 ${String(elapsed)} ms`).toBeLessThan(5_000);
+      expect(elapsedCpu).toBeLessThanOrEqual(5_000);
+      // 把实测 CPU 耗时写进断言消息，失败时便于定位
+      expect(elapsedCpu, `500 个事件定义共用时 ${elapsedCpu.toFixed(1)} ms（CPU 时间）`).toBeLessThan(5_000);
     } finally {
       await removeTempDir(root);
     }
