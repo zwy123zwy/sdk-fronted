@@ -882,7 +882,7 @@ packages/browser/src/assembly.ts                    OK   a18cd8e784e60472260080b
 | | `fieldMap` | `:134` | ✅ 探针 L：恒 `{}` → 2 红 |
 | | `constants` | `:135` | ✅ 探针 N：恒 `{}` → 1 红 |
 | | `eventTypes` | `:136` | ✅ 探针 M：恒 `[]` → 7 红 |
-| `VitalsAccumulatorOptions`（`perf/vitals.ts`） | `now` | `:79`（`:128`/`:133` 组事件时的 `occurred_at`） | ❌ **无判别性覆盖（原表误标 ✅）**：2026-10-16 本 lane 钉常量复核，`:79` → `const now = ((): number => Date.now());` 后 `packages/plugins` **121/121 全绿**、`packages/plugins/src/perf` 11/11 全绿；且 `perf/*.test.ts` 里**没有任何 `occurred_at` 断言**。**只报告，未处置**（`perf/` 不在本 lane 可写范围） |
+| `VitalsAccumulatorOptions`（`perf/vitals.ts`） | `now` | `:79`（`:128`/`:133` 组事件时的 `occurred_at`） | ✅ **已补覆盖 + 已做实跑变异（2026-10-16，见 §11.8）**：新增 `perf/vitals.test.ts:203`–`:290`（3 条用例，注入 `now` 后断言 `take()` 出的事件 `occurred_at` 等于注入值）。本轮先复核"无判别性覆盖"**仍成立**：`:79` 钉成 `Date.now` → 124/124 全绿；补齐后同一次钉常量复核 → **3 红** |
 | | `responseStartProvider` | `:80`（`:125` 消费） | ✅ 探针 O：恒 `undefined` → 2 红 |
 | `CoexistenceInitOptions`（`coexist/index.ts`） | `apmCoexistence` | `:56`/`:58` | ✅ `coexist/defaults.test.ts` 两份缺省表对照 |
 
@@ -923,6 +923,7 @@ packages/browser/src/assembly.ts                    OK   a18cd8e784e60472260080b
    即把该字段改成"忽略配置"没有任何用例会红 ⇒ **该字段没有判别性用例**。
    影响面：`perf/plugin.ts:79` 会把 `ports.now` 传进该字段，所以插件面注入的时钟同样不被任何断言钉住。
    **处置：只报告，未动手**（`packages/plugins/src/perf/**` 不在本 lane 可写范围）。
+   **补记（2026-10-16，后续 lane）：已按下方修法建议补齐，并做实跑变异（3 红），见 §11.8。**
    修法建议（交给有 `perf/` 所有权的人）：照 `error` 的 `now` 探针 R，加一条"注入 `now` → 断言 `take()` 出的事件
    `occurred_at` 等于注入时钟"的用例，再对 `vitals.ts:79` 做一次钉常量确认变红。
 
@@ -933,7 +934,7 @@ packages/browser/src/assembly.ts                    OK   a18cd8e784e60472260080b
 | `reportRepeats` / `sources` / `match` / `assembly.errorPlugin` | 已修实 | §11.1/§11.2 变异三要素 + §11.4 开/关差异 | **无需处置**（本 lane 已补证明） |
 | `ErrorPluginOptions.windowMs` | 读取点在，原本**配置语义无判别性用例** | 探针 Q 全绿；`capture.test.ts:298` 传同值 1000 | **已按裁定补用例**（`error/capture.test.ts:238`，§11.6，M7 可杀） |
 | `HttpPluginOptions.urlTemplate` | 读取点在，原本**注入语义无用例** | 全仓零测试引用；探针 E 全绿 | **已按裁定补用例**（`http/privacy.test.ts:51`，§11.6，M8 可杀） |
-| `VitalsAccumulatorOptions.now` | 读取点在，**原表漏判为 ✅，实为无判别性用例** | 2026-10-16 钉常量复核：`:79` 钉成 `Date.now` → 121/121 全绿 | **只报告**（`perf/` 非本 lane 所有权，见 §11.5(b) 第 4 条与 §11.7） |
+| `VitalsAccumulatorOptions.now` | 读取点在，**原表漏判为 ✅，实为无判别性用例** | 2026-10-16 钉常量复核：`:79` 钉成 `Date.now` → 121/121 全绿 | **已补覆盖 + 已做实跑变异**（`perf/vitals.test.ts:203`–`:290`，见 §11.8；补齐前后两次钉常量结果见 §11.8） |
 | 其余 `*Options` 字段 | 读取点 + 判别性用例均齐 | §11.5(a) 表；2026-10-16 本 lane 对**除上两条外的其余 19 个读取点**逐点钉常量复核，**18 红 / 1 绿**（绿者即上行的 `vitals.now`） | 无需处置 |
 
 > 注：§11.5 的 **实现文件零改动**（`git diff` 对 `error/plugin.ts`/`http/plugin.ts`/`assembly.ts`/`route/plugin.ts`/
@@ -1011,3 +1012,87 @@ RED   | C1_apmCoexistence
 `packages/plugins/src/error/capture.test.ts`（+1 用例）、`packages/plugins/src/http/privacy.test.ts`（+1 用例）、本报告；
 另外**回退了另一条 lane 最初落盘的两处测试改动**（`error/edge-cases.test.ts`、`http/trace-header.test.ts` 现为 HEAD 原样）。
 本 lane **未做任何 git 写操作**；未改任何实现文件、契约、决策、验收用例、门禁配置。
+
+### 11.8 `VitalsAccumulatorOptions.now` 已补覆盖（2026-10-16，后续 lane 收口）
+
+§11.7 是**只报告**的发现。本节把它补成"有判别性用例 + 实跑变异"，并给出"除本处外其余读取点 18/19 已红"
+这句话在**补测后**的复核结果。**本轮实现文件零改动**（`perf/vitals.ts` 恢复后 sha256 逐字节等于基线
+`792d828eaf5b61e772c74e2ecdae70df4ff4fde2f9ddd0750cb2c5e9654ddd93`，`git diff` 为空）。
+
+**新增用例（只加不改）**：`packages/plugins/src/perf/vitals.test.ts:203`–`:291`，3 条，全部走
+`createVitalsAccumulator({ now })` 并断言**事件级**的 `occurred_at`：
+
+| # | 用例（行） | 断言 | 为什么有区分力 |
+|---|---|---|---|
+| N1 | `:218`「take() 产出的 FCP 事件 occurred_at 等于注入 now 的返回值（非 Date.now）」 | `expect(nowCalls).toBeGreaterThan(0)`；`expect(event.occurred_at).toBe(4_102_444_800_000)`；`expect(event.occurred_at).not.toBe(Date.now())` | 注入值 `4_102_444_800_000`（2100-01-01）**不可能自然出现**；且 `now` 被做成"相邻两次返回不同值"的序列，证明实现是**真的调用**了它，而不是两次都恰好等于某个常量 |
+| N2 | `:238`「take() 产出的 TTFB 事件 occurred_at 也走注入 now」 | 同上，注入 `4_102_444_800_010`，配 `responseStartProvider: () => 123.5` | TTFB 的 `occurred_at` 走的是 `vitals.ts:128` **另一条** `now()` 调用点（不读累计值），N1 打死 `:133` 不代表打死 `:128` |
+| N3 | `:258`「多次 take 各自使用当次注入的 now 值（CLS 与 INP）」 | `expect(produced).toEqual([{CLS, …+100}, {INP, …+200}])` + 每条 `not.toBe(Date.now())` | 每个指标注入**互不相同**的固定值，排除"把某一个常量写死"式的假通过；`toEqual` 是双侧结构断言，不是"事件存在" |
+
+**关键点**：3 条都在断言 `occurred_at` 的**值**（且是别处不可能出现的值），不是"事件存在"。这正是本缺口此前
+被漏掉的原因——旧用例只断言"FCP/LCP/… 出现了"、以及 `metrics.value` 来自条目，**从没有一条读 `occurred_at`**。
+
+**变异三要素（实跑原文）**：变异 `perf/vitals.ts:79` → `const now = (): number => Date.now();`（即不再读
+`options.now`）；命令 `pnpm exec vitest run --coverage.enabled=false --project unit packages/plugins/src/perf/vitals.test.ts`；
+**红断言原文**（3 条全红，`Tests 3 failed | 3 passed (6)`）：
+
+```
+FAIL … > take() 产出的 FCP 事件 occurred_at 等于注入 now 的返回值（非 Date.now）
+AssertionError: 实现必须调用注入的 now（实际调用 0 次）: expected 0 to be greater than 0
+ ❯ packages/plugins/src/perf/vitals.test.ts:232:59
+FAIL … > take() 产出的 TTFB 事件 occurred_at 也走注入 now（TTFB 单独取自 responseStart）
+AssertionError: 实现必须调用注入的 now（实际调用 0 次）: expected 0 to be greater than 0
+ ❯ packages/plugins/src/perf/vitals.test.ts:250:59
+FAIL … > 多次 take 各自使用当次注入的 now 值（第五条指标亦然：CLS 与 INP）
+AssertionError: CLS 必须调用注入 now: expected 0 to be greater than 0
+ ❯ packages/plugins/src/perf/vitals.test.ts:279:52
+```
+
+（"0 次调用"是钉常量法最直接的证据：注入的 `now` **一次都没被调用**。若担心实现改为"调用但不使用返回值"，
+`:233` 的 `occurred_at === 4_102_444_800_000` 与 `:234` 的 `not.toBe(Date.now())` 仍会红。）
+
+**变异第二种口径（"调了但不用返回值"）也实跑过**：`:79` → `const now = (): number => { void (options?.now?.() ?? 0); return Date.now(); };`
+（注入的 `now` 被调用，但 `occurred_at` 取 `Date.now()`）⇒ **3 红**，此时红的是**值断言本身**，原文：
+
+```
+FAIL … > take() 产出的 FCP 事件 occurred_at 等于注入 now 的返回值（非 Date.now）
+AssertionError: occurred_at 必须是注入 now 的返回值 4102444800000: expected 1792135132393 to be 4102444800000 // Object.is equality
+ ❯ packages/plugins/src/perf/vitals.test.ts:233:87
+FAIL … > take() 产出的 TTFB 事件 occurred_at 也走注入 now（TTFB 单独取自 responseStart）
+AssertionError: TTFB 的 occurred_at 必须是注入 now 的返回值 4102444800010: expected 1792135132395 to be 4102444800010 // Object.is equality
+```
+
+该口径恢复后 sha256 同样为基线 `792d828e…dd93`（`git diff` 为空）。
+
+**补齐前后两次钉常量（同一套方法，背靠背）**：
+```
+补测前  GREEN | V1_vitals.now（§11.7 结论复现，本轮 124/124 全绿）
+补测后  RED   | V1_vitals.now（124 中 3 红，即新增的 N1/N2/N3）
+```
+
+**回归（最终状态实跑）**：`pnpm exec vitest run --coverage.enabled=false --project unit packages/plugins`
+= **20 files / 124 tests 全绿**（基线 121，**+3** 即 N1/N2/N3）；`packages/plugins/src/perf` = 5 files / 14 tests 全绿
+（基线 11，+3）；`pnpm exec tsc -p packages/plugins` exit 0；`pnpm exec eslint packages/plugins/src` exit 0。
+
+**§11.5(a) 的"除本处外 18/19 已红"补测后复核**：把 §11.7 点名的 19 个读取点逐点重钉一次（`packages/plugins`
+124 全量用例为判据；§11.7 原文只**逐个点名了 18 个**探针名，但声称的 19 点里含 V1 本身 = 18 + 1，故按下表 19 点重钉），
+结果 **19/19 红、零绿点**。逐点红计数（红用例数）：
+`V1_vitals.now（本轮补测后）3` / `E1_error.now 2` / `E3_reportRepeats 1` / `E4_sources 2` / `E5_globalContext 1` /
+`E6_captureResourceErrors 4` / `E7_onLeave 1` / `H2_traceScope 1` / `H3_traceContextProvider 1` / `R1_mode 5` /
+`R2_templates 4` / `R3_match 1` / `V2_responseStartProvider 2` / `A1_forward 4` / `A2_resolve 2` / `A3_fieldMap 2` /
+`A4_constants 1` / `A5_eventTypes 8` / `C1_apmCoexistence 2`。
+（注：`C1` 第一次钉法无效——把 `:56` 原样重写等于没变异、24/24 全绿是假信号；改成 `const base = COEXISTENCE_DEFAULTS;`
+后 **2 红**。记此一笔以免后人再把"无效钉法"当绿点。）
+
+**顺带抽查新发现的读取点：仍有无覆盖的，只报告，本轮未处置。** 钉法同上（注入端口 `now` 钉成常量 `9_999` /
+`Date.now`），当前 `packages/plugins` 124 用例**全绿**：
+
+| 字段 | 读取点 | 证据（钉常量 → 结果） | 为什么没有判别性用例 |
+|---|---|---|---|
+| `RoutePorts.now`（`route/plugin.ts`） | `:95` → `:113` `RouteChange.at` | `:95` → `(): number => 9_999` ⇒ **124/124 全绿** | `route/*.test.ts` 多处注入 `now`（`history.test.ts:90`、`manual.test.ts:36/56`、`hash.test.ts:23`、`edge-cases.test.ts:54/76/95/128/149/165`）却**只断言 `via`/`path`/`template`**，全仓没有任何 `change.at` 断言 |
+| `HttpPorts.now`（`http/plugin.ts`） | `:196` → `:235`（事件 `occurred_at`）、`:271`/`:276`/`:283`/`:305`/`:310`/`:316`（耗时 `now()-startedAt`） | `:196` → `(): number => 9_999` ⇒ **124/124 全绿** | `http/*.test.ts` 注入 `now`（`edge-cases.test.ts:32` 等），但只断言 `metrics.duration_ms`（`capture.test.ts:44`、`edge-cases.test.ts:74`）——那是**同一个假时钟做差**，钉成常量后差值仍为期望值；**没有任何 `occurred_at` 断言** |
+| `PerfPorts.now`（`perf/plugin.ts`） | `:78` → `:106` `web_long_task.occurred_at`（另经 `:80` 传入 §11.8 已补的 `VitalsAccumulatorOptions.now`） | `:78` → `(): number => 9_999` ⇒ **124/124 全绿** | `perf/long-task.test.ts:47` 只断言"上报 1 条 + `duration_ms` 落在 90–150 + `dimensions` 为空"，**不断言 `occurred_at`**；`perf/*.test.ts` 其余 `now` 注入同理 |
+
+这三处与 `vitals.now` **同类**（读取点真实、注入无断言），但**字段归属不同**：前两者是 `route`/`http` 的注入端口
+（`RoutePorts`/`HttpPorts`），后者是 `perf` 插件装配层的端口（`vitals.now` 的补测只覆盖 `VitalsAccumulator` 内部，
+**插件面 `ports.now` → `occurred_at` 的接线仍未被断言**）。补法照 §11.8 即可（注入不可能出现的 `now` → 断言
+`at`/`occurred_at` 等于注入值），但因超出本轮授权范围（本轮只补 `vitals.ts:79` 这一处），**只报告，未动手**。

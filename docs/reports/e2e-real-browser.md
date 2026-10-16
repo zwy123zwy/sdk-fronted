@@ -531,3 +531,82 @@ AC-03 三条与 Chromium **逐位相同**（`rebuilt.length` 86 ≠ 112、`sendB
    `sendBeacon` 额度（Chromium/WebKit 实测同为 64 KiB）上可能不同 —— 现在没有数据。
 4. **驱动不是仓库锁定的 1.64.0**（webkit-2287 只有配 1.60.0 才起得来）；`Page.overrideSetting` 类差异
    可能已在不知不觉中换了被测面。1.64.0 的完整矩阵需要先 `playwright install`（需批准）。
+
+---
+
+## 追加节（T29 尾部 · 护栏实测）：**连续 N 轮**捕获判定 —— Chromium 3/3 稳定，WebKit 0~2/3 通过
+
+- 执行：T29 尾部护栏 lane，2026-10-15/16；工作目录 `/Users/spirit-ai/Desktop/sdk`，直接在 `main` 上工作，无 git 写操作。
+- 被测对象：`packages/transport/dist/index.js`，`sha256 23d3de1440433527…`（与上一追加节同一份产物；未改 `packages/**`）。
+- 本轮补上的是**风险 1**（§6 上一节「锚点合并残余窗口的量级没有任何护栏」）的护栏实测：
+  逐轮判定 + 「连续 N 轮完整」+ 「空白 ≠ 0 丢失」。设计与判据原文、变异三要素见
+  `docs/reports/e2e-d004-hardkill.md` 追加节（T29 尾部 · 护栏）。
+- 驱动/浏览器同上一节：`playwright-core@1.60.0` + 本机 chromium-1223 / webkit-2287，headless。
+  **Firefox 本轮仍未尝试**（上一节已实测本会话 seatbelt 下起不来；本 lane 无新证据，不代其宣称）。
+
+### 判据（一句话）
+
+**一轮「完整捕获」= `windowCaptured && exposureReconciles`**（即 `commitLost > 0` 且 `存活 + 计数 === 期望`，
+`tests/e2e/lib/d004-run.mjs:268-277`）。捕获格必须**连续 N=3 轮完整**才算通过（最多 M=6 轮/格）；
+单轮不完整**不判失败**，记为「抖动/未捕获」并继续。空白（无计数证据）与 0 丢失在输出里
+用 `lostEvents: null` vs `0` + `zeroLoss` 显式区分。
+
+### 1. 整轮复跑（Chromium + WebKit，同一命令）
+
+```bash
+pnpm test:e2e --project=chromium --project=webkit     # 26 passed / 6 failed（1.7 min）
+```
+
+- 6 个红**全部**是既有的 `leave-slice` AC-03 判定（两引擎数字与上一追加节逐位相同：#1/#2 各 32343 B / 43 事件、
+  尾部 26 条 `ac03-0086`–`ac03-0111` 未达、`skipped=26`），与本护栏无关；D004-A / D004-B/C / **D004-CAP** 两引擎全绿。
+- 护栏对整轮时长的影响：Chromium 的 3 个捕获格各跑满 3 轮（无抖动），`durability.spec.mjs` 单文件 **52.8 s**；
+  WebKit **30.3 s**（`pending-d0` 跑满 6 轮、其余按需）。
+
+### 2. 逐格「连续 N 轮」结果（N=3，M=6）
+
+**Chromium**（`d004-chromium.json`，`2026-10-16T07:14:45.993Z`）：
+
+| 捕获格 | 判定 | 通过 | 轮数 | 最长连续完整 | 抖动率 | 逐轮计数 |
+|---|---|---|---|---|---|---|
+| `pending-d0` | `stable-complete` | ✅ | 3 | 3/3 | 0% | 1000 / 1000 / 1000 |
+| `preflush-d0` | `stable-complete` | ✅ | 3 | 3/3 | 0% | 1000 / 1000 / 1000 |
+| `preflush-small` | `stable-complete` | ✅ | 3 | 3/3 | 0% | 100 / 100 / 100 |
+
+**WebKit**（`d004-webkit.json`，`2026-10-16T07:14:51.561Z`）：
+
+| 捕获格 | 判定 | 通过 | 轮数 | 最长连续完整 | 抖动率 | 逐轮（`verdict(计数/lostEvents)`） |
+|---|---|---|---|---|---|---|
+| `pending-d0` | `never-complete` | ❌ | 6 | 1/3 | **83%** | #1 blank(0/null)、#2 undercounted(10/null)、#3 undercounted(10/null)、**#4 complete(1000/1000)**、#5 undercounted(10/null)、#6 undercounted(10/null) |
+| `preflush-d0` | `stable-complete` | ✅ | 3 | 3/3 | 0% | #1–#3 complete(1000/1000) |
+| `preflush-small` | `complete-with-jitter` | ✅ | 6 | 3/3 | 33% | #1 undercounted(10/null)、#2 complete(100/100)、#3 undercounted(10/null)、#4–#6 complete(100/100) |
+
+**WebKit 聚焦复跑**（同一命令 `--grep` 级聚焦，`2026-10-16T07:16:38.330Z`）：`pending-d0` `never-complete`
+（6 轮，最长连续 1，83%；其中 #4 是 **blank**）、`preflush-d0` `never-complete`（6 轮，最长连续 **2**，33%）、
+`preflush-small` `complete-with-jitter`（4 轮，最长连续 3，25%）。⇒ 逐格 streak **随负载大幅变化**，
+这也是护栏把「未通过」做成**显式判定 + 抖动率 + KNOWN-DEVIATION 注解**、而不是逐格硬红的原因
+（逐格硬红会在每次 WebKit 运行里红；见 hardkill 报告追加节 §2 末段）。
+
+**隔离单轮 ×5（取原始单轮完整率 `p`）**：`pending-d0` `10/1000/1000/1000/1000`（4/5）、
+`preflush-d0` `0(空白)/1000/1000/1000/10`（3/5）、`preflush-small` `100/100/100/10/100`（4/5）。
+
+### 3. 沿用旧判据（单轮）会得出什么不同结论
+
+- **旧判据**（只跑第 1 轮，两个布尔）：本轮 WebKit 第 1 轮是 **blank** → `windowCaptured=false`、
+  `commitLost=0`、存活 `0/1000` → D004-B/C **不对该格断言**、只留一条 `KNOWN-DEVIATION` 注解
+  （这就是 T32 那 3 个「空白格」被读成「没丢」的形态）；而同日另一次同命令复跑的第 1 轮是
+  `undercounted(10)` → D004-B/C **直接红**（`存活 0 + 未提交 10 ≠ 1000`）。
+  ⇒ 旧判据的结论**在「红」与「绿但空白（无结论）」之间随运行抖动**。
+- **新判据**：D004-B/C 绿 —— 因为它拿到的**是被挑出来的一轮真实完整捕获**（#4：`0 + 1000 = 1000`，
+  `windowCaptured=true`）；同时把不稳定性作为一等结论报出：`pending-d0` **未通过捕获判定**
+  （`passed=false`、抖动 83%、6 轮里 5 轮计数不完整：4 轮少报 990 个事件、1 轮**完全没有计数证据**），
+  `reconcile.mjs` §3.4 也把这两格列为「未通过捕获判定的捕获格」。
+- 逐格判定与逐轮证据都写进了 `tests/e2e/results/d004-{browser}.json`
+  （`capturePolicy` / `captureGates` / 每格 `captureGate`），任何读者都能复核，不需要重跑浏览器。
+
+### 4. 变异（浏览器侧）与恢复
+
+- `D004_CAPTURE_GUARD=off pnpm test:e2e --project=webkit tests/e2e/durability.spec.mjs` → **2 failed / 1 passed**：
+  `D004-B/C` 红（`pending-d0: 窗口已捕获，存活 0 + 未提交 10 必须等于 1000`）、
+  `D004-CAP` 红（`pending-d0: 必须显式声明空白≠0 丢失`）。**恢复**同一命令 → **3 passed**。
+- 非浏览器侧的确定性判别（同一份变异开关）见 `node tests/e2e/lib/d004-anchor-window.mjs`：
+  护栏生效 `PASS 15/15`（exit 0），关掉护栏 `FAIL 6/15`（exit 1）。

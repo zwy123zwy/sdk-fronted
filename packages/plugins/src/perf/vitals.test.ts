@@ -8,8 +8,9 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { METRIC_NAMES, createPerfCapture } from './index';
+import { METRIC_NAMES, createPerfCapture, createVitalsAccumulator } from './index';
 import type {
+  MetricName,
   PerfEntryLike,
   PerfObserverCallback,
   PerfObserverLike,
@@ -196,5 +197,95 @@ describe('C05-AC-07 不支持的条目类型被跳过且不抛错', () => {
     expect(harness.vitals.map((event) => event.dimensions.metric_name)).toContain('FCP');
     harness.hide();
     expect(harness.vitals.map((event) => event.dimensions.metric_name)).not.toContain('CLS');
+  });
+});
+
+describe('C05-F2 VitalsAccumulatorOptions.now 必须被真实读取（注入即为 occurred_at）', () => {
+  /**
+   * 注入**不可能自然出现**的时间常量：真实 `Date.now()` 在任何测试运行中都远大于它
+   * （`4_102_444_800_000` 对应 2100-01-01T00:00:00Z）。
+   */
+  const IMPOSSIBLE_NOW = 4_102_444_800_000;
+
+  /** 造一条核心指标条目：FCP 走 `startTime` 累计，INP 在测试内单独用 duration 造。 */
+  const fcpEntry = (): PerfEntryLike => ({
+    name: 'first-contentful-paint',
+    entryType: 'paint',
+    startTime: 800,
+    duration: 0,
+  });
+
+  it('take() 产出的 FCP 事件 occurred_at 等于注入 now 的返回值（非 Date.now）', () => {
+    // 故意让 now 的相邻两次调用返回不同值：occurred_at 必须精确落在注入时间轴上。
+    const declaredNow = [IMPOSSIBLE_NOW, IMPOSSIBLE_NOW + 1] as const;
+    let nowCalls = 0;
+    const accumulator = createVitalsAccumulator({
+      now: () => declaredNow[nowCalls++] ?? IMPOSSIBLE_NOW,
+    });
+    accumulator.observe(fcpEntry());
+
+    const event = accumulator.take('FCP');
+    expect(event, 'FCP 已观测，take 必须产出事件').toBeDefined();
+    if (event === undefined) throw new Error('take(FCP) 未产出事件');
+
+    // 区分力所在：若实现不读注入 now（例如钉成 Date.now()），下面两条必然失败。
+    expect(nowCalls, `实现必须调用注入的 now（实际调用 ${String(nowCalls)} 次）`).toBeGreaterThan(0);
+    expect(event.occurred_at, `occurred_at 必须是注入 now 的返回值 ${String(IMPOSSIBLE_NOW)}`).toBe(IMPOSSIBLE_NOW);
+    expect(event.occurred_at, 'occurred_at 不得是 Date.now()').not.toBe(Date.now());
+    expect(event.metrics.value, 'occurred_at 之外的值仍来自注入条目').toBe(800);
+  });
+
+  it('take() 产出的 TTFB 事件 occurred_at 也走注入 now（TTFB 单独取自 responseStart）', () => {
+    const declaredNow = [IMPOSSIBLE_NOW + 10, IMPOSSIBLE_NOW + 11] as const;
+    let nowCalls = 0;
+    const accumulator = createVitalsAccumulator({
+      now: () => declaredNow[nowCalls++] ?? IMPOSSIBLE_NOW,
+      responseStartProvider: () => 123.5,
+    });
+
+    const event = accumulator.take('TTFB');
+    expect(event, 'responseStart 可用时 TTFB 必须产出事件').toBeDefined();
+    if (event === undefined) throw new Error('take(TTFB) 未产出事件');
+
+    expect(nowCalls, `实现必须调用注入的 now（实际调用 ${String(nowCalls)} 次）`).toBeGreaterThan(0);
+    expect(
+      event.occurred_at,
+      `TTFB 的 occurred_at 必须是注入 now 的返回值 ${String(IMPOSSIBLE_NOW + 10)}`,
+    ).toBe(IMPOSSIBLE_NOW + 10);
+    expect(event.occurred_at, 'TTFB 的 occurred_at 不得是 Date.now()').not.toBe(Date.now());
+  });
+
+  it('多次 take 各自使用当次注入的 now 值（第五条指标亦然：CLS 与 INP）', () => {
+    const observed: MetricName[] = ['CLS', 'INP'];
+    const produced: { metricName: MetricName; occurredAt: number }[] = [];
+    for (const metricName of observed) {
+      // 每个指标注入一个只属于它、且互不相同的固定值。
+      const injected = IMPOSSIBLE_NOW + (metricName === 'CLS' ? 100 : 200);
+      let nowCalls = 0;
+      const accumulator = createVitalsAccumulator({
+        now: () => {
+          nowCalls += 1;
+          return injected;
+        },
+      });
+      if (metricName === 'CLS') {
+        accumulator.observe({ name: '', entryType: 'layout-shift', startTime: 100, duration: 0, value: 0.04 });
+      } else {
+        accumulator.observe({ name: 'click', entryType: 'event', startTime: 2000, duration: 120 });
+      }
+      const event = accumulator.take(metricName);
+      expect(event, `${metricName} 已观测，take 必须产出事件`).toBeDefined();
+      if (event === undefined) throw new Error(`take(${metricName}) 未产出事件`);
+      expect(nowCalls, `${metricName} 必须调用注入 now`).toBeGreaterThan(0);
+      produced.push({ metricName, occurredAt: event.occurred_at });
+    }
+
+    expect(produced).toEqual([
+      { metricName: 'CLS', occurredAt: IMPOSSIBLE_NOW + 100 },
+      { metricName: 'INP', occurredAt: IMPOSSIBLE_NOW + 200 },
+    ]);
+    for (const item of produced) {
+      expect(item.occurredAt, `${item.metricName} 的 occurred_at 不得是 Date.now()`).not.toBe(Date.now());
+    }
   });
 });
