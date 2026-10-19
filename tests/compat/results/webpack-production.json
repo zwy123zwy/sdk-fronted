@@ -1,6 +1,6 @@
 {
   "task": "T30",
-  "generatedAt": "2026-10-16T07:21:28.919Z",
+  "generatedAt": "2026-10-16T11:40:32.253Z",
   "engine": "webpack 5.104.1 / node v24.16.0",
   "command": "node examples/webpack/scripts/build-production.mjs",
   "entry": "/Users/spirit-ai/Desktop/sdk/examples/webpack/src/main.js",
@@ -24,7 +24,7 @@
   "sandbox": {
     "bundlePath": "/Users/spirit-ai/Desktop/sdk/examples/webpack/dist/main.js",
     "bundleBytes": 122190,
-    "evaluatedMs": 3,
+    "evaluatedMs": 2,
     "sdkVersion": "0.1.0",
     "expectedSdkVersion": "0.1.0",
     "domText": "web-report-sdk 0.1.0",
@@ -62,9 +62,34 @@
       "createAssemblyExposed": true,
       "noPageErrors": true
     },
+    "attempts": [
+      {
+        "path": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        "source": "chromium.executablePath()",
+        "error": "文件不存在"
+      },
+      {
+        "path": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        "source": "ms-playwright chromium-1223",
+        "error": null
+      }
+    ],
     "detail": {
       "status": "pass",
       "chromePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+      "chromeSource": "ms-playwright chromium-1223",
+      "attempts": [
+        {
+          "path": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+          "source": "chromium.executablePath()",
+          "error": "文件不存在"
+        },
+        {
+          "path": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+          "source": "ms-playwright chromium-1223",
+          "error": null
+        }
+      ],
       "domText": "web-report-sdk 0.1.0",
       "pageErrors": [],
       "checks": {

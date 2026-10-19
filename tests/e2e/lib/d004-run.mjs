@@ -12,12 +12,24 @@
  * 两组**分开报**：D004 说的是「已 oncomplete 的不丢；窗口内未提交的单独计量」。
  * 任何与 D004 不符的结果如实写进 JSON，不修实现。
  *
- * 用法：node tests/e2e/lib/d004-run.mjs --browser chromium [--out <file>] [--cells durable,0,5]
+ * 用法：
+ *   node tests/e2e/lib/d004-run.mjs                  # **默认枚举全部声明浏览器**（chromium/firefox/webkit）
+ *   node tests/e2e/lib/d004-run.mjs --browser webkit [--out <file>] [--out-dir <dir>] [--cells durable,0,5]
+ *
+ * 为什么默认是"全部"而不是单个引擎：本脚本是 D004 的**证据生成器**，每个引擎一份
+ * `results/d004-<browser>.json`。默认值写死 `chromium` 只有一个后果——"另外两个引擎的证据永远不产生"，
+ * 而命令行上看起来像一次正常跑完（**静默覆盖缺口**）。现在默认枚举 `lib/browser-names.mjs`
+ * 里声明的全部浏览器，逐个**先真启动探测**：起不来的那个显式记成"本次未产出证据"（带真实报错）
+ * 并让退出码非零，**绝不**默默少跑一个引擎。
+ * `--browser <name>` 仍可只跑一个（那时 `--out` 才有意义）；Playwright 里的调用方
+ * （`durability.spec.mjs`）一直显式传 `browserName`，行为不变。
  */
 import fs from 'node:fs';
 import nodeCrypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ALL_BROWSERS, DECLARED_BROWSERS, expandBrowserArg } from './browser-names.mjs';
+import { probeBrowser } from './browser-availability.mjs';
 import { resolveBrowser } from './browsers.mjs';
 import { startStaticServer } from './static-server.mjs';
 import {
@@ -102,8 +114,9 @@ function buildInfo() {
 
 function parseArgs(argv) {
   const args = {
-    browser: 'chromium',
+    browser: ALL_BROWSERS,
     out: null,
+    outDir: null,
     cells: null,
     count: 100,
     eventsPerBatch: 10,
@@ -117,6 +130,7 @@ function parseArgs(argv) {
     const value = argv[i + 1];
     if (key === '--browser') args.browser = value;
     else if (key === '--out') args.out = value;
+    else if (key === '--out-dir') args.outDir = value;
     else if (key === '--cells') args.cells = value.split(',');
     else if (key === '--count') args.count = Number(value);
     else if (key === '--events-per-batch') args.eventsPerBatch = Number(value);
@@ -340,17 +354,25 @@ async function runCaptureGatedCell({ info, server, runDir, cell, appId, count, e
 }
 
 export async function runD004({
-  browser = 'chromium',
+  browser,
   cells = null,
   count = 100,
   eventsPerBatch = 10,
   bulkPad = null,
   out = null,
+  outDir = null,
   log = console.log,
   streak = null,
   maxRounds = null,
   gate = null,
 } = {}) {
+  if (typeof browser !== 'string' || browser.trim() === '') {
+    throw new Error(
+      'runD004 必须显式指定 browser（chromium / firefox / webkit）：证据是**按引擎逐份**产出的，' +
+        '没有"默认只跑一个引擎"的合理缺省（旧默认 chromium 会让另外两个引擎的证据永远不产生）。' +
+        '命令行要一次跑全部，请 `node tests/e2e/lib/d004-run.mjs`（默认枚举全部声明浏览器）。',
+    );
+  }
   const info = await resolveBrowser(browser);
   const transport = buildInfo();
   const runDir = makeRunDir(`d004-${browser}`);
@@ -461,7 +483,8 @@ export async function runD004({
       preflush: preflush.map(brief),
     },
   };
-  const target = out ?? path.join(REPO_ROOT, 'tests/e2e/results', `d004-${browser}.json`);
+  const target =
+    out ?? path.join(outDir ?? path.join(REPO_ROOT, 'tests/e2e/results'), `d004-${browser}.json`);
   writeJson(target, summary);
   log(`结果写入 ${path.relative(REPO_ROOT, target)}`);
   log(
@@ -471,9 +494,80 @@ export async function runD004({
   return summary;
 }
 
-const invokedDirectly = process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const invokedDirectly =
+  process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+/** 记账里显示的路径：仓内用相对路径，仓外（如 `--out-dir /tmp/...`）保留绝对路径。 */
+function displayPath(target) {
+  const relative = path.relative(REPO_ROOT, target);
+  return relative === '' || relative.startsWith('..') ? target : relative;
+}
 if (invokedDirectly) {
   const args = parseArgs(process.argv.slice(2));
-  const summary = await runD004({ ...args });
-  console.log(JSON.stringify(summary.grouped, null, 2));
+  let selected;
+  try {
+    selected = expandBrowserArg(args.browser);
+  } catch (error) {
+    console.error(
+      `${String(error?.message ?? error)}\n` +
+        `用法：node tests/e2e/lib/d004-run.mjs [--browser ${ALL_BROWSERS}|${DECLARED_BROWSERS.join('|')}] ` +
+        '[--out <file>|--out-dir <dir>] [--cells …]',
+    );
+    process.exit(2);
+  }
+  if (args.out !== null && selected.length > 1) {
+    console.error(
+      `--out 只能用于单个浏览器（本次要跑 ${selected.join('、')}）：` +
+        '多引擎请用 --out-dir（每个引擎各写 d004-<browser>.json），或用 --browser <name> 只跑一个。',
+    );
+    process.exit(2);
+  }
+
+  /**
+   * 逐个引擎：**先真启动探测**，起不来就显式记账"本次未产出证据"（带真实报错），
+   * 起得来才跑测量。这样"少跑一个引擎"不可能静默：它会出现在下面的记账表里，且退出码非零。
+   */
+  const evidence = [];
+  for (const browser of selected) {
+    const probe = await probeBrowser(browser);
+    if (!probe.ready) {
+      console.error(
+        `⛔ [d004] [${browser}] 本机起不来（探测阶段=${probe.stage}，驱动=${String(probe.driver)}），` +
+          `**本次没有产出任何 ${browser} 证据**——这是**证据覆盖缺口**，不是"通过"，也不是产品失败。` +
+          `原因：${probe.reason}\n` +
+          `   补测：在能起 ${browser} 的机器上重跑 \`node tests/e2e/lib/d004-run.mjs --browser ${browser}\`` +
+          `（Firefox 不得设置任何 \`MOZ_*\`）。`,
+      );
+      evidence.push({ browser, status: 'unavailable', stage: probe.stage, reason: probe.reason });
+      continue;
+    }
+    const summary = await runD004({ ...args, browser, out: args.out });
+    console.log(JSON.stringify(summary.grouped, null, 2));
+    evidence.push({
+      browser,
+      status: 'measured',
+      out: displayPath(
+        args.out ?? path.join(args.outDir ?? path.join(REPO_ROOT, 'tests/e2e/results'), `d004-${browser}.json`),
+      ),
+      cells: summary.cells.length,
+    });
+  }
+
+  console.log('\n[d004] 证据产出记账（每个声明的浏览器一行，缺失即点名）：');
+  for (const item of evidence) {
+    if (item.status === 'measured') {
+      console.log(`  ✓ ${item.browser}: ${item.out}（${String(item.cells)} 个格子）`);
+    } else {
+      console.log(`  ✗ ${item.browser}: **未产出证据**（${item.status}）—— ${item.reason}`);
+    }
+  }
+  const missing = evidence.filter((item) => item.status !== 'measured');
+  if (missing.length > 0) {
+    console.error(
+      `⚠ 证据覆盖缺口：以上 ${String(missing.length)} 个引擎本轮**没有证据**` +
+        `（${missing.map((item) => item.browser).join('、')}）。整轮不得被读成"全引擎已验证"，` +
+        '也不是产品失败；补齐方式见上面每个引擎的"补测"。',
+    );
+    process.exitCode = 1;
+  }
 }

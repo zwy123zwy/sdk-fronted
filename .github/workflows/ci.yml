@@ -55,4 +55,9 @@ jobs:
       - run: pnpm examples:test
         env:
           EXAMPLES_REQUIRE_BROWSER: '1'
+      # T30 的两个浏览器证据脚本也放这里：它们同样需要浏览器，而此前**没有任何 CI job 跑它们**
+      # ⇒ T30 的浏览器证据在 CI 上永不刷新（与 examples 复核是同一种病：跑证据的 job 没有浏览器）。
+      # 2026-10-15 经负责人追认（同类先例：examples 复核接 e2e job）。
+      - run: node tests/compat/scripts/browser-core-path.mjs
+      - run: node tests/compat/scripts/vite-dev-server.mjs
       - run: pnpm test:e2e

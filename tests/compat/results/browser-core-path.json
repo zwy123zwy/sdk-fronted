@@ -1,8 +1,28 @@
 {
   "task": "T30",
-  "generatedAt": "2026-10-14T07:51:23.349Z",
+  "generatedAt": "2026-10-19T02:31:18.964Z",
   "engine": "chromium",
-  "playwright": "1.64.0（仓库锁定；浏览器用 executablePath 指向本机 chromium-1223）",
+  "browser": {
+    "status": "pass",
+    "engine": "chromium",
+    "driver": "@playwright/test@1.64.0",
+    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "source": "ms-playwright chromium-1223",
+    "reason": "",
+    "attempts": [
+      {
+        "path": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        "source": "chromium.executablePath()",
+        "error": "文件不存在"
+      },
+      {
+        "path": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        "source": "ms-playwright chromium-1223",
+        "error": null
+      }
+    ]
+  },
+  "playwright": "@playwright/test@1.64.0",
   "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
   "browserVersion": "148.0.7778.96",
   "features": {
@@ -49,6 +69,8 @@
     "Uncaught Error: compat-uncaught"
   ],
   "batchesReceived": 3,
+  "acceptedBatches": 3,
+  "rejectedBatches": [],
   "eventNames": [
     "compat_probe",
     "web_js_error",
@@ -62,7 +84,7 @@
     ""
   ],
   "firstBatch": {
-    "at": "2026-10-14T07:51:21.824Z",
+    "at": "2026-10-19T02:31:17.479Z",
     "bytes": 1134,
     "body": {
       "protocol_version": 1,
@@ -70,33 +92,33 @@
       "env": "test",
       "release": "0.0.0",
       "sdk_name": "@web-report-sdk/core",
-      "sdk_version": "0.0.0",
-      "device_id": "c0131948-bed6-41c6-b1ef-e7e69aa88b51",
+      "sdk_version": "0.1.0",
+      "device_id": "6b85f611-3952-4900-ace8-e14eac936b4f",
       "device_id_persistent": true,
-      "session_id": "1d71464b-ecc5-4fc1-8968-097812da59ce",
+      "session_id": "94d54a0c-49d4-4b5f-8e96-b2a9c92f0138",
       "clock_offset": 0,
       "clock_calibrated": false,
       "consent": "granted",
-      "batch_id": "ade5fd86-6120-4179-a6c1-f7d67c841335",
-      "sent_at": 1791964281818,
+      "batch_id": "8017f5dc-14bf-4576-b28c-b43f4d87a3f6",
+      "sent_at": 1792377077431,
       "events": [
         {
-          "event_id": "aeaf70c6-29c0-4ee3-9ca7-483a9a6d358c",
+          "event_id": "6ef568e5-5993-4d28-8731-e835dfe88078",
           "event_name": "compat_probe",
           "event_type": "custom",
           "schema_version": 1,
-          "occurred_at": 1791964280815,
+          "occurred_at": 1792377076427,
           "priority": "normal",
           "dimensions": {
             "probe": "core-path"
           }
         },
         {
-          "event_id": "952cc406-950a-452b-a773-c2874a295580",
+          "event_id": "8b0c3d35-c5a0-4590-abef-3b43fc50bc1a",
           "event_name": "web_js_error",
           "event_type": "error",
           "schema_version": 1,
-          "occurred_at": 1791964280817,
+          "occurred_at": 1792377076429,
           "priority": "normal",
           "dimensions": {
             "error_type": "Error",
@@ -107,20 +129,24 @@
           "metrics": {
             "count": 1
           },
-          "attachment": "Error: compat-capture-error\n    at http://0.0.0.0:50198/page:43:32\n    at http://0.0.0.0:50198/page:54:3"
+          "attachment": "Error: compat-capture-error\n    at http://0.0.0.0:59014/page:43:32\n    at http://0.0.0.0:59014/page:54:3"
         }
       ],
       "common": {
-        "view_id": "76c73124-a147-4f3c-a3d2-aaec1972e29d",
-        "url": "http://0.0.0.0:50198/page"
+        "view_id": "ce74ec38-cfcb-43dc-b1dd-b943525b3831",
+        "url": "http://0.0.0.0:59014/page"
       }
-    }
+    },
+    "schemaOk": true,
+    "code": "accepted",
+    "errors": []
   },
   "pageErrors": [
     "Error: compat-uncaught"
   ],
   "checks": {
     "serverReceivedBatch": true,
+    "batchSchemaValid": true,
     "corePath": true,
     "sdkVersion": true,
     "trackedEventDelivered": true,

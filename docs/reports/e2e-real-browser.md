@@ -999,3 +999,143 @@ browser-core-path.mjs:38,43}` 的同类写死路径——编排方**已批准另
 **最自然的接法（供裁定 (1) 使用，本 lane 不改）**：把 `examples:build` / `examples:test` 加到 **`e2e` job**
 （它已经装了浏览器），或给 `gates` job 加一步 `playwright install chromium`（更省时间但要多下载）。
 两者都属 `.github/workflows/ci.yml`（**门禁配置，需负责人追认**）。
+
+---
+
+## 追加节（2026-10-19）：浏览器**定位/名单**的三处收口 + 全仓残留清单（只报告）
+
+> lane：可移植性收口；可写范围 `tests/e2e/lib/**`、`tests/compat/scripts/**`、`tests/e2e/README.md` 与
+> 本报告/`compat-matrix.md`/`t33-access-blockers.md` 的追加节。**未跑 `pnpm gates`**（另一条 lane 在改
+> `tools/mock-receiver/**`，在途改动会让门禁结果不可信）；未做任何 git 写操作；**本机 Firefox 依旧起不来**
+> （`sandbox_init()` EPERM，**未设置任何 `MOZ_*`**），本节不声称任何 Firefox 结论。
+
+### 1. 修前实情（`tests/e2e/lib/browsers.mjs`）
+
+| 位置（修前） | 写死了什么 | 在 Linux CI 上会怎样 |
+|---|---|---|
+| `browsers.mjs:22` | `CACHE_DIR = join(os.homedir(), 'Library', 'Caches', 'ms-playwright')` | Linux 的缓存根是 `~/.cache/ms-playwright`（或 `$XDG_CACHE_HOME/ms-playwright`），**这个根不存在** |
+| `browsers.mjs:26-30` | `EXECUTABLE_RELATIVE`：`chrome-mac-arm64/…app`、`firefox/Nightly.app/…`、`pw_run.sh` | Linux 布局是 `chrome-linux/chrome`、`firefox/firefox`、`webkit/pw_run.sh`；即便根对了，**每个引擎都拼不出可执行文件** |
+| `browsers.mjs:50-59` | `TREE_OUT_DRIVERS` 两条 `/Users/spirit-ai/…` 绝对路径（含一个**别的仓库**） | 两条都不存在 ⇒ 分支 2 恒跳过 |
+
+具体后果：CI 的 `e2e` job（`.github/workflows/ci.yml:33-58`）**先 `playwright install` 再 `pnpm test:e2e`**，
+也就是说 Linux 上浏览器是装好的（`~/.cache/ms-playwright/chromium-1248/...`）。但解析链是三段全落空：
+分支 1（`PW_<NAME>_EXE`）未设置 → 分支 2 的绝对路径不存在 → 分支 3 扫错根 + 用错布局 ⇒
+`resolveBrowser()` 对 chromium/firefox/webkit **一律抛错**"没有可用的浏览器 + 驱动组合"。
+于是三个 project 全红，**红的原因是路径，不是 SDK**；而"浏览器其实装着"这件事被埋在报错里。
+
+### 2. 改法（`tests/e2e/lib/browsers.mjs`，不写任何平台布局表）
+
+1. **缓存根按平台算**（`cacheRootForPlatform(platform, env, home)`，纯函数、平台是注入参数）：
+   Linux `$XDG_CACHE_HOME` 或 `~/.cache`、Windows `%LOCALAPPDATA%`（无则 `%USERPROFILE%\AppData\Local`）、
+   macOS `~/Library/Caches`；未知平台返回 `null`（不猜）。`defaultCacheRoot()` 优先
+   `PLAYWRIGHT_BROWSERS_PATH`（`=0` 例外，退回平台默认）。
+2. **构建内布局从 `executablePath()` 推导**：`executableTail(browserName, expectedPath)` 取期望路径里
+   `<name>-<revision>` 之后的部分，`executableInBuild()` 把它搬到已装构建目录 —— **只换 revision**。
+   macOS 的 `.app` 包、Linux 的 `chrome-linux/chrome`、Windows 的 `chrome-win/chrome.exe`、WebKit 的
+   `pw_run.sh`、Firefox 的 `Nightly.app` 全部由这一条覆盖（布局是 Playwright 算出来的，不是我们维护的）。
+3. **新增分支 3**：仓库驱动自己的 `executablePath()` 存在就直接用（`exactPairing: true`）——
+   **CI 的 `playwright install` 走的就是这条**。
+4. **树外驱动不写死用户名**：`E2E_TREE_OUT_DRIVERS`（`path.delimiter` 分隔）+ 自动发现
+   `~/.npm/_npx/*/node_modules/playwright-core`（本机命中的仍是 1.60.0 那个，`driverId` 不变）。
+5. 构建目录**允许符号链接**（本机 `chromium-1208 -> chromium-1223` 就是链接；用 `statSync` 而不是
+   `Dirent.isDirectory()`，否则这类构建会被静默漏掉）。
+6. 判据自检：`tests/e2e/lib/browser-locate-selftest.mjs`（25 项，确定性、不用浏览器、不用 Linux）。
+
+### 3. `lib/d004-run.mjs` 默认 `--browser chromium`：**是静默覆盖缺口**，已改
+
+事实：`durability.spec.mjs` 一直显式传 `browserName`（每个 project 各测各的），所以**Playwright 路径不受影响**；
+缺口在 **CLI 路径**：`node tests/e2e/lib/d004-run.mjs`（不带 `--browser`）只测 chromium、只写
+`results/d004-chromium.json`、**exit 0**、输出里完全不提另外两个引擎。证据是"按引擎一份文件"，
+消费方（`tests/reliability/reconcile.mjs`、`lib/d004-anchor-window.mjs`）读不到就是"没数据"——
+但**没有任何信号告诉人"你少跑了两个引擎"**。这正是 t33 记的"未运行的检查被读成通过"形态。
+
+改法（两条一起）：
+- CLI 默认 `--browser all`：枚举 `lib/browser-names.mjs` 里**声明的全部**浏览器；
+- 每个引擎**先真启动探测**（复用 `lib/browser-availability.mjs` 的 `probeBrowser`），起不来的显式打印
+  `⛔ [d004] [firefox] …本次没有产出任何 firefox 证据——这是**证据覆盖缺口**，不是"通过"，也不是产品失败`
+  （裁定 (d) 要求这句话保留、别简化）+ 真实报错，末尾再打一张
+  "证据产出记账"表并有**任一引擎缺证据 ⇒ exit 1**（直接点名"整轮不得被读成全引擎已验证"）；
+- `runD004({ browser })` **不再有默认值**（漏传直接抛错，理由写在错误里）——消除"悄悄只跑一个"的可能；
+- `--out` 只允许单引擎（多引擎用新的 `--out-dir`，每个引擎各写 `d004-<browser>.json`）。
+
+**README 口径（裁定 (d)/(f)）**：`tests/e2e/README.md` 已写明"**在 Firefox 起不来的机器上，默认命令会红
+是预期行为、不是回归**，收窄用 `--browser chromium`"，并新增"**自己诊断'为什么它找不到浏览器'**"一节
+（找过的缓存根 / 期望的二进制 / 试过的每个候选 / `PW_<NAME>_EXE` 强制指定 / 自检命令），
+照它就能自己判断卡在哪一层，不用读代码。
+
+### 4. `lib/smoke-browsers.mjs` 的取值词汇表：与真实探测口径**不一致**，已改
+
+修前：`const names = which === 'all' ? ['chromium','firefox','webkit'] : [which];`
+—— ① 手写名单，与 Playwright 实际导出的引擎是两份东西；② `which` 不做校验，`chrome` / 带空格的
+`firefox ` 会被当成浏览器名继续往下传，最后得到一条"本机没有可用组合"的**误导性**错误；
+③ 无论 `OK` 还是 `LAUNCH-FAIL` 都 **exit 0**（打完红字仍是绿的）。
+
+改后：名字来自 `lib/browser-names.mjs` 的 `declaredBrowsers()` —— **从 `@playwright/test` 的导出里取**
+（判据 = 带 `launchPersistentContext` 的非私有导出），也就是 `lib/browsers.mjs` 解析、
+`lib/browser-availability.mjs` 探测、`lib/harness.mjs` launch 用的**同一批对象**，不可能漂移成两份名单；
+非法名字 ⇒ 报错并列出 `all|chromium|firefox|webkit`、exit 2；逐个浏览器打一行结局 + 汇总，
+**任一没起来 ⇒ exit 1**。（当前与 `playwright.config.ts` 的三个 project 同名；配置是 `.ts`，
+从 `.mjs` 脚本安全读取它需要额外 loader，故未解析配置——配置增删 project 时需同步本文件说明。）
+
+### 5. 判别性证明（都在本机实跑；变异恢复后 sha256 与基线逐字节一致）
+
+| 处 | 改坏/改前的观察 | 改后的观察 |
+|---|---|---|
+| `browsers.mjs` 平台根 | 变异：`cacheRootForPlatform` 恢复成"linux 也返回 `~/Library/Caches`" → `browser-locate-selftest` **22/25、exit 1**（3 条 Linux/XDG 判据红） | 恢复后 **25/25、exit 0** |
+| `browsers.mjs` 分支 3 | 变异：停用"仓库驱动 `executablePath()`"分支 → 自检 **24/25、exit 1**（端到端分支 3 判据红：改走 9999 且 `exactPairing=false`） | 恢复后 25/25 |
+| `d004-run.mjs` 默认引擎 | 还原成修前文件：`--cells preflush-small --no-gate --out /tmp/…` → 只测 chromium、**exit 0**、全文不出现 firefox/webkit | 新默认：`… --out-dir /tmp/d004-all` → chromium ✓ / webkit ✓ / firefox ✗（真实报错 `Timeout 20000ms exceeded`）、末尾记账表、**exit 1** |
+| `smoke-browsers.mjs` 退出码 | 还原成修前文件 + `PW_CHROMIUM_EXE=<不可执行文件>` → `LAUNCH-FAIL` 但 **exit 0** | 改后同命令 → `LAUNCH-FAIL` + 汇总 + 告警，**exit 1**；`chrome` → 报错列合法取值、**exit 2** |
+| 变异恢复 | 三个文件按 `/tmp` 备份逐字节还原 | `shasum -a 256` 与改动后基线一致（`browsers.mjs b48e89fb…`、`d004-run f96bf0fe…`〔证明时刻；此后按裁定 (d) 又改了 unavailable 文案，最终 sha 见 §8〕、`smoke-browsers 63f75c4f…`） |
+
+### 6. 回归（只跑相关最小命令）
+
+| 命令 | 结果 |
+|---|---|
+| `node tests/e2e/lib/browser-locate-selftest.mjs` | **25/25 通过，exit 0** |
+| `node tests/e2e/lib/skip-audit-selftest.mjs` | **14/14 通过，exit 0**（该文件未被本 lane 改动；用于确认"跳过不可静默"判据未被本轮改坏） |
+| `node tests/e2e/lib/browsers.mjs` 的解析（`node -e`） | chromium/firefox/webkit 均**仍走分支 2**（`npx-cache-playwright-core-1.60.0`，`exactPairing=true`），`driverId`/`source` 字符串与修前一致 |
+| `node tests/e2e/lib/smoke-browsers.mjs chromium` / `… all` | chromium OK；`all` 汇总 `ok=2 failed=1`（firefox 真实超时）、**exit 1** |
+| `node tests/e2e/lib/d004-run.mjs --cells preflush-small --no-gate --out-dir /tmp/d004-all` | chromium/webkit 各产出 1 格、firefox 显式未产出、exit 1（产物写 `/tmp`，**未覆写** `tests/e2e/results/**`） |
+| `pnpm exec eslint tests/e2e tests/compat` | **exit 0** |
+
+**未验证**：Linux（本机 macOS/arm64，未在 Linux 上实跑；跨平台性由注入平台的确定性自检证明，
+不声称已验证）；Firefox 任何数字（起不来）；`pnpm gates`（并发 lane，未跑）。
+
+### 7. 全仓残留（**只报告，未改**）
+
+| 位置 | 写死了什么 | 在 Linux CI 上的影响 |
+|---|---|---|
+| `tests/e2e/lib/harness.mjs:28` | `processPattern()` 的正则要求 `/` 分隔（`ms-playwright/<build>/`） | Linux 上正常；**Windows** 上退回 executablePath（仍可用）。另 `pgrep`（`:35,73`）Windows 无此命令 ⇒ PID 列表恒空、`hardKill` 会抛"无法强杀"——Windows 目前不在 CI 矩阵内 |
+| `tests/e2e/lib/d004-anchor-window.mjs:480` | `for (const browser of ['chromium','webkit'])` 读 `results/d004-<b>.json` | 信息性汇总（`--dump` 才打印）。firefox 产物若出现，上一轮已加"未被本清单读取"告警；**判据未用** |
+| `tests/reliability/reconcile.mjs:99` | `browsers = ['chromium','webkit']` 默认值 | 读不到 `d004-firefox.json`（今天也不存在）。该文件**不在本 lane 可写范围** |
+| `poc/poc-1/lib/driver.mjs:16` | `DEFAULT_CACHE_DIR = ~/Library/Caches/ms-playwright` | POC 脚本，不在任何门禁/CI |
+| `examples/webpack/scripts/lib/chromium-locate.mjs:87-113` | Chromium 的 `chrome-mac[-arm64|-x64] / chrome-linux[64] / chrome-win[64]` 布局候选表 | **不是缺陷**：跨平台、且每个候选都真启动验证；这也是本轮复用的那份实现（`examples/**` 本轮不可写） |
+| `tests/compat/README.md:85` | 文字"本机装了 `chromium-1223`（`~/Library/Caches/ms-playwright`）" | 文档措辞（macOS 专属）；该文件不在本 lane 可写范围，建议下一轮随代码同步 |
+| `tests/e2e/results/*.json`、`tests/compat/results/*.json`、`tests/reliability/results/*.json` | 证据产物里的 `executablePath` 是**绝对路径**（含用户名） | **待办（裁定：本轮不改，属产物格式变更、需单独评估）：证据产物应记录相对路径或脱敏**——现在会把 `/Users/<user>` 永久写进仓库（功能上无害，但泄漏本机用户名） |
+| `tests/e2e/README.md`（本轮已改） | 修前写着 `/Users/spirit-ai/.npm/_npx/...` | 已替换为"npx 缓存自动发现"的措辞 |
+
+### 8. 最终字节与裁定落点（2026-10-19，同一 lane）
+
+裁定 (c)(d)(f) 落实后的**最终 sha256**（`shasum -a 256`）：
+
+| 文件 | sha256 |
+|---|---|
+| `tests/compat/scripts/lib/chromium-launch.mjs` | `ee253ec27c3a4f5aa895ad9d0487f0f9cdc99d342f1ea90a8309fa78065f5ee0`（含旧变量 `T30_CHROMIUM_PATH` 保留 + 弃用告警） |
+| `tests/compat/scripts/browser-core-path.mjs` | `7848b5d05b225056031ae3406cfa95916ec3d629da5cf1b73bcf500e8ecf2dea` |
+| `tests/compat/scripts/vite-dev-server.mjs` | `54a66ae52aa23718736abb5ed82bc99904f9dc77323643b563e7aa764e94f3e0` |
+| `tests/e2e/lib/browsers.mjs` | `b48e89fbac93016e385a99d39ce0ebf6ac6100fc74a352f4975b88856046b9b0` |
+| `tests/e2e/lib/browser-names.mjs` | `96edecb2f3fa86b1a76fcde9c5c5c12a2c2db0bb7fb68ae39f756ef0be3e6499` |
+| `tests/e2e/lib/browser-locate-selftest.mjs` | `919bfddeb9d57e5fbf810fb92f04c2b58fb0c48d2ee16ee5e6ba02780f74a32b` |
+| `tests/e2e/lib/d004-run.mjs` | `f8097fd75076aacf3351a7b9e9b09d50434aa4aee765ca92d78574cd45be27fb` |
+| `tests/e2e/lib/smoke-browsers.mjs` | `63f75c4fc8cfb0894b56e2e502a191c2d5fa67edf2af563b61f8e166733f56ac` |
+
+- **(c) 旧变量保留**：`T30_CHROMIUM_PATH` 仍识别（每进程一次弃用告警、新名 `PW_CHROMIUM_EXE` 优先）；
+  四组实测（旧名真路径 / 旧名坏路径 / 新旧同设 / 旧名 + 无缓存）见 `docs/reports/compat-matrix.md` §9.3。
+- **(d) 文案**：`⛔ …本次没有产出任何 X 证据——这是**证据覆盖缺口**，不是"通过"，也不是产品失败`；
+  末尾 `⚠ 证据覆盖缺口：… 整轮不得被读成"全引擎已验证"，也不是产品失败`（实跑复核：firefox ✗、exit 1）。
+- **(f) README**：`tests/e2e/README.md` 的"一条命令"下补了"**默认命令在某个引擎起不来的机器上会红是
+  预期行为**、收窄用 `--browser chromium`"，并新增"**自己诊断'为什么它找不到浏览器'**"一节（四处按序看）。
+- **待办（本轮不改，已按裁定登记）**：证据产物里的绝对路径含 `/Users/<user>`（泄漏本机用户名）——
+  **证据产物应记录相对路径或脱敏**，属产物格式变更，需单独评估。
+- **(a)(e) 由编排方执行**：重生成并提交 compat 两份证据 JSON（旧 `status:pass` 是陈旧结论，需在提交
+  信息里写明）；把 compat 两个浏览器脚本接进 CI 的 e2e job（门禁配置变更、经负责人追认）。本 lane 未做。

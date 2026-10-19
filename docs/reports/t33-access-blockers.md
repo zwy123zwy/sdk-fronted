@@ -1801,3 +1801,176 @@ project 的 `browserName`，于是在每个 project 下都声明同样两条写�
 - `tools/config-signer/src/__tests__/performance.test.ts` `f593d8c6675b2db65fc823a6c40b1cff4085b1413f785cd6ee7246c964c1f100`
 
 **需负责人裁决**：14.2 的极端超订（32 worker/`loadavg` 214）下 15 s 是否够；14.4 的 `:124` 最小修法是否要另派。
+
+---
+
+## 十五、§13.3 的"只报告"残留已收口（2026-10-19，可移植性 lane）——**已修 + 依据**
+
+出处：§13.3「只报告（未改）：其余写死引擎名 / 平台路径」与 §13.4 裁定 (4)「`tests/compat/scripts/…`
+只报告，已批准另派」。本轮按批准的范围收口，**只改** `tests/e2e/lib/**`、`tests/compat/scripts/**`、
+`tests/e2e/README.md` 与三份报告的追加节；**未碰** `examples/**`、`packages/**`、`tools/**`、
+`tests/acceptance/**`、门禁配置；**未跑 `pnpm gates`**（并发 lane 在改 `tools/mock-receiver/**`，
+在途改动会让结果不可信）；**无任何 git 写操作**；本机 Firefox 仍起不来（`sandbox_init()` EPERM、
+**未设置任何 `MOZ_*`**），本节不声称 Firefox 已验证。
+
+| §13.3/裁定(4) 的条目 | 状态 | 依据（证据位置） |
+|---|---|---|
+| `tests/e2e/lib/browsers.mjs:22`（`CACHE_DIR` 写死 `~/Library/Caches`）、`:26-30`（macOS arm64 布局表）、`:50-59`（两条 `/Users/…` 树外驱动） | **已修** | 缓存根按平台算（`$XDG_CACHE_HOME`/`~/.cache`、`%LOCALAPPDATA%`、`~/Library/Caches`，尊重 `PLAYWRIGHT_BROWSERS_PATH`）；构建内布局**由 `executablePath()` 推导**（只换 `<name>-<revision>`），无布局表；新增"仓库驱动期望路径"分支（**CI 走这条**）；树外驱动改为 `E2E_TREE_OUT_DRIVERS` + `~/.npm/_npx` 自动发现。判据自检 `node tests/e2e/lib/browser-locate-selftest.mjs` **25/25**；变异（恢复写死根 / 停用分支 3）分别 **22/25、24/25 变红**。详见 `docs/reports/e2e-real-browser.md` 追加节（2026-10-19）§1–§2、§5 |
+| `tests/e2e/lib/d004-run.mjs:105,343`（默认 `--browser chromium`） | **已修**（并重新定性为**静默覆盖缺口**，不只是"CLI 默认值"） | CLI 默认枚举 `lib/browser-names.mjs` 声明的全部浏览器；逐引擎真启动探测，起不来的显式记账（带真实报错）并 **exit 1**；`runD004({browser})` 取消默认值（漏传即抛错）。修前文件实测：只测 chromium、**exit 0**、全文不提另外两个引擎；修后：`ok=2 failed=1(firefox)`、记账表、**exit 1**。同上报告 §3、§5 |
+| `tests/e2e/lib/smoke-browsers.mjs:11`（`['chromium','firefox','webkit']` 手写词汇表） | **已修** | 词汇表改为**从 `@playwright/test` 导出推导**（带 `launchPersistentContext` 的非私有导出 = 真实探测用的同一批对象）；非法名字报错并列出合法取值（exit 2）；任一引擎起不来 ⇒ **exit 1**（修前恒 exit 0）。新增 `tests/e2e/lib/browser-names.mjs`。同上报告 §4、§5 |
+| `tests/compat/scripts/vite-dev-server.mjs:31`、`tests/compat/scripts/browser-core-path.mjs:38,43`（裁定 (4)） | **已修** | 复用 `examples/webpack/scripts/lib/chromium-locate.mjs`（`PW_CHROMIUM_EXE` → `executablePath()` → 本机缓存，**真启动成功才算可用**），新增 `tests/compat/scripts/lib/chromium-launch.mjs`；定位不到写 `browser.status="blocked"` + `checks.browserAvailable=false` + 逐候选真实报错 + **exit 1**（修前：抛错/ENOENT 且**不落盘**，上一轮 `pass` 留成陈旧结论）；`T30_CHROMIUM_PATH` 并入 `PW_CHROMIUM_EXE`。详见 `docs/reports/compat-matrix.md` §9（含判别性证明与"为什么 import examples 而不是复制"的理由） |
+| `tests/compat/scripts/lib/chromium-launch.mjs` 的**旧变量** `T30_CHROMIUM_PATH` | **已修（按裁定 (c) 处理）：保留旧名 + 弃用告警** | 新名 `PW_CHROMIUM_EXE` 优先；旧名仍识别、每进程打一次 `⚠ …已弃用` 告警；旧名指向坏路径时该候选记真实报错、继续走缓存定位（**不静默失效**）。四组实测（旧名真路径 / 旧名坏路径 / 新旧同时设置 / 旧名 + 无缓存）见 `docs/reports/compat-matrix.md` §9.3 |
+| 证据产物里的 `executablePath` 是绝对路径（含 `/Users/<user>`） | **待办**（裁定：本轮不改，属产物格式变更、需单独评估） | **待办：证据产物应记录相对路径或脱敏**。涉及 `tests/e2e/results/*.json`、`tests/compat/results/*.json`、`tests/reliability/results/*.json`；当前会把本机用户名永久写进仓库 |
+| `tests/e2e/lib/d004-anchor-window.mjs:480` | **未改**（按 §13.4 上一轮已处置：清单外 `d004-*.json` 加一行可见告警，判据未动） | 同上报告 §7 残留表 |
+| `tests/e2e/lib/harness.mjs:28`（`processPattern` 要求 `/` 分隔）、`:35,73`（`pgrep`） | **未改，只报告** | POSIX 假设；Windows 不在 CI 矩阵内（`.github/workflows/ci.yml` 只有 `ubuntu-latest`） |
+| `tests/reliability/reconcile.mjs:99`（`browsers = ['chromium','webkit']`） | **未改，只报告** | 该文件不在本轮可写范围；`d004-firefox.json` 今天不存在，读不到即"无数据" |
+| `poc/poc-1/lib/driver.mjs:16`（`~/Library/Caches`） | **未改，只报告** | POC 脚本，不在任何门禁/CI |
+
+**全仓残留清单（只报告）**：同一张表在 `docs/reports/e2e-real-browser.md` 追加节 §7 有更细的
+"在 Linux CI 上会怎样"逐条说明（含证据产物里的绝对路径、`tests/compat/README.md:85` 的 macOS 措辞、
+`examples/webpack/scripts/lib/chromium-locate.mjs` 的**合规**布局候选表）。
+
+**已裁定、由编排方另行执行（不在本 lane 范围）**：
+(a) 重生成并提交 `tests/compat/results/{browser-core-path,vite-dev-server}.json`（旧 JSON 的 `status:pass`
+是**陈旧结论**，需在提交信息里写明）；
+(e) 把 `tests/compat` 的两个浏览器脚本接进 CI 的 e2e job——**门禁配置变更、已由负责人追认**
+（同类先例：examples 浏览器复核接 e2e job），本 lane **未改** `.github/workflows/ci.yml`。
+
+**未验证（不得读成已验证）**：Linux 上的实跑（本机 macOS/arm64；跨平台性由注入平台的确定性判据 +
+`PLAYWRIGHT_BROWSERS_PATH` 假缓存端到端证明）、Firefox 的任何数字、`pnpm gates`（并发 lane，未跑）。
+
+---
+
+## 十六、`tools/mock-receiver/**` 三处测试缺陷收口（2026-10-19，M01 lane）——**已修 + 依据**
+
+**范围与边界**：只改 `tools/mock-receiver/src/` 的**测试与测试辅助**
+（`injection.acceptance.test.ts`、`hosting.acceptance.test.ts`、`test-support.ts`）；**未碰**实现
+（`server.ts` 等，变异后 sha256 与基线一致、`git diff` 为空）、`packages/**`、`tests/**`、
+`docs/contracts/**`、`docs/decisions/**`、`vitest.config.ts`、`eslint.config.js`、另一条 lane 的范围；
+**未跑 `pnpm gates`**（并发 lane 在途改动会让结果不可信）；**无任何 git 写操作**；未新增依赖。
+
+### 16.1 `injection.acceptance.test.ts:124` 的在途请求泄漏（真因，不是超时）——已修
+
+**复现（1）自然耗时**：300 次串行请求 **55.8 / 57.6 / 86 ms**（空闲 3 次）；
+24 个 CPU burner（`loadavg1` 3.3 → 11.3）下 **322–486 ms**（3 次）。
+⇒ 要撞 vitest 默认 5 s 超时需要约 **60–90 倍变慢**，本机**未自然触发**（如实记录）。
+
+**复现（2）泄漏本体**（20 ms/次的客户端节拍模拟"被抢占时的每请求耗时"，`Promise.race` 复刻
+"超时不取消被测函数"）：
+
+```
+[P2] 超时瞬间 sent=220，仍未结束=true；漏到下一个用例之后仍在途并完成的请求数=80
+```
+
+即**预算耗尽后循环又完成了 80 个请求**。
+
+**真因（两条链，缺一不成灾）**：
+① vitest 的超时只把用例判红、**不取消被测函数**；
+② `postBatch()` 读**模块级 `port`**，而下一个用例的 `beforeEach` 已把 `port` 改成新 receiver 的端口
+⇒ 泄漏请求打到**新** receiver 的 injection，先吃掉「清空注入配置后不再注入」用例的
+`setSequence(['429'])`（`none` 不推进游标，只吃一次）⇒ 该用例拿到 202 而非 429。
+
+**修法（三道，缺一不可；未加显式超时、未改 N=300、未改 25%–35% 带）**：
+1. 用 vitest 5 的 `TestContext.signal`（实测第 **5,005 ms** 触发 abort）取消在途请求，
+   且循环在 abort 后**不再发新请求**；
+2. `finally` 里再 abort + `await Promise.allSettled(...)`，并断言 `pending.size === 0`；
+3. 用例内绑定 `targetPort`，任何残留请求都不可能打向下一个 receiver。
+
+**变异反证（三要素）**：恢复成修复前形态（不取消 / 不 drain / 读模块级 `port`），
+并把 `total` 调到 60,000 以确定性触发 5 s 超时（等价于"机器慢 90 倍"）：
+- 文件确已改变：`9ff123f5…` → `3fa140fe…`；
+- 红，且是**事故原症状**：`Error: Test timed out in 5000ms.` +
+  `AssertionError: expected 202 to be 429`；
+- 恢复后 sha256 与修好后的基线一致：`9ff123f5…`。
+
+### 16.2 `hosting.acceptance.test.ts:113-116` 的 `elapsed < 2000ms`——**契约墙钟判据，未换口径**
+
+**定性**：`tests/acceptance/M01.md:19`（"每次启动不超过 2 秒"）+ `docs/tasks/T09.md:34`
+（非功能目标）⇒ **契约墙钟判据**，不是"实现的计算耗时"。
+
+**未复现红**：20 次启动墙钟 **0–4 ms**（中位 0）、CPU **0.057–3.201 ms**（中位 0.131）；
+`loadavg1` 22.6 时仍 **0–4 ms**。要让 `Date.now()` 差值 > 2,000 ms 需要进程被 deschedule 约 2 s，
+本机未出现 ⇒ **如实记录"未复现"**，不据此改判据。
+
+**为什么没降级成 CPU 时间**（"不许把契约要求偷偷换成 CPU 时间"）：
+`tests/bench/` 只有 C01–C08 与 K02（**无 M01**）；`docs/reports/reliability-reconciliation.md`
+（T32）自报 **M01 侧零数据**；`README.md` §8 的 30 s 数字是树外一次性脚本 ⇒ **2 s 这条线现在
+没有第二处验证**。因此 **2,000 ms 断言原样保留**，只**另加**两条负载无关的等价守卫
+（`README.md:200` 的策略逐字引用在文件注释里）：
+
+| 守卫 | 判据 | 实测 / 余量 | 变异反证（红） |
+|---|---|---|---|
+| 契约（未动） | `wallMs < 2000` | 0–4 ms ⇒ ≥500× | — |
+| CPU 护栏 | 3 次启动 CPU 中位数 ≤ **50 ms** | 中位 0.131 ms、20 次最大 3.201 ms ⇒ 380× / 15.6× | 启动路径插 ~100 ms 重计算 ⇒ `第 1 次启动 CPU 时间 104.849 ms（护栏 50 ms）` |
+| 结构守卫 | 启动期间不得有 ≥**50 ms** 的定时器 | 正常启动 0 个 | 插 `delay(60)` ⇒ `第 1 次启动安排了 ≥50 ms 的定时器：60` |
+
+### 16.3 `hosting.acceptance.test.ts:20-27,211-216` 的 `≥40 批/秒`——**测试自定经验值，已换负载无关判据**
+
+**判据出处**：`40` **不是契约值**——`README.md:214` 自称"回归护栏，不是规格线"；契约线是
+`M01.md:20` 的 **30 s ≥ 500 批/秒**（归 T20/T32）。它量的是**墙钟吞吐**，本轮由负责人实测
+红过 **24.1 / 32.8 批/秒**。
+
+**否证"吞吐随并发线性增长"**（本轮实测，同一实现）：1 条连接 **5,277–6,017 批/秒**、
+4 条连接 **5,968–6,834**，比值 **1.07–1.28** ⇒ **本实现在吞吐上是 CPU 受限、不是并发受限**；
+"随并发线性增长"这类相对判据在这里会**恒红**，**不要再写**。
+
+**替代判据（负载无关）**：`process.cpuUsage()` 差值 / 批次数。
+
+| 项 | 值 |
+|---|---|
+| 实测 | **0.2067 ms/批**（空闲）、**0.2116 ms/批**（覆盖率开）⇒ 4,725–4,839 批/CPU-秒 |
+| 护栏 | **≤ 2.5 ms/批**（≈ 11.8× 余量；等价"每 CPU 秒 ≥ 400 批"） |
+| 保留的确定性断言 | `errors===0`、`firstFailure===null`、全部 202、`events===batches×15`、`stored_events===events` |
+| 仍守住什么 | 每批处理路径的病态回归（校验/序列化超线性、每批多一次同步 I/O 或整表扫描）；**不再**守"这台机器此刻多快" |
+
+**变异反证**：临时在 `handleIngest` 每批插 ~10 ms CPU（`server.ts` sha256 `5651723b…` → `fc852d8e…`）⇒
+`AssertionError: 每批 CPU 10.1438 ms（护栏 2.5 ms/批；605 批耗 CPU 6137.0 ms；墙钟 99 批/秒，仅诊断）`。
+**关键**：同一变异下墙钟仍有 **99 批/秒 > 旧护栏 40** ⇒ **旧的墙钟护栏根本抓不到它，新判据能抓**。
+恢复后 `server.ts` 回到 `5651723b…`，`git diff` 为空。
+
+### 16.4 两条非功能规格线现在"没有家"（只报告，需负责人指派）
+
+- **2 s 启动线**与 **30 s ≥ 500 批/秒**在仓库里**都没有第二处验证**：
+  `tests/bench/`（T20）只有客户端 C01–C08 与 K02，**没有 M01 bench**；
+  `docs/reports/reliability-reconciliation.md`（T32）自报 **M01 侧零数据**；
+  `README.md` §8 的 30 s / 1,650 批/秒是**树外一次性脚本**，不可复跑。
+- 看板 2026-10-12 的处置写"规格线移交 T20/T32"——**移交的接收方至今没有接住**。
+- ⇒ 同一个问题的两个实例，**不是本轮能自行补的**（`tests/bench/`、`tests/reliability/` 均不在本
+  lane 可写范围）。请指派：在 `tests/bench/` 增一个 M01 受控基准（30 s、≥500 批/秒、启动 ≤2 s），
+  或明文写"这两条线在受控台按人工流程验证"。
+
+### 16.5 顺带核对：`tools/**` 里其余的"吞吐/延迟/墙钟"判据（只报告）
+
+| 位置 | 被断言的量 | 是否契约/依据 | 定性 |
+|---|---|---|---|
+| `tools/mock-receiver/src/protocol.acceptance.test.ts:288` | gzip 炸弹请求前后 **RSS 增长 < 50 MB** | **是契约**：`M01.md:8`（"进程 RSS 增长不超过 50 MB"） | **"规格线被当单元门禁断言"的第三例**（内存量，不是墙钟）。单请求 RSS 前后差对 GC 时序敏感，建议另派：给受控余量或改确定性字节口径（T20 对内存已这么做过） |
+| `tools/mock-receiver/src/test-support.ts:126,300` | 请求超时 5 s / 压测超时 10 s | 测试辅助预算，非断言 | 机制，不是判据 |
+| `tools/config-signer/src/__tests__/performance.test.ts:83-102` | sign/verify 单次 **CPU** 中位/p95 < 100 ms | K02-AC-09 契约值，**已由负责人裁定改 CPU 口径** | 已处置，非缺陷 |
+| `tools/config-signer/src/__tests__/leak-scan.test.ts:115,235` | 扫描工作量 **CPU** < 3,000 ms | 测试自定（实测 123–241 ms，≥12× 余量） | 负载无关，合规 |
+| `tools/event-registry/src/__tests__/cli.test.ts:534` | 500 定义 check+generate+export-rules **CPU** < 5,000 ms | K01-AC-12，**已裁定改 CPU 口径**（注释在 `:470-489`） | 已处置，非缺陷 |
+| 全部测试文件 | vitest 默认 5 s 用例预算 | 测试运行时预算 | 泄漏风险已由 16.1 的三道守卫消除 |
+
+**结论**：`tools/**` 里**墙钟/吞吐判据**只剩 16.2 保留的 2 s 契约线（未降级）与 16.1 的 5 s 用例预算；
+**"规格线当单元门禁"的活缺陷已无第二例**，但 16.5 的 RSS 50 MB 是同模式的第三例（内存量），
+**只报告、未改**。
+
+### 16.6 验证结果
+
+| 项 | 条件 | 结果 |
+|---|---|---|
+| `vitest run --project unit tools/mock-receiver`（73 tests/次） | 24 个 CPU burner，`loadavg1` **4.0 → 58.8**（10 核 5.9× 超订） | **10/10 绿** |
+| 同上 | burner 结束、`loadavg1` 仍在衰减（20–34） | 3/3 绿 |
+| 同上 | 低载（`loadavg1` **16.4–20.1**；本机另有 lane 的 Playwright test-server，**没有真正的空闲窗口**） | 3/3 绿 |
+| `npx tsc -p tools/mock-receiver/tsconfig.json` | — | 退出码 0 |
+| `npx eslint tools/mock-receiver/src --max-warnings 0` | — | 退出码 0 |
+| 受控负载下**墙钟**吞吐（仅取证） | 24 burners、`loadavg1` 22.6 | 各轮 965/1,197/1,093/1,069/1,339，中位 **1,093 批/秒** ⇒ 旧 40 护栏余量约 27×（事故记录 334.8 时约 8.4×） |
+| 单文件复跑 | 空闲 / 受控负载多次 | `injection` 5/5、`hosting` 9/9 全绿 |
+
+**最终 sha256**（全部变异恢复后复核；`server.ts` 与 HEAD 基线一致）：
+- `tools/mock-receiver/src/injection.acceptance.test.ts` `9ff123f54d5dea02e943d62bd5ec3008ab9a5a43acfede80e6de2b8eb56e1ffe`
+- `tools/mock-receiver/src/hosting.acceptance.test.ts` `cfe0998d151a38c7647f584b5147fa077da1e994bf5f71c93865ed6b8cc8d47a`
+- `tools/mock-receiver/src/test-support.ts` `ca720d9b2c86cad877fd59b4d2c2a294d14209a45c77028eb64a1b338e6fe54c`
+- `tools/mock-receiver/src/server.ts` `5651723b2159dc2335362585e4dbcdb1ed772c2dd5fc24c64867cb83922f05b8`（= HEAD 基线）
+
+**未验证（不得读成已验证）**：2 s 墙钟红未复现；`pnpm gates` 未跑（并发 lane）；
+全量 `pnpm test` 与 coverage 汇总未跑；16.4 的两条规格线"没有家"、16.5 的 RSS 50 MB 均**只报告未改**。

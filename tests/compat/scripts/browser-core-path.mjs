@@ -8,53 +8,44 @@
  * 结论写 `tests/compat/results/browser-core-path.json`。
  *
  * 口径与边界：
- * - 仓库锁定的 `@playwright/test@1.64.0` 期望的浏览器本机**没装**（需 chromium-1248），
- *   本机只有 chromium-1223，因此用 `executablePath` 指向它（只读使用已装缓存，不安装任何东西）；
+ * - **跨平台定位**（本轮修）：此前写死一条 macOS 专属路径
+ *   `$HOME/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/…`，
+ *   在 Linux CI（`~/.cache/ms-playwright/…`、`chrome-linux/chrome`）上**必然不存在**——脚本会直接抛
+ *   "找不到可执行文件"，而上一轮落盘的证据 JSON 还留在原处（看起来像"有证据"）。现在通过
+ *   `scripts/lib/chromium-launch.mjs` 复用 `examples/webpack/scripts/lib/chromium-locate.mjs` 的跨平台
+ *   定位（`PW_CHROMIUM_EXE` → `chromium.executablePath()` → 本机缓存，**真启动成功**才算可用）；
+ * - 定位不到时**不假装有**：证据 JSON 写成 `status: "blocked"` + `browser.status: "blocked"` +
+ *   逐条尝试与真实报错，终端打显式告警，**exit 1**（`checks.browserAvailable=false` 会让
+ *   `scripts/summarize.mjs` 在矩阵里落一格 `fail`，不会静默消失）；
+ * - 显式指定可执行文件的环境变量统一为 **`PW_CHROMIUM_EXE`**（与 `tests/e2e/lib/browsers.mjs`、
+ *   `examples/webpack` 同一个名字）。本脚本此前单独认一个未文档化的 `T30_CHROMIUM_PATH`：
+ *   **旧名仍然识别**（先打一次弃用告警，见 `scripts/lib/chromium-launch.mjs` 的裁定 (c) 注释），
+ *   新名优先；不静默移除旧名，是因为静默失效的症状是"没有证据/跳过"而不是报错。
  * - 页面由本脚本内的 node http 服务提供（同源，因此不涉及 CORS 差异）；
  *   接收方就是脚本内的 `/ingest`，收到什么写进结果 JSON——**不伪造任何数字**；
  * - 只跑 Chromium：Firefox 必须在 DSH 文件沙箱之外运行、WebKit 会泄漏辅助进程且存储写入被沙箱
  *   静默阻塞（见 `docs/reports/handover.md` 第 2 节 T29 小节），因此它们的格子归 T29。
  */
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { URL, fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 
-import { chromium } from '@playwright/test';
-
 import { createBatchIngestHandler } from '../lib/ingest-receiver.mjs';
+import { browserEvidence, launchChromium, warnUnavailable } from './lib/chromium-launch.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const iifePath = join(repoRoot, 'packages/browser/dist/web-report-sdk.iife.js');
 const resultsDir = join(repoRoot, 'tests/compat/results');
+const resultFile = join(resultsDir, 'browser-core-path.json');
 
-/** 本机已装的 Chromium（仓库锁定的 1.64.0 期望 chromium-1248，本机没有）。 */
-const macChrome =
-  'Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
-const candidates = [
-  process.env['T30_CHROMIUM_PATH'],
-  join(
-    process.env['HOME'] ?? '',
-    'Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64',
-    macChrome,
-  ),
-  join(
-    process.env['HOME'] ?? '',
-    'Library/Caches/ms-playwright/chromium-1208/chrome-mac-arm64',
-    macChrome,
-  ),
-].filter((value) => typeof value === 'string' && value.length > 0);
-
-function resolveExecutable() {
-  for (const candidate of candidates) {
-    try {
-      readFileSync(candidate);
-      return candidate;
-    } catch {
-      // 继续找下一个
-    }
-  }
-  return undefined;
+/**
+ * 落一份证据。**成功与"本机没有浏览器"都要落**：允许"没有证据"这个结论，
+ * 但不允许上次的 `pass` 留在原处被当成本次结论。
+ */
+function writeResult(result) {
+  mkdirSync(resultsDir, { recursive: true });
+  writeFileSync(resultFile, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
 }
 
 /** 页面上跑的脚本（字符串：浏览器全局不出现在 node 侧的类型/lint 语境里）。 */
@@ -154,12 +145,26 @@ async function startServer() {
 }
 
 async function main() {
-  const executablePath = resolveExecutable();
-  if (executablePath === undefined) {
-    throw new Error('本机找不到可用的 Chromium 可执行文件（见脚本内 candidates）');
+  // 跨平台定位 + **真启动**（候选存在不算数，起不来不算可用）。日志逐候选打进 stdout。
+  const located = await launchChromium((line) => console.log(line));
+  if (located.browser === null) {
+    // 显式记账"本机没有浏览器"：证据 JSON 写 blocked（覆盖上一次的 pass，不留陈旧结论）、
+    // 终端打逐条尝试与补测步骤、退出码 1。
+    const warning = warnUnavailable(located, 'T30 真实浏览器核心路径（/ingest）');
+    writeResult({
+      task: 'T30',
+      generatedAt: new Date().toISOString(),
+      engine: 'chromium',
+      browser: browserEvidence(located),
+      checks: { browserAvailable: false },
+      status: 'blocked',
+      warning,
+    });
+    process.exitCode = 1;
+    return;
   }
+  const browser = located.browser;
   const origin = await startServer();
-  const browser = await chromium.launch({ executablePath });
   const checks = {};
   let pageResult;
   try {
@@ -235,8 +240,10 @@ async function main() {
       task: 'T30',
       generatedAt: new Date().toISOString(),
       engine: 'chromium',
-      playwright: '1.64.0（仓库锁定；浏览器用 executablePath 指向本机 chromium-1223）',
-      executablePath,
+      // 浏览器记账（成功也写）：用的是哪个驱动、哪个二进制、怎么定位到的、试过哪些候选。
+      browser: browserEvidence(located),
+      playwright: browserEvidence(located).driver,
+      executablePath: located.executablePath,
       browserVersion: browser.version(),
       features: pageResult.features,
       steps: pageResult.steps,
@@ -257,13 +264,7 @@ async function main() {
       checks,
       status: Object.values(checks).every(Boolean) ? 'pass' : 'fail',
     };
-    const { mkdirSync, writeFileSync } = await import('node:fs');
-    mkdirSync(resultsDir, { recursive: true });
-    writeFileSync(
-      join(resultsDir, 'browser-core-path.json'),
-      `${JSON.stringify(result, null, 2)}\n`,
-      'utf8',
-    );
+    writeResult(result);
     console.log(JSON.stringify({ checks, browserVersion: result.browserVersion, batches: batches.length, eventNames, features: result.features }, null, 2));
     if (result.status !== 'pass') process.exitCode = 1;
   } finally {

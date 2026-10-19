@@ -233,3 +233,83 @@ node examples/webpack/scripts/dev-server.mjs         # dev server HTTP 200 + bun
   `exports` 映射；`blocked` **6** 条已写明缺什么并归 T29。
 - 需负责人决定：① CJS `require` 是否支持；② ~~缺陷②由谁修~~ **已修复并复核通过**（2026-10-14）；
   ③ ~~是否为 webpack 新增 example 与依赖~~ **已批准并补测，两格 `pass`**（2026-10-14）。
+
+## 9. 追加节（2026-10-19）：真实浏览器复核的**跨平台定位**（本轮收口，已修）
+
+> lane：可移植性收口（`tests/compat/scripts/**`、`tests/e2e/lib/**`）。本节只记 T30 的两个浏览器脚本；
+> `tests/e2e/**` 的同源改动记在 `docs/reports/e2e-real-browser.md` 的对应追加节。
+> **未跑 `pnpm gates`**（当时另一条 lane 在改 `tools/mock-receiver/**`，在途改动会让门禁结果不可信）。
+
+### 9.1 修前实情（Linux CI 上会怎样）
+
+| 位置（修前） | 写死了什么 | 在 Linux CI 上会怎样 |
+|---|---|---|
+| `tests/compat/scripts/browser-core-path.mjs:34-46` | `$HOME/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/…app` 与 `chromium-1208/…` 两个候选（`T30_CHROMIUM_PATH` 之外） | 两个候选都不存在 ⇒ `throw new Error('本机找不到可用的 Chromium 可执行文件（见脚本内 candidates）')`，**exit 1 且不落盘**；上一轮 `results/browser-core-path.json`（`status: pass`）留在原处 ⇒ **陈旧 pass** |
+| `tests/compat/scripts/vite-dev-server.mjs:27-33` | 同一串 macOS 路径（单候选） | `chromium.launch()` 抛 spawn/`Executable doesn't exist` ⇒ 脚本在第 4 步失败，`results/vite-dev-server.json` **不更新**（同样是陈旧证据） |
+| 两处的 `$HOME` 语义 | `join(process.env.HOME ?? '', …)` | `HOME` 未设置时拼成**相对路径** `Library/Caches/…`，相对于仓库 cwd —— 另外一条不存在的路径 |
+
+这与 `examples/webpack/scripts/*.mjs` 修前**同型**（同一条路径、同一个后果：真实浏览器复核在 Linux 上
+从来没跑过，只留下上一次的 `pass`）。
+
+### 9.2 改法：**复用**（不复制）已修好的跨平台定位
+
+- 新增 `tests/compat/scripts/lib/chromium-launch.mjs`，**import**
+  `examples/webpack/scripts/lib/chromium-locate.mjs` 的 `resolveLaunchableChromium()` / `unavailableReason()`：
+  定位顺序 `PW_CHROMIUM_EXE` → `chromium.executablePath()`（Playwright 自己算的当前平台期望路径）
+  → 本机 ms-playwright 缓存（缓存根按平台算，尊重 `PLAYWRIGHT_BROWSERS_PATH`），
+  且**候选存在不算数、`launch()` 真成功才算可用**。
+- **为什么不复制一份**：本轮要消灭的正是"同一串平台路径有多份实现"——两个脚本此前各写死一条，
+  再抄一份就是第三、第四份。该模块只 import `node:fs/os/path`，`tests/**` 引用它不需要安装
+  `examples/webpack` 的依赖。
+- **为什么共享模块没有落在"两边都能 import 的中立位置"（如 `scripts/lib/`）**：那要求
+  `examples/webpack/scripts/**` 也改成 import 新位置，而本轮**禁止改 `examples/**`**。
+  因此本轮取"tests 单向复用 examples 的已修实现"；终局是下一次动 `examples/webpack/scripts/**` 时
+  把实现搬到中立位置、两边同时 import（已写进该文件头注释）。
+- 定位不到时**不假装有**：证据 JSON 写 `browser.status = "blocked"`、整体 `status = "blocked"`
+  （`vite-dev-server` 在 HTTP 检查有失败时写 `"fail"`）、`checks.browserAvailable = false`、
+  终端逐候选打印真实报错、**exit 1**。`checks.browserAvailable = false` 让 `scripts/summarize.mjs`
+  在矩阵里落一格 `fail`，不会因为"checks 里没东西"而静默消失。
+  （`tests/e2e/lib/skip-audit.mjs` 的 `skipUnavailableBrowser()` 是 Playwright 用例专用入口
+  ——它需要 `testInfo`；这两个是独立 CLI 证据脚本，走"证据 JSON + 终端告警 + 非零退出码"这条等价路径。）
+- 环境变量统一：`T30_CHROMIUM_PATH`（**未文档化**、只有 `browser-core-path.mjs` 认）**并入
+  `PW_CHROMIUM_EXE`**（与 `tests/e2e/lib/browsers.mjs`、`examples/webpack` 同名），但**旧名仍然识别**：
+  每次进程打一次弃用告警（`⚠ [T30] 环境变量 T30_CHROMIUM_PATH 已弃用…`），新名优先。
+  裁定 (c) 的理由：未文档化不等于没人用，静默不再识别会让本机脚本从"能跑"变成"定位不到"，
+  且**症状是"没有证据/跳过"而不是报错**——一行 warn 的代价远小于一次静默失效。
+- 证据形状：新增顶层 `browser`（`driver` / `executablePath` / `source` / `attempts` / `reason`）；
+  **成功路径的 `checks` 项一字未动**（`browser-core-path` 11 项、`vite-dev-server` 8 项），
+  所以 `matrix.json` 在能跑浏览器的机器上不会漂移。
+
+### 9.3 判别性证明
+
+| 场景 | 命令 | 观察到 |
+|---|---|---|
+| **改坏（回到修前写法）**：`browser-core-path.mjs` 还原为 `HEAD` 版本，`HOME` 指向没有 macOS 缓存的目录（= Linux CI 的形状） | `HOME=/tmp/proof-home node tests/compat/scripts/browser-core-path.mjs` | `Error: 本机找不到可用的 Chromium 可执行文件（见脚本内 candidates）`，exit 1，**证据文件没被写** ⇒ `status: pass` 的陈旧结论仍在 |
+| **改后（同一环境）** | 同上 | `⛔ [T30] 没有可用的 Chromium…` + 逐候选尝试 + 补测步骤；证据写 `status:"blocked"`、`checks.browserAvailable=false`；**exit 1** |
+| **改后（本机有浏览器，成功路径）** | `node tests/compat/scripts/browser-core-path.mjs` | `status: pass`、exit 0、`browser.attempts` 记录"1248 不存在 → 1223 可用" |
+| **改后（本机有浏览器，vite）** | `node tests/compat/scripts/vite-dev-server.mjs` | 8 项 checks 全 `true`（含 `browserRenderedSdkVersion`）、exit 0 |
+| **旧变量仍识别（裁定 (c)）** | `T30_CHROMIUM_PATH=<真实 chromium> node -e "…launchChromium()…"` | 打一行弃用告警，`source` 写 `env T30_CHROMIUM_PATH（已弃用），请改用 PW_CHROMIUM_EXE`，**成功启动**（exit 0） |
+| 旧变量指向不存在的文件 | `T30_CHROMIUM_PATH=/nope node -e "…"` | 该候选记 `Failed to launch … doesn't exist at /nope`，**继续走缓存定位并成功**（不静默失效） |
+| 新旧同时设置 | `PW_CHROMIUM_EXE=<真实> T30_CHROMIUM_PATH=/nope` | **新名优先**：只用 `PW_CHROMIUM_EXE`、不出现旧名候选、不打弃用告警 |
+| 旧变量 + 本机无缓存 | `HOME=/tmp/… T30_CHROMIUM_PATH=/nope` | `status=blocked`，`attempts` 同时含旧名与期望路径两条真实报错 |
+| 改坏后恢复 | `shasum -a 256` | 两个脚本 + 新增 lib 的 sha256 与改动后基线**逐字节一致** |
+
+### 9.4 回归与产物
+
+- `node tests/compat/scripts/browser-core-path.mjs` → **pass / exit 0**（Chromium `148.0.7778.96`，
+  3 批、`clockCalibrated=true`、`uncaughtErrorDelivered=true`）。
+- `node tests/compat/scripts/vite-dev-server.mjs` → **pass / exit 0**（vite 8.3.4，
+  `resolvedToDistArtifact=true`，DOM 文本 `web-report-sdk 0.1.0`）。
+- `pnpm exec eslint tests/e2e tests/compat` → **exit 0**。
+- `results/browser-core-path.json` / `results/vite-dev-server.json` **未随本轮重生成**：`tests/compat/results/**`
+  不在本 lane 的可写范围。上面两次实跑改写的产物已按 `git show HEAD:` **逐字节还原**
+  （sha256 `bed84511…f83c` / `3addccf…0f82`，与改动前基线一致）；下次在能跑浏览器的机器上重跑这两个
+  脚本即可刷新为含 `browser` 字段的新形状。
+
+### 9.5 未验证 / 边界
+
+- **没有在 Linux 上实跑**（本机 macOS/arm64）：跨平台性由"缓存根按平台算 + 布局由
+  `executablePath()` 推导 + `PLAYWRIGHT_BROWSERS_PATH` 假缓存端到端"三组确定性判据证明
+  （`node tests/e2e/lib/browser-locate-selftest.mjs`，25/25），**不声称 Linux 已验证**。
+- 本轮**没有**新增 Firefox/WebKit 的 T30 结论（仍 `blocked`，归 T29）；本机 Firefox 依旧
+  `sandbox_init()` EPERM 起不来，**未设置任何 `MOZ_*`**，不声称 Firefox 已验证。
