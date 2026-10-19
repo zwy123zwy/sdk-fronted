@@ -3,8 +3,8 @@
   "generatedAt": "2026-10-19T02:31:20.273Z",
   "engine": "vite 8.3.4",
   "origin": "http://127.0.0.1:59041",
-  "resolvedSpecifier": "/@fs/Users/spirit-ai/Desktop/sdk/packages/browser/dist/index.js",
-  "resolvedUrl": "http://127.0.0.1:59041/@fs/Users/spirit-ai/Desktop/sdk/packages/browser/dist/index.js",
+  "resolvedSpecifier": "/@fs/<repo>/packages/browser/dist/index.js",
+  "resolvedUrl": "http://127.0.0.1:59041/@fs/<repo>/packages/browser/dist/index.js",
   "domText": "web-report-sdk 0.1.0",
   "pageErrors": [],
   "checks": {
@@ -21,17 +21,17 @@
     "status": "pass",
     "engine": "chromium",
     "driver": "@playwright/test@1.64.0",
-    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "executablePath": "<ms-playwright>/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
     "source": "ms-playwright chromium-1223",
     "reason": "",
     "attempts": [
       {
-        "path": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        "path": "<ms-playwright>/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
         "source": "chromium.executablePath()",
         "error": "文件不存在"
       },
       {
-        "path": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        "path": "<ms-playwright>/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
         "source": "ms-playwright chromium-1223",
         "error": null
       }

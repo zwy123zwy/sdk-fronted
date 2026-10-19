@@ -3,7 +3,7 @@
   "generatedAt": "2026-10-16T11:40:32.253Z",
   "engine": "webpack 5.104.1 / node v24.16.0",
   "command": "node examples/webpack/scripts/build-production.mjs",
-  "entry": "/Users/spirit-ai/Desktop/sdk/examples/webpack/src/main.js",
+  "entry": "<repo>/examples/webpack/src/main.js",
   "build": {
     "mode": "production",
     "hasErrors": false,
@@ -22,7 +22,7 @@
     ]
   },
   "sandbox": {
-    "bundlePath": "/Users/spirit-ai/Desktop/sdk/examples/webpack/dist/main.js",
+    "bundlePath": "<repo>/examples/webpack/dist/main.js",
     "bundleBytes": 122190,
     "evaluatedMs": 2,
     "sdkVersion": "0.1.0",
@@ -64,28 +64,28 @@
     },
     "attempts": [
       {
-        "path": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        "path": "<ms-playwright>/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
         "source": "chromium.executablePath()",
         "error": "文件不存在"
       },
       {
-        "path": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        "path": "<ms-playwright>/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
         "source": "ms-playwright chromium-1223",
         "error": null
       }
     ],
     "detail": {
       "status": "pass",
-      "chromePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+      "chromePath": "<ms-playwright>/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
       "chromeSource": "ms-playwright chromium-1223",
       "attempts": [
         {
-          "path": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+          "path": "<ms-playwright>/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
           "source": "chromium.executablePath()",
           "error": "文件不存在"
         },
         {
-          "path": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+          "path": "<ms-playwright>/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
           "source": "ms-playwright chromium-1223",
           "error": null
         }

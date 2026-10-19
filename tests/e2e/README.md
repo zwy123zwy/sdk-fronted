@@ -27,7 +27,7 @@ node tests/e2e/lib/d004-run.mjs --browser chromium  # 只跑一个引擎（此�
 1. `PW_<NAME>_EXE`（如 `PW_CHROMIUM_EXE=/path/to/binary`）显式指定；
 2. 树外只读 `playwright-core`（npx 缓存里 1.60.0 那类）与已装构建 **revision 精确配对**
    （默认，`E2E_DRIVER=exact`）；候选目录 = `E2E_TREE_OUT_DRIVERS`（`path.delimiter` 分隔）
-   + 自动发现的 `~/.npm/_npx/*/node_modules/playwright-core`——**不写死任何 `/Users/<user>/…`**；
+   + 自动发现的 `~/.npm/_npx/*/node_modules/playwright-core`——**不写死任何用户主目录下的绝对路径**；
 3. **仓库驱动自己的 `executablePath()`**（当前平台/架构/`PLAYWRIGHT_BROWSERS_PATH` 下期望的二进制）。
    CI 的 e2e job `playwright install` 装出来的正是它——**Linux CI 走的就是这条**；
 4. 仓库驱动 + 本机缓存里最新的已装构建（`E2E_DRIVER=repo` 可强制走 3/4）。

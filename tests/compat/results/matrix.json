@@ -15,7 +15,7 @@
       "engine": "node 24",
       "status": "pass",
       "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
-      "evidence": "/Users/spirit-ai/Desktop/sdk/packages/browser/dist/index.js",
+      "evidence": "<repo>/packages/browser/dist/index.js",
       "notes": "导入构建产物并读取命名导出与 SDK_VERSION。"
     },
     {
@@ -35,7 +35,7 @@
       "engine": "node vm（模拟无构建工具的页面）",
       "status": "pass",
       "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
-      "evidence": "/Users/spirit-ai/Desktop/sdk/packages/browser/dist/web-report-sdk.iife.js",
+      "evidence": "<repo>/packages/browser/dist/web-report-sdk.iife.js",
       "notes": "权威证据是 `pnpm examples:test` 里 examples/script-tag 的 check.mjs（已 exit 0）。"
     },
     {
@@ -45,7 +45,7 @@
       "engine": "node 24",
       "status": "pass",
       "command": "pnpm exec vitest run --config tests/compat/vitest.config.ts --coverage.enabled=false",
-      "evidence": "/Users/spirit-ai/Desktop/sdk/packages/browser/package.json",
+      "evidence": "<repo>/packages/browser/package.json",
       "notes": "`.` 与 `./iife` 两个入口的条件齐全性。"
     },
     {

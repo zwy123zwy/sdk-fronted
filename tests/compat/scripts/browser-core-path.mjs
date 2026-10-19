@@ -31,6 +31,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { URL, fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 
+import { redactPaths } from '../lib/redact-paths.mjs';
 import { createBatchIngestHandler } from '../lib/ingest-receiver.mjs';
 import { browserEvidence, launchChromium, warnUnavailable } from './lib/chromium-launch.mjs';
 
@@ -45,7 +46,8 @@ const resultFile = join(resultsDir, 'browser-core-path.json');
  */
 function writeResult(result) {
   mkdirSync(resultsDir, { recursive: true });
-  writeFileSync(resultFile, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
+  // 落盘前脱敏：证据要提交进仓库，绝对路径会泄露本机用户名（口径见 `lib/redact-paths.mjs`）。
+  writeFileSync(resultFile, `${JSON.stringify(redactPaths(result), null, 2)}\n`, 'utf8');
 }
 
 /** 页面上跑的脚本（字符串：浏览器全局不出现在 node 侧的类型/lint 语境里）。 */

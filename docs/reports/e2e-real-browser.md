@@ -1139,3 +1139,115 @@ browser-core-path.mjs:38,43}` 的同类写死路径——编排方**已批准另
   **证据产物应记录相对路径或脱敏**，属产物格式变更，需单独评估。
 - **(a)(e) 由编排方执行**：重生成并提交 compat 两份证据 JSON（旧 `status:pass` 是陈旧结论，需在提交
   信息里写明）；把 compat 两个浏览器脚本接进 CI 的 e2e job（门禁配置变更、经负责人追认）。本 lane 未做。
+
+## 追加节（2026-10-19，证据产物脱敏 lane）：**已修 + 依据** —— `tests/{e2e,compat}/results/**` 里的 `/Users/<user>`
+
+**关闭第 7 节表格的待办**：「证据产物里的 `executablePath` 是绝对路径（含用户名）→ 应记录相对路径或脱敏」。
+本轮与 ① RSS 判据同 lane，可写范围 = `tools/mock-receiver/src/**`（仅测试）、`tests/e2e/**`、`tests/compat/**`。
+
+### 1. 盘点（修前，全部**已在 HEAD**）
+
+`tests/e2e/results/**` + `tests/compat/results/**` 共 **13** 个证据 JSON；其中 **10 个**含绝对路径，
+**3 个**干净（`apm-coexistence` / `degradation` / `webpack-matrix`）。绝对路径叶子共 **33** 个：
+`/Users/…` **31** 个、`/var/folders/…/T/…` **2** 个（`profileRoot`）。
+
+| 文件 | 字段（叶子数） | 样例（修前） |
+|---|---|---|
+| `e2e/results/beacon-quota-{chromium,webkit}.json` | `executablePath`（各 1） | `/Users/<u>/Library/Caches/ms-playwright/chromium-1223/…` |
+| `e2e/results/d004-chromium.json` | `driver.executablePath`、`profileRoot` | 同上；`/var/folders/<x>/<y>/T/t29-e2e-d004-chromium-…` |
+| `e2e/results/d004-webkit.json` | 同上 | `…/ms-playwright/webkit-2287/pw_run.sh` |
+| `compat/results/browser-core-path.json` | `executablePath`、`browser.executablePath`、`browser.attempts[].path`（4） | Playwright 缓存 |
+| `compat/results/import-matrix.json`、`matrix.json` | `cells[].evidence`（各 3） | `/Users/<u>/Desktop/sdk/packages/browser/dist/index.js` |
+| `compat/results/vite-dev-server.json` | `resolvedSpecifier`、`resolvedUrl`、`browser.executablePath`、`browser.attempts[].path`（5） | `/@fs/Users/<u>/Desktop/sdk/…`、`http://127.0.0.1:<port>/@fs/Users/<u>/…` |
+| `compat/results/webpack-dev-server.json` | `browser.chromePath`、`browser.attempts[].path`、`browserAttempts[].path`（5） | Playwright 缓存 |
+| `compat/results/webpack-production.json` | `entry`、`sandbox.bundlePath`、`browser.attempts[].path`、`browser.detail.chromePath`、`browser.detail.attempts[].path`（7） | `/Users/<u>/Desktop/sdk/examples/webpack/{src/main.js,dist/main.js}` |
+
+### 2. 改写入者，不改产物（口径）
+
+单一实现 `tests/compat/lib/redact-paths.mjs`（+ `.d.mts`；`redactText` / `redactPaths`）：
+
+| 前缀 | 改写为 | 诊断价值 |
+|---|---|---|
+| 仓库根 | `<repo>/…` | 完整保留仓库内相对路径 |
+| Playwright 缓存（mac/linux/win） | `<ms-playwright>/<name>-<revision>/…` | **浏览器名 + 构建号保留** |
+| 其他家目录（`/Users/<u>`、`/home/<u>`、`C:\Users\<u>`） | `/<home>/…`、`<home>\…` | 保留相对结构 |
+| 系统临时目录（`/var/folders/…/T/`、`/tmp/`、`…\Temp\`） | `<tmp>/…` | 保留子目录名 |
+
+接入点（**写入前**脱敏，不是事后 sed）：
+
+- `tests/compat/lib/stable-write.mjs` 的 `writeJsonStable`：载荷先过 `redactPaths` 再比较/落盘。
+  于是 `matrix / import-matrix / apm-coexistence / degradation / webpack-matrix / matrix(汇总)` **以及
+  `examples/webpack/scripts/{build-production,dev-server}.mjs` 产出的两份证据**都自动覆盖——
+  这两个脚本本来就 `import` 该模块，**无需改 `examples/**`**（不在本 lane 可写范围）。
+- `tests/compat/scripts/{browser-core-path,vite-dev-server}.mjs`：各自的 `writeResult` 包一层。
+- `tests/e2e/beacon-quota.spec.mjs`、`tests/e2e/lib/d004-run.mjs`：落盘载荷包一层。
+
+### 3. 一次性清理：选「确定性就地脱敏」
+
+**为什么不用重生成**：`d004-*` / `beacon-quota-*` 要跑**全量 e2e**（本轮禁止），webpack 两份要跑
+examples 构建；而脱敏函数是确定性的、幂等的，就地跑**同一个函数**即可保证"产物 = 写入者下次会写的字节"。
+实测佐证：重跑 `import-matrix.test.ts`（走 `writeJsonStable`）后 `import-matrix.json` 的 sha256
+**逐字节不变**（`bc585972…`），即写入者与产物已同口径。
+
+### 4. 判别性证明（修前/修后）
+
+| 检查 | 修前 | 修后 |
+|---|---|---|
+| `grep -c '/Users/'`（13 个 JSON 合计） | **31** | **0** |
+| `grep -c '/home/'`、`C:\Users` | 0 | 0 |
+| `grep -c 'chromium'`（合计，诊断仍在） | — | **65** |
+| `webkit-2287`（WebKit 证据仍在） | 2 | 2（每个 webkit 文件 1） |
+| 13 个 JSON `JSON.parse` | OK | OK |
+
+样例（修后）：`entry=<repo>/examples/webpack/src/main.js`、
+`executablePath=<ms-playwright>/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/…`、
+`resolvedSpecifier=/@fs/<repo>/packages/browser/dist/index.js`、`profileRoot=<tmp>/t29-e2e-d004-chromium-…`。
+
+### 5. 其他绝对路径写入点（**只报告，未改**）
+
+| 位置 | 性质 | 是否提交 |
+|---|---|---|
+| `tests/e2e/lib/smoke-browsers.mjs:58,63`、`tests/e2e/lib/d004-run.mjs:388` | `console.log` 打印 `exe=<绝对路径>` | 否（终端/`test-results/`，已 gitignore） |
+| `tests/e2e/lib/harness.mjs:227 writeJson` | 通用 JSON 写入器，**本身不脱敏**；`d004-run` 在调用点脱敏。将来新增调用者必须自己脱敏 | 取决于调用者 |
+| `test-results/skip-audit/*.json` | `probe` 只含 `stage/driver/reason`，**无绝对路径** | 否（gitignore） |
+| `tests/e2e/README.md`、`tests/e2e/lib/browsers.mjs` | 注释/文档里的 `/Users/…` 例子 | **已修（本轮 (c)）**：改为「用户主目录下的绝对路径」，两文件 `grep -c '/Users/'` = **0** |
+| `tests/compat/lib/redact-paths.mjs`、`tests/compat/redact-paths.test.ts` | 夹具与正则**故意**含 `/Users/`（假用户名 `someone`） | **是**（测试需要） |
+| `tests/reliability/results/**`（2 个文件） | 同字段（`executablePath`） | **是**；属另一条 lane，**未动** |
+| `poc/**`（82 个文件） | 历史 POC 证据 | **是**；裁定：**历史遗留，不清理**——它是已归档的 POC（不在门禁/CI、不再生成），清理只改工作树却不改历史，收益为零；**不改历史**（rewrite/filter-branch 代价与风险远大于收益、需负责人授权） |
+| `docs/**`（10 个文件） | 报告正文 | **是**；属别 lane 范围 ⇒ **只登记，不改** |
+| `tests/reliability/results/**`（2 个文件） | 同字段（`executablePath`） | **是**；属另一条 lane ⇒ **只登记，不改** |
+
+### 6. `summarize.mjs` 会实质改写 `matrix.json`：**已查清，是"映射问题"不是"矩阵退化"**
+
+为验证"写入者与产物同口径"，本轮跑过一次 `node tests/compat/scripts/summarize.mjs`，它产出的内容与 HEAD
+**不同**：`import.cjs.require` 从 `by-design` 变成 `fail`（且丢掉该格的 `note`）、新增
+`browser.chromium.corePath.batchSchemaValid` 一格、webpack 两格的 `notes` 增删若干 check、删掉 `updated` 字段
+（`summary.pass 38→39 / total 45→46`）。这与脱敏无关，已**回退**为「HEAD 内容 + 脱敏」
+（sha256 `517969f2…`，与回退前逐字节一致 ⇒ 脱敏函数确定性成立）。
+
+**只读诊断（未改 `matrix.json`、未改 `summarize.mjs`）**：
+
+| 事实 | 证据 |
+|---|---|
+| 底层事实**没有变化**：包级 CJS `require()` 仍抛 `ERR_PACKAGE_PATH_NOT_EXPORTED`；用例**通过**并显式记 `probe=false` ⇒ 该格结论是 `fail` | `tests/compat/import-matrix.test.ts:163-180`；`results/import-matrix.json` 的 `import.cjs.require.status` 在 **HEAD 与工作区都是 `fail`**（工作区仅 3 条路径被脱敏） |
+| `by-design` **不是**合法状态，生成器从来没有这个分支 | `tests/compat/lib/matrix.ts:19` `CellStatus = 'pass' | 'fail' | 'blocked'`；`git log -S'by-design' -- scripts/summarize.mjs lib/matrix.ts` **空** |
+| `by-design` 是**手改生成物**加进去的：`09bf63b`（2026-10-14 16:39）"由 fail 改为 by-design"，晚于上一次生成 `b169fff`（16:25）**14 分钟** | `git log -1 09bf63b`；`git log -- matrix.json` |
+| `summarize.mjs` 是**手工命令**（`tests/compat/README.md:48`、`release-checklist.md:272`），**不在 `pnpm gates`** ⇒ 漂移只在有人手动重算时出现 | 全仓引用扫描 |
+
+**结论**：**不是兼容矩阵退化**，是**报告生成/映射问题**——2026-10-13 的"ESM-only、不加 CJS 构建"决定被写进了
+**生成物**而不是**生成器**；`CellStatus` 无 `by-design`、`summarize.mjs` 无对应分支，重算必然把它打回 `fail`。
+真正的修法（另派）二选一：①给 `CellStatus` 加"已接受的偏差"状态 + 决定出处字段，让生成器能表达；②把这类
+人工裁定放进**非生成**的输入文件，由 `summarize.mjs` 读取。**本轮不改**，`matrix.json` 保持 HEAD+脱敏。
+
+### 7. 防新残留守卫（(b) 的落点）：比清理历史更重要
+
+`tests/compat/redact-paths.test.ts` 增加一条**直接读已落盘证据**的用例：扫
+`tests/{e2e,compat}/results/**/*.json`，出现任何 `/Users/`、`/home/`、`C:\Users` 即红；并要求**至少扫到 1 份**
+（目录被移走/改名不会静默通过）。范围刻意**不含** `tests/reliability/results/**`（另一条 lane，现仍有同类字段；
+算进来会让守卫因范围外原因红）。
+
+**判别性**：放一个 `tests/compat/results/zz-residue-probe.json`（内容 `/Users/someone/leak`）→ **红**，
+报 `tests/compat/results/zz-residue-probe.json 含用户名前缀`；删除后 **12/12 绿**，目录里无残留探针。
+
+**登记（不清理）**：`poc/**` 82 个文件 = 历史遗留、不清理、不改历史（理由见 §5）；`docs/**` 10 个、
+`tests/reliability/results/**` 2 个属别 lane ⇒ 只登记。

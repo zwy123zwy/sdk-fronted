@@ -18,7 +18,7 @@
  * 可移植性（本轮修的就是这里）：此前
  *   - `CACHE_DIR` 写死 `~/Library/Caches/ms-playwright`（**只对 macOS 成立**）；
  *   - `EXECUTABLE_RELATIVE` 写死 macOS arm64 布局（`chrome-mac-arm64/…app`、`firefox/Nightly.app`、`pw_run.sh`）；
- *   - `TREE_OUT_DRIVERS` 写死两条 `/Users/<user>/…` 绝对路径。
+ *   - `TREE_OUT_DRIVERS` 写死两条用户主目录下的绝对路径。
  * 后果：在 **Linux CI**（`.github/workflows/ci.yml` 的 e2e job，`~/.cache/ms-playwright/…`）上，
  * 即使 `playwright install` 已经把浏览器装好，分支 3 找不到（缓存根错、布局错），分支 2 的绝对路径也不存在，
  * 于是三个 project 全部以"没有可用的浏览器 + 驱动组合"报错 —— 红的原因是**路径**，不是 SDK。
@@ -206,7 +206,7 @@ export function installedBuilds(browserName, roots = cacheRoots()) {
 }
 
 /**
- * 树外只读 `playwright-core` 的候选目录：**环境变量 + 自动发现**，不再写死 `/Users/<user>/…`。
+ * 树外只读 `playwright-core` 的候选目录：**环境变量 + 自动发现**，不再写死用户主目录下的绝对路径。
  *
  * - `E2E_TREE_OUT_DRIVERS`：`path.delimiter` 分隔的 `playwright-core` 目录清单（显式指定）；
  * - `~/.npm/_npx/*`：npx 缓存里那些装了 `playwright-core` 的目录（POC-1 用的 1.60.0 就在这里）。

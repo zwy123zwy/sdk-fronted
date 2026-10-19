@@ -29,6 +29,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+import { redactPaths } from './redact-paths.mjs';
+
 /** 解析 `sandbox.evaluatedMs` / `cells[0].status` 形态的路径为段序列（数字段转 number）。 */
 function parsePath(path) {
   return [...path.matchAll(/[^.[\]]+/gu)].map(([segment]) =>
@@ -68,6 +70,10 @@ function project(payload, volatilePaths) {
  * - 文件不存在 / 不是合法 JSON / 实质内容有变 → 写盘；
  * - 与磁盘内容逐字节相同，或**只差 `volatilePaths` 指向的字段** → 不写盘，保留上一次的字段值。
  *
+ * **写入前脱敏**：载荷先过 `redact-paths.mjs`（绝对路径 → `<repo>` / `<ms-playwright>` /
+ * `<home>` / `<tmp>`），再参与"实质内容"比较与落盘。于是证据文件不会把本机用户名提交进仓库，
+ * 且重跑一次门禁就自然产出干净证据——这正是"改写入者、不改产物"的落点。
+ *
  * 返回落盘路径与是否真的写了盘（`written: false` 即"这次运行没有让产物变化"）。
  *
  * @param {string} file 目标文件（绝对路径）
@@ -76,12 +82,13 @@ function project(payload, volatilePaths) {
  * @returns {{ file: string, written: boolean, reason: 'identical' | 'only-volatile-fields-changed' | 'content-changed' }}
  */
 export function writeJsonStable(file, payload, volatilePaths = ['generatedAt']) {
-  const text = `${JSON.stringify(payload, null, 2)}\n`;
+  const safe = redactPaths(payload);
+  const text = `${JSON.stringify(safe, null, 2)}\n`;
   try {
     const previousText = readFileSync(file, 'utf8');
     if (previousText === text) return { file, written: false, reason: 'identical' };
     const previous = JSON.parse(previousText);
-    if (project(previous, volatilePaths) === project(payload, volatilePaths)) {
+    if (project(previous, volatilePaths) === project(safe, volatilePaths)) {
       return { file, written: false, reason: 'only-volatile-fields-changed' };
     }
   } catch {

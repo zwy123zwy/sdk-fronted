@@ -1974,3 +1974,158 @@ project 的 `browserName`，于是在每个 project 下都声明同样两条写�
 
 **未验证（不得读成已验证）**：2 s 墙钟红未复现；`pnpm gates` 未跑（并发 lane）；
 全量 `pnpm test` 与 coverage 汇总未跑；16.4 的两条规格线"没有家"、16.5 的 RSS 50 MB 均**只报告未改**。
+
+## 十七、§16.5 的 RSS 50 MB 判据**已修 + 依据**（2026-10-19，证据/判据 lane）
+
+**出处**：§16.5 表格第 1 行（`tools/mock-receiver/src/protocol.acceptance.test.ts:288`，gzip 炸弹
+请求前后 **RSS 增长 < 50 MB**，"规格线当单元门禁"的第三例）。
+
+### 17.1 先纠正一处引用：不是 `M01.md:8`
+
+按"逐字读"核对 `tests/acceptance/M01.md`：
+
+- **第 8 行 = M01-AC-02**（令牌错误 / 吊销 → 401），**与 RSS 无关**；§16.5 的 `M01.md:8` 引用是**偏移**。
+- RSS 的原文在 **第 10 行 = M01-AC-04**，预期列逐字为：
+  > 前三类 400（`invalid_structure`、`app_id_mismatch`、`unsupported_encoding`）；后三类 413，
+  > **炸弹在解压到 1 MB 时中止，进程 RSS 增长不超过 50 MB**
+
+**口径（逐字读出来的，不是猜）**：这是**一个**操作上的要求——"发送解压后 1 GB 的 gzip 炸弹"这一个
+请求，要求"解压到 1 MB 时中止"+ "进程 RSS 增长 ≤ 50 MB"。契约**没有**规定采样次数（不是"每请求
+平均"、也不是"整轮 N 次累计"），量的是**进程 RSS**。**50 MB 是契约值，未改。**
+
+### 17.2 复现：**没复现出红**（如实记录）
+
+| 条件 | 轮次 | `ΔRSS`（MB）min / median / max | 红 |
+|---|---|---|---|
+| 单文件复跑（真实上下文） | 8 次全文件 | 全绿 | 0 |
+| 2 路并发 vitest（受控负载，`loadavg1` 8–13，有别的 lane 在跑） | 6 次全文件 | 1.02 / 1.05 / 1.06 | 0 |
+| 探针：单请求 12 轮（每轮新建 receiver） | 12 | **−39.0 / 1.05 / 2.06**（1 轮为负） | 0 |
+| 探针：`Δ(heapTotal+external)` 同 12 轮 | 12 | **−60.3 / 1.02 / 1.27** | 0 |
+
+**真因（机制已证实，红未复现）**：GC 会落在测量窗口内，把**别的用例**留下的内存回收掉——12 轮里
+测到过 **−39 MB**，而请求本身保留量没变（`lastDecompressedBytes` 恒为 1 MiB）。所以单次 RSS 差
+是"本请求 + 进程全局 GC 时机"的混合量，**不是**可归因增长。反向（+50 MB）需要堆扩张，本轮
+8 + 6 次全文件 + 12 轮探针都**没有**触发 ⇒ **不谎称复现了红**。
+
+### 17.3 修法：确定性字节口径（契约数字原值保留）
+
+`protocol.acceptance.test.ts` 的 M01-AC-04 用例改为：
+
+- 对同一个炸弹请求**连续 5 轮**，每轮仍断言 `413` + `lastDecompressedBytes ≤ 1 MiB`；
+- 内存判据从"单次 `Δrss`"改为 **`Δ(heapTotal + external)` 从同一基线累计 5 轮 < 50 MB**；
+- **`50 * 1024 * 1024` 不变**；`tests/acceptance/M01.md` 一字未动。
+
+为什么 `heapTotal + external` 与 RSS 增长同义（注释已写进用例）：`RSS = heapTotal + external +
+代码段/栈/分配器碎片`；一次请求能增长的**只有前两项**（解压字节是 Buffer → `external`，事件对象
+→ 堆），碎片部分是进程全局的、正是 GC 敏感来源。⇒ 该口径把判据从"进程全局噪声"收窄到
+"本请求可归因部分"，不是放宽。5 轮累计用**同一个**预算（每轮均值 ≤ 10 MB）只严不宽。
+**已知局限**：看不到"请求中途申请 50 MB 并在响应前释放"的瞬时尖峰；对"解压到 1 MB 即中止"
+的实现，尖峰上限由独立且确定性的 `lastDecompressedBytes ≤ 1 MiB` 钉住。
+
+**落点**：**没有搬走**——契约线仍在同一个单元用例、同一个门禁里断言，因此不存在"移走后没有家"。
+（另注：lane ② 正在 `tests/bench/` 新增 `m01-receiver.*`（工作区里尚未跟踪）；本轮**没有**依赖它，
+也不对它的落点下结论。）
+
+### 17.4 判别性证明（先确认内容变了，再看结果）
+
+| 步骤 | 动作 | 结果 |
+|---|---|---|
+| 1 | 在 `tools/mock-receiver/src/body.ts` 的炸弹中止分支**模块级**缓存 `Buffer.alloc(60 MB)` | 文件 sha 变（`cff74c5c…` → `b3c6f1ca…`），`grep -n retainedBombBytes` 命中 2 处 |
+| 2 | 跑本用例 | **红**：`AssertionError: expected 300841646 to be less than 52428800`（≈5×60 MB）；同文件其余 **20 个通过** |
+| 3 | 恢复 `body.ts` | sha 回到 **`cff74c5c7cbb2337812f2eb0fb18da37a603661881b06617c8d9b32bb8f00b97`** = 基线，`git diff` 空 |
+| 4 | 再跑 | **21/21 绿** |
+
+**一次无效变异（按 §10.9 记下）**：第一版把 `Buffer.alloc(60 MB)` 的数组声明在**函数内**，
+请求返回后数组可回收 ⇒ 用例仍绿。**这不是"判据漏判"，是变异本身无效**；改成模块级后必然红。
+
+### 17.5 回归
+
+| 项 | 结果 |
+|---|---|
+| `pnpm exec vitest run --coverage.enabled=false --project unit tools/mock-receiver` | **73/73 绿**（6 文件） |
+| `npx tsc -p tools/mock-receiver`（`tsc -p tsconfig.json` 亦跑） | 退出码 0 |
+| `npx eslint tools/mock-receiver/src tests/e2e tests/compat` | 退出码 0 |
+
+**未验证**：`pnpm gates` 未跑（并发 3 lane）、全量 `pnpm test` 未跑。
+
+## 十八、M01 两条契约规格线已有受控落点 + `reconcile.mjs` 默认引擎名单已修（2026-10-19，bench/reliability lane）
+
+**背景**：§16.4（以及 §17.3 末尾）记录两条线"没有家"；本节是接住它们的那一轮。
+
+### 18.1 落点与口径（逐字对齐 `M01.md:19/20`）
+
+| 项 | 内容 |
+|---|---|
+| 基准文件 | `tests/bench/m01-receiver.mjs`（+ 只做 `.js`→`.ts` 解析的 `tests/bench/lib/m01-source-loader.mjs`） |
+| 运行 | `node tests/bench/m01-receiver.mjs`（30 s）；`M01_BENCH_DURATION_MS=3000 …` 为冒烟（窗口 <30 s 时吞吐行**只记录、不判定**） |
+| 结果 | `tests/bench/results/m01-receiver.json`（机器信息、实测前后 `loadavg`、原始样本、余量） |
+| 进 CI？ | **不进**：根 `vitest.config.ts` 三个 project 不含 `tests/bench/**`；`.github/workflows/ci.yml` 不跑它；`pnpm gates` 不跑它。结果 JSON 的 `controlled.is_gate=false` 与 README §5.3 都写明"受控口径、不是门禁" |
+| 被测对象 | **当前源码** `tools/mock-receiver/src/*.ts`（dist 被 gitignore 且本机比 src 旧）；不用 `dist/` |
+
+- **启动**（`M01.md:19`，原文限定"以编程方式启动、发请求、停止，重复 3 次"）：`startReceiver()` 调用
+  → 返回（server 就绪），**3 次取 max**；**不是**进程冷启动。另记"首个批次拿到 202"的墙钟（含一次
+  HTTP 往返，更严，仅作证据）。
+- **吞吐**（`M01.md:20`）：**30 s 窗口、每批 15 条唯一事件、4 条 keep-alive**（与门禁内 6 s 压测
+  同一个 `loadTest`）；判定量 = **202 批次数 / 实际耗时**（含排空，保守）；错误响应单列。
+- 结果必须自证有效：`stored_events == 202 批 × 15`、`stored_batches == 202 批`、`duplicate_events == 0`；
+  不成立时脚本非零退出（表示"测错了"，不是规格线不达标）。
+
+### 18.2 实测（本机 Apple M4 ×10 / 16 GB / node v24.16.0；3 lane 并发）
+
+`loadavg` 起：1m **21.26** / 5m 14.66 / 15m 13.40；止：1m 20.00 / 5m 14.94 / 15m 13.55。
+
+| 指标 | 实测 | 规格线 | 余量 | 判定 |
+|---|---|---|---|---|
+| 启动（3 次 8.254 / 3.037 / 3.682 ms，**max**） | **8.254 ms** | ≤ 2000 ms | **242×** | 达标 |
+| 首个 202（max，仅证据） | 20.458 ms | — | — | 仅记录 |
+| 吞吐（30.001 s，73,733 批 × 15 = 1,105,995 事件） | **2,457.68 批/秒** | ≥ 500 | **4.92×** | 达标 |
+| 错误响应 | **0**（全部 202） | 0 | — | 达标 |
+| 入库对账 | 1,105,995 = 73,733 × 15；duplicate 0 | — | — | 测量有效 |
+| 每批 CPU（仅记录） | 0.3064 ms/批（总 CPU 22.6 s） | — | — | 仅记录 |
+
+**如实记录**：同一命令在较早一次运行（`loadavg1` 12.5）是 **4,229 批/秒**；上述 2,457 是在更重负载下
+的保守值。两次都 ≥500，**没有改口径凑绿**。
+
+### 18.3 `reconcile.mjs`：默认枚举全部声明引擎 + 缺证据记账
+
+- `loadSummaries` 默认从 `['chromium','webkit']` 改为 **`DECLARED_BROWSERS`**，来源是
+  `tests/e2e/lib/browser-names.mjs`（= `@playwright/test` 导出的 BrowserType），**不再写第二份名单**。
+- 缺证据不再静默：§3.0 顶部写 **"本次只覆盖了 N/M 个引擎"**、§3.0/§3.1 逐行标"文件缺失"、
+  §3.4 也有"本节引擎覆盖 N/M"、**stderr 再告警一次**；`--write` 生成区同样带这些行。
+- **退出码仍为 0**：这是读取器对证据缺口的如实记账，不是脚本执行错误。已核调用方：
+  `scripts/`、`.github/`、`package.json`、`tests/` 均无调用（只有 docs 里的手工命令），故不会让门禁红。
+- 顺带把 usage 里早就写了、但一直被**静默忽略**的 `--browser <all|name>` 实现出来；`--browser` 与
+  `--write` 同时使用会拒绝（避免把"少读一个引擎"写进正式报告）。
+- 当前输出：**2/3**（缺 `d004-firefox.json`），stderr 告警；两次变异证明见 18.4。
+
+### 18.4 判别性证明（先确认文件内容确实变了，再看结果）
+
+| 件 | 变异 | 变异后结果 | 恢复后 |
+|---|---|---|---|
+| `m01-receiver.mjs` | 规格常量临时改为 `STARTUP_LIMIT_MS=0.001`、`THROUGHPUT=1e9`、`SPEC_WINDOW_MS=1000` | 启动 57.179 ms → **不达标**；吞吐 444.5 批/秒 → **不达标**；错误响应 0 → 达标 | sha256 回到 **`e3422307…`** = 基线；结果 JSON/历史从备份恢复 |
+| `reconcile.mjs` | CLI 默认临时改回 `['chromium','webkit']` | **stderr 为空**、§3.0 写 **"2/2 全部声明引擎都有证据"**、全文 **0 处 firefox**（正是"静默覆盖缺口"） | sha256 回到 **`f2e8408b…`** = 基线；恢复后 stderr 有 2/3 告警、7 处 firefox |
+
+### 18.5 回归与只报告残留
+
+**回归**：`node tests/reliability/reconcile.mjs` exit 0（只读，未 `--write`）；`--browser chromium`、
+`--compare` 均 exit 0，未知引擎 exit 2；`pnpm exec eslint tests/bench tests/reliability` 0；
+`pnpm exec tsc -p tsconfig.json` 0；`node tests/bench/m01-receiver.mjs` 见 18.2；
+`node tests/bench/collect.mjs` 里 M01 行按 `at-least` 正确判达标。
+
+**只报告、未改**：
+
+1. `tests/bench/c03-config-sampling.bench.ts` 的"空六段管线"用例**没有任何 `expect`**（另外两个用例有），
+   与 README §1"只有测量完整性断言会失败"不完全一致——该行只是对照基线，风险低。
+2. `reconcile.mjs` §3.2 的"**9/9 格**的对账等式两次都成立"是**硬编码文案**（同段的捕获数/子窗口数是现算）；
+   格子集合变化时这句话会失真。
+3. `loadSummaries` 把**所有**读取/解析错误都记成 `missing: true`，渲染只写"文件缺失"、不展示 `error`；
+   损坏的 JSON 会被误述为"文件缺失"（覆盖账仍会少一个引擎，不会静默全绿）。
+4. 已顺带修：`collect.mjs` 读 `row.target_text` 而 `report.ts` 写 `targetText`（旧行目标文案一直退化成数字）；
+   并新增 `direction: 'at-least'`，否则「4,229 > 500」会被误判成不达标——首次运行**实测到**该误判。
+5. `docs/reports/handover.md` §2 的 T20 清单写"C08 映射 1 ms"，但 `docs/tasks/T17.md` 的非功能目标只有
+   计数 ≤0.001 ms 与流量 ≤1%；`c08-monitor.bench.ts` 的"整窗映射"行按 T17 **只记录**。不是漏测，
+   是交接清单措辞比契约宽。
+
+**未验证（不得读成已验证）**：`pnpm gates` 未跑（并发 3 lane）；全量 `pnpm test` 未跑；
+没有做 `--write`（`docs/reports/**` 不在本 lane 可写范围），生成的正式报告仍是旧内容。
+

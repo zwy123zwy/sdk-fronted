@@ -24,6 +24,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { URL, fileURLToPath, pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 
+import { redactPaths } from '../lib/redact-paths.mjs';
 import { browserEvidence, launchChromium, warnUnavailable } from './lib/chromium-launch.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
@@ -37,7 +38,8 @@ const viteEntry = join(viteRoot, 'node_modules/vite/dist/node/index.js');
 /** 落证据：成功与"本机没有浏览器"都落（不留上一次的陈旧结论）。 */
 function writeResult(result) {
   mkdirSync(resultsDir, { recursive: true });
-  writeFileSync(resultFile, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
+  // 落盘前脱敏：证据要提交进仓库，绝对路径会泄露本机用户名（口径见 `lib/redact-paths.mjs`）。
+  writeFileSync(resultFile, `${JSON.stringify(redactPaths(result), null, 2)}\n`, 'utf8');
 }
 
 function httpGet(url) {

@@ -54,6 +54,7 @@ import {
   sleep,
   writeJson,
 } from './harness.mjs';
+import { redactPaths } from '../../compat/lib/redact-paths.mjs';
 
 /** 只清理本 profile 的残留进程（并行 worker 安全）。 */
 function cleanProfile(profileDir, log) {
@@ -485,7 +486,8 @@ export async function runD004({
   };
   const target =
     out ?? path.join(outDir ?? path.join(REPO_ROOT, 'tests/e2e/results'), `d004-${browser}.json`);
-  writeJson(target, summary);
+  // 落盘前脱敏：证据要提交进仓库，绝对路径会泄露本机用户名（口径见 `tests/compat/lib/redact-paths.mjs`）。
+  writeJson(target, redactPaths(summary));
   log(`结果写入 ${path.relative(REPO_ROOT, target)}`);
   log(
     '捕获判定逐格：' +

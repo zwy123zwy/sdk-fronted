@@ -34,6 +34,7 @@ import { createSkipAudit } from './lib/skip-audit.mjs';
 import { startStaticServer } from './lib/static-server.mjs';
 import { startBeaconReceiver, settleBeaconRequests } from './lib/beacon-receiver.mjs';
 import { killMatching, launchPersistent, profilePids } from './lib/harness.mjs';
+import { redactPaths } from '../compat/lib/redact-paths.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..');
@@ -172,7 +173,8 @@ test('C07-AC-03 取数：信标单次上限 + 累计在途额度 + 片间节流'
   fs.writeFileSync(
     path.join(HERE, 'results', `beacon-quota-${browserName}.json`),
     `${JSON.stringify(
-      {
+      // 落盘前脱敏：证据要提交进仓库，绝对路径会泄露本机用户名（口径见 tests/compat/lib/redact-paths.mjs）。
+      redactPaths({
         browser: browserName,
         project: test.info().project.name,
         driver: info.driverId,
@@ -180,7 +182,7 @@ test('C07-AC-03 取数：信标单次上限 + 累计在途额度 + 片间节流'
         at: new Date().toISOString(),
         userAgent: config?.userAgent ?? null,
         rows,
-      },
+      }),
       null,
       2,
     )}\n`,
