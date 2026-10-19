@@ -23,7 +23,6 @@
 - 规格线总数：**174**（11 份现行验收文档）；其中数值规格线 **35** 条。
 - verified：**172**；pending：**2**。
 - **pending K02-AC-03**（tests/acceptance/K02.md:9）：Chromium 侧未实现：AC 点名的 Playwright Chromium 验签未执行，文档明确「这一条不算通过」（T29 待补）；Node 侧证据是 `tests/contract/remote-config-signature.test.ts` 与 `tools/config-signer/src/__tests__/sign.test.ts` 的 WebCrypto 验签。
-- **pending M01-AC-14**（tests/acceptance/M01.md:20）：待补（T20 bench，另一 lane 正在建）
 - 机器校验：`node scripts/spec-line-check.mjs`（严格，pending 也红） / `pnpm spec:check`（`--allow-pending`，门禁用）。
 
 ## 2. 台账
@@ -202,7 +201,7 @@
 | M01-AC-11 | tests/acceptance/M01.md:17 | 功能 | 不出现令牌占位值、`auth` 字段和请求方 IP 的末段 | vitest:tools/mock-receiver/src/counters.acceptance.test.ts :: M01-AC-11 日志与入库数据脱敏（RR-13） > M01-AC-11 日志中不出现令牌占位值、auth 字段与请求方 IP 末段 | 是（pnpm test） | verified | — |
 | M01-AC-12 | tests/acceptance/M01.md:18 | 功能 | 第一次 200 带 `ETag`；第二次 304；替换发布物后再次请求返回 200 和新 `ETag` | vitest:tools/mock-receiver/src/hosting.acceptance.test.ts :: M01-AC-12 配置托管与 ETag（M01-F5） > M01-AC-12 首次 200 带 ETag，带 If-None-Match 返回 304，替换发布物后返回新 ETag | 是（pnpm test） | verified | — |
 | M01-AC-13 | tests/acceptance/M01.md:19 | 数值 | 每次启动不超过 2 秒；停止后端口释放；未指定端口时自动分配空闲端口 | vitest:tools/mock-receiver/src/hosting.acceptance.test.ts :: M01-AC-13 编程式启停（M01-F6） > M01-AC-13 重复 3 次启动、发请求、停止；每次启动不超过 2 秒且停止后端口释放 | 是（pnpm test） | verified | 门限：每次启动 ≤2 秒。2026-10-19 的 `0e01f12` 已把墙钟断言恢复为**契约原值 2,000 ms**（不是 CPU 时间替代）；`tests/bench/` 仍无 M01 |
-| M01-AC-14 | tests/acceptance/M01.md:20 | 数值 | 每秒处理不少于 500 个批次，无错误响应 | — | 否（待 T20 bench；bench 不在 gates） | pending | 待补（T20 bench，另一 lane 正在建） |
+| M01-AC-14 | tests/acceptance/M01.md:20 | 数值 | 每秒处理不少于 500 个批次，无错误响应 | script:package.json :: bench-m01 | 否 | verified | 实测 3,354.20 批/秒（30.000 s、100,626 批 ×15=1,509,390 事件）、0 错误响应、stored_events=批×15、duplicate=0 ⇒ 6.71× 余量（loadavg1 34.30 起测；另一次 2,457.68 批/秒 = 4.92×）；同时把 M01-AC-13（启动 ≤2 s）实测了：max 4.246 ms ⇒ 471×（另一次 8.254 ms = 242×）。受控基准不进门禁（故本列为"否"），但它有可执行落点 pnpm bench-m01——这是台账要求的。 |
 | M01-AC-15 | tests/acceptance/M01.md:21 | 功能 | 启动失败并返回非零退出码；README 中有“不得用于生产”的说明 | vitest:tools/mock-receiver/src/hosting.acceptance.test.ts :: M01-AC-15 只监听 127.0.0.1（M01 安全） > M01-AC-15 监听 0.0.0.0 时启动失败 | 是（pnpm test） | verified | — |
 
 ## 3. 机器校验能抓住什么 / 抓不住什么

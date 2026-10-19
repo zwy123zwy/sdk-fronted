@@ -37,7 +37,16 @@ const rows = runs.flatMap((run) =>
 const verdictOf = (row) => {
   if (row.target === undefined) return '仅记录';
   if (!Number.isFinite(row.value)) return '不达标';
-  return row.value <= row.target ? '达标' : '不达标';
+  // `direction` 缺省 = at-most（延迟/体积/错误数）；吞吐这类「越大越好」的行写 at-least。
+  return row.direction === 'at-least'
+    ? (row.value >= row.target ? '达标' : '不达标')
+    : (row.value <= row.target ? '达标' : '不达标');
+};
+
+/** 余量与 `lib/report.ts` 同口径：at-most = 目标/实测，at-least = 实测/目标。 */
+const marginOf = (row) => {
+  if (row.target === undefined || !Number.isFinite(row.value) || row.value <= 0) return Number.NaN;
+  return row.direction === 'at-least' ? row.value / row.target : row.target / row.value;
 };
 
 /* ------------------------------------------------ 多次运行的方差（按 指标+统计量 聚合） */
@@ -94,11 +103,11 @@ console.log(`T20 基准摘要：${String(runs.length)} 份基准文件，${Strin
 console.log('='.repeat(100));
 for (const row of rows) {
   const verdict = verdictOf(row);
-  const target = row.target === undefined ? '无契约目标' : `契约 ${row.target_text ?? String(row.target)}`;
-  const margin =
-    row.target !== undefined && Number.isFinite(row.value) && row.value > 0
-      ? `余量 ${(row.target / row.value).toFixed(2)}×`
-      : '—';
+  // `report.ts` 写的是 `targetText`；旧行可能只有 `target_text`。两种都认，缺省回退数值。
+  const targetText = row.targetText ?? row.target_text;
+  const target = row.target === undefined ? '无契约目标' : `契约 ${targetText ?? String(row.target)}`;
+  const marginValue = marginOf(row);
+  const margin = Number.isFinite(marginValue) ? `余量 ${marginValue.toFixed(2)}×` : '—';
   console.log(
     `${verdict === '不达标' ? '✗' : verdict === '达标' ? '✓' : '·'} [${row.bench}] ${row.metric}：` +
       `${row.stat}=${Number.isFinite(row.value) ? row.value.toFixed(6) : String(row.value)} ${row.unit} ` +
@@ -109,7 +118,11 @@ for (const row of rows) {
 console.log('-'.repeat(100));
 console.log(`不达标行：${String(failed.length)} 条`);
 for (const row of failed) {
-  console.log(`  ✗ [${row.bench}] ${row.metric}：${row.value.toFixed(6)} > ${String(row.target)}（${row.target_text ?? ''}）`);
+  const comparator = row.direction === 'at-least' ? '<' : '>';
+  console.log(
+    `  ✗ [${row.bench}] ${row.metric}：${row.value.toFixed(6)} ${comparator} ${String(row.target)}` +
+      `（${row.targetText ?? row.target_text ?? ''}）`,
+  );
 }
 
 console.log('-'.repeat(100));

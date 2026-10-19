@@ -41,6 +41,12 @@ export interface BenchRow {
   readonly samples: number;
   /** 契约目标值（数值）；没有契约目标时不填。 */
   readonly target?: number | undefined;
+  /**
+   * 目标方向，默认 `at-most`（越小越好：延迟、体积、错误数）。
+   * 吞吐这类**越大越好**的指标必须显式写 `at-least`，否则会把「4,229 > 500」
+   * 误判成不达标、把余量算成 0.1×。
+   */
+  readonly direction?: 'at-most' | 'at-least' | undefined;
   /** 契约目标值的人类可读写法，例如 `P99 ≤ 0.1 ms`。 */
   readonly targetText?: string | undefined;
   /** 契约 / 任务卡出处。 */
@@ -58,10 +64,32 @@ export interface BenchReport {
   readonly finish: () => void;
 }
 
+/** 额外写入结果 JSON 顶层的元信息（机器信息、`loadavg`、口径参数等）。 */
+export type BenchMeta = Readonly<Record<string, unknown>>;
+
+export interface BenchReportOptions {
+  /**
+   * 在 `finish()` 时求值，合并进 `results/<name>.json` 的顶层。
+   *
+   * 用函数而不是对象：`loadavg`、RSS 这类量**只有在测量结束时读才有意义**；
+   * 传静态对象会让结果里的负载状态变成运行前快照，和实测值对不上。
+   * `rows` 与固定字段在合并之后写入，元信息不能覆盖它们。
+   */
+  readonly meta?: () => BenchMeta;
+}
+
 function resolveVerdict(row: BenchRow): Verdict {
   if (row.target === undefined) return row.note?.includes('归 T29') === true ? '归 T29' : '仅记录';
   if (!Number.isFinite(row.value)) return '不达标';
-  return row.value <= row.target ? '达标' : '不达标';
+  return row.direction === 'at-least'
+    ? row.value >= row.target ? '达标' : '不达标'
+    : row.value <= row.target ? '达标' : '不达标';
+}
+
+/** 余量倍数：`at-most` 是「目标 / 实测」，`at-least` 是「实测 / 目标」。 */
+export function marginOf(row: Pick<BenchRow, 'value' | 'target' | 'direction'>): number {
+  if (row.target === undefined || !Number.isFinite(row.value) || row.value <= 0) return Number.NaN;
+  return row.direction === 'at-least' ? row.value / row.target : row.target / row.value;
 }
 
 function renderExtra(extra: Readonly<Record<string, number>> | undefined): string {
@@ -73,18 +101,17 @@ function renderExtra(extra: Readonly<Record<string, number>> | undefined): strin
 
 /**
  * 创建一份基准报告。`name` 决定 JSON 文件名，建议用 `c01-track` 这类稳定短名。
+ * `options.meta` 用于把机器信息 / `loadavg` / 口径参数一并写进结果 JSON（可选）。
  */
-export function createBenchReport(name: string): BenchReport {
+export function createBenchReport(name: string, options: BenchReportOptions = {}): BenchReport {
   const rows: BenchRow[] = [];
   const resultsDir = join(fileURLToPath(new URL('.', import.meta.url)), '..', 'results');
 
   const record = (row: BenchRow): Verdict => {
     const verdict = resolveVerdict(row);
     rows.push(row);
-    const margin =
-      row.target !== undefined && Number.isFinite(row.value) && row.value > 0
-        ? `余量 ${(row.target / row.value).toFixed(1)}×`
-        : '—';
+    const marginValue = marginOf(row);
+    const margin = Number.isFinite(marginValue) ? `余量 ${marginValue.toFixed(1)}×` : '—';
     const targetPart = row.targetText === undefined ? '无契约目标值' : `契约 ${row.targetText}`;
     const notePart = row.note === undefined ? '' : `（${row.note}）`;
     const extraPart = renderExtra(row.extra);
@@ -100,6 +127,7 @@ export function createBenchReport(name: string): BenchReport {
     mkdirSync(resultsDir, { recursive: true });
     const runId = process.env['BENCH_RUN_ID'] ?? `run-${new Date().toISOString()}`;
     const path = join(resultsDir, `${name}.json`);
+    const meta = options.meta === undefined ? {} : options.meta();
     const payload = {
       bench: name,
       run_id: runId,
@@ -108,6 +136,8 @@ export function createBenchReport(name: string): BenchReport {
       platform: `${process.platform}/${process.arch}`,
       cpu: (process.env['BENCH_CPU'] ?? '').trim(),
       cpus: cpus().length,
+      // 元信息（机器信息、实测前后的 loadavg、口径参数）；rows 在其后写入，不能被覆盖。
+      ...meta,
       rows,
     };
     writeFileSync(path, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');

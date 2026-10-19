@@ -2,6 +2,8 @@
 
 本目录是 **T20「客户端性能基准与体积报告」** 的所有权目录，是各包 `perf.test.ts` 里
 「契约目标值的权威验证归 T20」所指的**权威验证方**（清单见 `docs/reports/handover.md` 第 2 节 T20 小节）。
+**M01（本地 mock 接收服务）的两条契约规格线也在这里**（启动 ≤2 s、30 s ≥500 批/秒），
+见第 5 节——它们此前在 `tests/bench/` 里没有落点。
 
 ## 1. 这不是回归门禁
 
@@ -25,6 +27,10 @@ BENCH_RUN_ID=run-1 BENCH_CPU="$(sysctl -n machdep.cpu.brand_string)" \
 
 # 体积基准（读已有 dist，不重建任何包；加载桩用 tsup 单文件打包到本目录临时区）
 BENCH_RUN_ID=run-1 node tests/bench/size.mjs
+
+# M01 契约规格线（启动 ≤2 s / 30 s ≥500 批/秒；直接加载 tools/mock-receiver 源码）
+node tests/bench/m01-receiver.mjs
+M01_BENCH_DURATION_MS=3000 node tests/bench/m01-receiver.mjs   # 冒烟：窗口 <30 s，只记录不判规格线
 
 # 合并基线 + 多次运行方差（结果写入 results/baseline.json）
 node tests/bench/collect.mjs
@@ -52,6 +58,8 @@ BENCH_RUNS=run-1,run-3 node tests/bench/collect.mjs   # 只看没被同机负载
 | `c07-offline.bench.ts` | C07 `prewrite` 同步阻塞、异步落盘 P50/P95 |
 | `c08-monitor.bench.ts` | C08 单次计数操作、整窗映射、自监控流量占比（真实产出） |
 | `k02-signer.bench.ts` | K02-AC-09 进程内签名 / 验签各 100 次 |
+| `m01-receiver.mjs` | M01 两条契约规格线：编程式启动 ≤2 s（3 次取 max）、30 s / 每批 15 条的吞吐与错误响应 |
+| `lib/m01-source-loader.mjs` | 只给 `m01-receiver.mjs` 用：让裸 `node` 把 M01 源码里的 `./x.js` 相对导入解析到 `x.ts`（类型擦除仍由 Node 完成） |
 | `size.mjs` | 体积：加载桩压缩 IIFE、各包产物按 **size-limit 口径**（打包 + minify）后 gzip |
 | `collect.mjs` | 合并 `results/*.json` → `results/baseline.json`，并按运行计算方差 |
 | `results/` | 基线数据：`<bench>.json`（最近一次）、`history.jsonl`（追加历史）、`baseline.json`（合并） |
@@ -70,3 +78,42 @@ BENCH_RUNS=run-1,run-3 node tests/bench/collect.mjs   # 只看没被同机负载
    本目录只给 **node / happy-dom 本机数字**，并在报告中逐条标注。
 5. **只读实现**：本目录不修改 `packages/*/src/**`；体积基准只读磁盘上**已有**的 `dist/`
    （并报告产物是否比源码旧），不重建任何包。
+
+## 5. M01 两条契约规格线（`m01-receiver.mjs`）
+
+**此前没有落点**：`tests/bench/` 里没有 M01；T32 报告自认「M01 侧零数据」；
+`tools/mock-receiver/README.md` §8 的 30 秒数字是**树外一次性脚本**（不可复跑）。
+本节把两条线接到一个可复跑的受控口径上。
+
+### 5.1 原文与测量口径（逐字对齐，不换更松的口径）
+
+| 规格线 | 原文（`tests/acceptance/M01.md`） | 本基准的口径 |
+|---|---|---|
+| 启动 | 第 19 行：`在 Vitest 中以编程方式启动、发请求、停止，重复 3 次` → `每次启动不超过 2 秒` | **`startReceiver()` 调用 → 返回（server 已监听、可接受请求）**，重复 **3 次取 max**（原文是「每次」，不是中位数）。**不是** `node dist/cli.js` 的进程冷启动——原文限定「以编程方式启动」 |
+| 吞吐 | 第 20 行：`本地压测 30 秒，每批 15 条事件` → `每秒处理不少于 500 个批次，无错误响应` | **30 秒窗口**、**每批 15 条唯一事件**、4 条 keep-alive 连接（与门禁内 6 秒压测同一 `loadTest` 实现）；判定量 = **成功（202）批次 / 实际耗时**（含窗口末尾排空，保守），另行列「非 202 + 网络错误 = 0」 |
+
+补充约定（都写进结果 JSON）：
+
+- 启动另记「首个批次拿到 202」的墙钟（含一次 HTTP 往返，更严，**仅作证据**，不单独判定）；
+- 吞吐窗口若通过 `M01_BENCH_DURATION_MS` 缩短到 <30 s，**该行不判定规格线**（只记录），
+  防止用更短窗口冒充 30 秒口径；
+- 与仓库既有 M01 压测一致：`loadTest` 前 3 秒的请求体是 gzip、之后是原始 JSON；
+- 结果必须自证测量有效：`stored_events == 202 批 × 15`、`stored_batches == 202 批`、
+  `duplicate_events == 0`；不成立时脚本以非零退出码报「测错了」（**不是**规格线不达标）。
+
+### 5.2 结果里必须有机器状态
+
+`results/m01-receiver.json` 的顶层含：
+
+- `machine`（CPU 型号、核数、内存、平台、arch、node、OS）；
+- `loadavg.at_start` / `loadavg.at_end`（1/5/15 分钟）；
+- `spec`（两条线的数值与出处）与 `measurement`（窗口、连接数、批大小）；
+- 每一行的 `extra.margin`（余量倍数：启动行 = `2000 / max`，吞吐行 = `实测 / 500`）；
+- `details.startup_samples_ms`（3 次原始墙钟）与 `details.throughput`（耗时、状态码分布、
+  CPU/批、RSS/堆）。
+
+### 5.3 这不是门禁
+
+`m01-receiver.mjs` **不在** `pnpm gates` 或 `.github/workflows/ci.yml` 中（见第 1 节）。
+规格线不达标**不会**让脚本非零退出——它只写进结果与报告；非零退出只表示「测错了」。
+结果 JSON 的 `controlled.is_gate === false` 与 `controlled.statement` 也重复了这一点。

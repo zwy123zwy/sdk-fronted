@@ -1,0 +1,188 @@
+{
+  "bench": "m01-receiver",
+  "run_id": "m01-final-2026-10-19c",
+  "generated_at": "2026-10-19T02:48:49.075Z",
+  "node": "v24.16.0",
+  "platform": "darwin/arm64",
+  "cpu": "",
+  "cpus": 10,
+  "controlled": {
+    "is_gate": false,
+    "statement": "受控口径，不是门禁：tests/bench/** 不在 pnpm gates / CI 中；规格线不达标不会让本脚本非零退出。"
+  },
+  "machine": {
+    "cpu": "Apple M4",
+    "cpus": 10,
+    "memory_gb": 16,
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v24.16.0",
+    "os": "Darwin Kernel Version 25.6.0: Fri Jul 31 19:11:03 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T8132"
+  },
+  "loadavg": {
+    "at_start": {
+      "one_minute": 34.3,
+      "five_minutes": 25.68,
+      "fifteen_minutes": 18.3
+    },
+    "at_end": {
+      "one_minute": 26.66,
+      "five_minutes": 24.66,
+      "fifteen_minutes": 18.19
+    }
+  },
+  "spec": {
+    "source": "tests/acceptance/M01.md:19-20",
+    "startup_max_ms": 2000,
+    "throughput_min_batches_per_second": 500,
+    "window_ms": 30000,
+    "events_per_batch": 15,
+    "startup_caliber": "startReceiver() 返回（server 就绪），不是进程冷启动"
+  },
+  "measurement": {
+    "window_requested_ms": 30000,
+    "window_is_spec": true,
+    "connections": 4,
+    "events_per_batch": 15,
+    "startup_rounds": 3,
+    "load_generator": "tools/mock-receiver/src/test-support.ts loadTest（与门禁内 6 秒压测同一实现）"
+  },
+  "details": {
+    "startup_samples_ms": [
+      {
+        "round": 1,
+        "ready_ms": 4.2455,
+        "first_accepted_ms": 9.948333,
+        "port": 63445
+      },
+      {
+        "round": 2,
+        "ready_ms": 1.470667,
+        "first_accepted_ms": 2.63825,
+        "port": 63447
+      },
+      {
+        "round": 3,
+        "ready_ms": 0.181625,
+        "first_accepted_ms": 1.188833,
+        "port": 63449
+      }
+    ],
+    "throughput": {
+      "window_requested_ms": 30000,
+      "elapsed_ms": 30000,
+      "connections": 4,
+      "events_per_batch": 15,
+      "attempted_batches": 100626,
+      "accepted_batches": 100626,
+      "accepted_batches_per_second": 3354.2,
+      "attempted_batches_per_second": 3354.2,
+      "statuses": {
+        "202": 100626
+      },
+      "network_errors": 0,
+      "non_202_responses": 0,
+      "first_failure": null,
+      "accepted_events": 1509390,
+      "stored_events": 1509390,
+      "stored_batches": 100626,
+      "duplicate_events": 0,
+      "rss_mb": 884.6,
+      "heap_used_mb": 699.7,
+      "heap_limit_mb": 4288,
+      "cpu_ms_per_batch": 0.275
+    }
+  },
+  "rows": [
+    {
+      "metric": "M01 编程式启动（startReceiver 返回 = server 就绪）",
+      "stat": "max",
+      "value": 4.2455,
+      "unit": "ms",
+      "samples": 3,
+      "target": 2000,
+      "targetText": "每次启动 ≤ 2000 ms（M01-AC-13）",
+      "source": "tests/acceptance/M01.md:19",
+      "note": "口径=server 就绪，不是进程冷启动；3 次全部 ≤ 2 s 才达标（取 max）",
+      "extra": {
+        "p50": 1.470667,
+        "min": 0.181625,
+        "margin": 471.08703332940763
+      }
+    },
+    {
+      "metric": "M01 启动后首个批次拿到 202（含一次 HTTP 往返）",
+      "stat": "max",
+      "value": 9.948333,
+      "unit": "ms",
+      "samples": 3,
+      "source": "tests/acceptance/M01.md:19",
+      "note": "仅作「可接受请求」的证据，比 M01-AC-13 的启动口径更严，不单独判定规格线",
+      "extra": {
+        "p50": 2.63825,
+        "min": 1.188833
+      }
+    },
+    {
+      "metric": "M01-AC-14 吞吐（30 s 窗口，每批 15 条）",
+      "stat": "window",
+      "value": 3354.2,
+      "unit": "批/秒",
+      "samples": 100626,
+      "target": 500,
+      "targetText": "≥ 500 批/秒（30 s 窗口）",
+      "direction": "at-least",
+      "source": "tests/acceptance/M01.md:20",
+      "note": "判定量=成功（202）/ 实际耗时 30.000 s（含排空，保守）；连接=4；负载生成与门禁内 6 秒压测同一实现（前 3 s 请求体 gzip）",
+      "extra": {
+        "attempted_batches": 100626,
+        "attempted_rate": 3354.2,
+        "non_202": 0,
+        "network_errors": 0,
+        "margin": 6.708399999999999
+      }
+    },
+    {
+      "metric": "M01-AC-14 错误响应（非 202 + 网络错误）",
+      "stat": "window",
+      "value": 0,
+      "unit": "个",
+      "samples": 100626,
+      "target": 0,
+      "targetText": "0 个错误响应",
+      "source": "tests/acceptance/M01.md:20",
+      "note": "原文要求「无错误响应」；这项与吞吐分开，避免用高吞吐掩盖错误",
+      "extra": {
+        "non_202": 0,
+        "network_errors": 0,
+        "first_failure_status": -1
+      }
+    },
+    {
+      "metric": "M01-AC-14 每批 CPU 成本（负载无关，仅记录）",
+      "stat": "window",
+      "value": 0.27501908055572116,
+      "unit": "ms/批",
+      "samples": 100626,
+      "source": "docs/tasks/T09.md 非功能目标（诊断量，不是规格线）",
+      "note": "墙钟吞吐会被同机其它 lane 抢占；CPU/批用于判断实现单位成本是否稳定",
+      "extra": {
+        "cpu_ms_total": 27674.1
+      }
+    },
+    {
+      "metric": "M01-AC-14 入库数（测量完整性：stored_events == 202 批 × 15）",
+      "stat": "window",
+      "value": 1509390,
+      "unit": "条",
+      "samples": 100626,
+      "source": "M01-F2 / RR-05（去重后入库）",
+      "note": "对账成立：stored_batches=100626，duplicate=0，RSS=884.6 MB",
+      "extra": {
+        "expected_events": 1509390,
+        "duplicate_events": 0,
+        "rss_mb": 884.6
+      }
+    }
+  ]
+}

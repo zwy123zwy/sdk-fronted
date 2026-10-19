@@ -7,6 +7,14 @@
  *   node tests/reliability/reconcile.mjs --write            # 覆写 docs/reports/reliability-reconciliation.md 的生成区
  *   node tests/reliability/reconcile.mjs --browser chromium # 只对账一个引擎
  *
+ * 引擎名单：**默认枚举 `tests/e2e/lib/browser-names.mjs` 里声明的全部引擎**
+ * （`chromium` / `firefox` / `webkit`，唯一来源是 `@playwright/test` 导出的 BrowserType）。
+ * 这里不再写第二份名单：写死 `['chromium','webkit']` 的后果是 `d004-firefox.json`
+ * 永远读不到、也**没有人被告知少了一个引擎**——与 `d004-run.mjs` 修掉的「静默覆盖缺口」同一类。
+ * 缺证据的引擎会：① 在报告 §3.0 顶部记「本次只覆盖了 N/M 个引擎」；② 在 §3.0/§3.1
+ * 逐行标「文件缺失」；③ 在 stderr 告警一次。**退出码仍为 0**：
+ * 这是读取器如实记账的证据缺口，不是脚本执行错误（要让缺口变红请由调用方检查该告警）。
+ *
  * 口径来源（**不得改动**）：
  *   - docs/decisions/D004-hard-kill-exposure-window.md 结论第 1 条：三类分列，不得合并。
  *   - docs/tasks/T32.md 验收用例（2026-10-13 按 D004 改过）。
@@ -16,6 +24,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { DECLARED_BROWSERS, expandBrowserArg } from '../e2e/lib/browser-names.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
@@ -96,7 +105,12 @@ function summarizeCell(cell, index, browser) {
   };
 }
 
-export function loadSummaries({ browsers = ['chromium', 'webkit'] } = {}) {
+/**
+ * 读各引擎的 d004 证据。**默认枚举声明的全部引擎**（`tests/e2e/lib/browser-names.mjs`），
+ * 不再写死 `['chromium','webkit']`。缺文件的引擎仍然返回一条 `missing: true` 记录，
+ * 由渲染层显式记账——「没读到」与「没有问题」必须能分开。
+ */
+export function loadSummaries({ browsers = DECLARED_BROWSERS } = {}) {
   const out = [];
   for (const b of browsers) {
     const file = resolve(RESULTS, `d004-${b}.json`);
@@ -178,12 +192,47 @@ function row(r, src) {
 
 // ---------------------------------------------------------------- 报告生成
 
-export function renderReconciliation() {
-  const summaries = loadSummaries();
+/**
+ * 引擎覆盖账：本次要读的（默认 = 声明的全部）、真正读到证据的、缺证据的。
+ * 「有文件」的判据与 `loadSummaries` 一致（`missing === false`）。
+ */
+export function coverageOf(summaries, requested = DECLARED_BROWSERS) {
+  const present = new Set(summaries.filter((s) => s.missing !== true).map((s) => s.browser));
+  const missing = requested.filter((name) => !present.has(name));
+  return {
+    requested: [...requested],
+    covered: requested.length - missing.length,
+    total: requested.length,
+    missing,
+  };
+}
+
+/** §3.0 顶部的覆盖声明（固定写出 N/M；缺口必须点名）。 */
+export function coverageLine(coverage) {
+  const gap =
+    coverage.missing.length === 0
+      ? '全部声明引擎都有证据'
+      : `**缺少 ${coverage.missing.join('、')} 的 d004 JSON**——这是证据缺口，` +
+        '**不得读成"该引擎没有问题"或"没有差异"**';
+  return (
+    `> **引擎覆盖：本次只覆盖了 ${coverage.covered}/${coverage.total} 个引擎**（${gap}）。` +
+    '引擎名单来自 `tests/e2e/lib/browser-names.mjs`（= `@playwright/test` 的 BrowserType），不在本脚本另写一份。'
+  );
+}
+
+/**
+ * 渲染第 3 节。返回 `{ markdown, coverage }`：`coverage` 供 CLI 在 stderr 再告警一次，
+ * 不必为了拿覆盖数把 300 KB 的 JSON 再读一遍。
+ */
+export function renderReconciliation({ browsers = DECLARED_BROWSERS } = {}) {
+  const summaries = loadSummaries({ browsers });
+  const coverage = coverageOf(summaries, browsers);
   const L = [];
   const p = (s = '') => L.push(s);
 
   p('#### 3.0 逐格总览与三类归属');
+  p('');
+  p(coverageLine(coverage));
   p('');
 
   // 归类：把每个 cell 映射到 D004 三类之一；未归类即异常，必须报出（不得静默丢弃）。
@@ -225,7 +274,7 @@ export function renderReconciliation() {
   }
   p('');
 
-  p('### 3.1 数据源指纹（每个数字都可回指这两份文件）');
+  p('### 3.1 数据源指纹（每个数字都可回指这些数据文件）');
   p('');
   p('| 引擎 | 文件 | `generatedAt` | 被测实现 `sha256` 前缀 | 驱动 |');
   p('|---|---|---|---|---|');
@@ -339,7 +388,7 @@ export function renderReconciliation() {
   p('');
   p(renderCaptureGate());
 
-  return L.join('\n');
+  return { markdown: L.join('\n'), coverage };
 }
 
 // ------------------------------------------------- 捕获判定（T29 尾部护栏，只增不改）
@@ -368,6 +417,15 @@ export function renderCaptureGate() {
   out.push('');
 
   const summaries = loadSummaries();
+  const missing = summaries.filter((s) => s.missing);
+  if (missing.length > 0) {
+    out.push(
+      `> ⚠️ **本节引擎覆盖：${summaries.length - missing.length}/${summaries.length}**；` +
+        `缺少 ${missing.map((s) => s.browser).join('、')} 的证据（文件缺失）。` +
+        '下表只列有证据的引擎——**不得把"没出现在表里"读成"该引擎没有捕获问题"**。',
+    );
+    out.push('');
+  }
   const withGate = summaries.filter((s) => !s.missing && s.cells.some((c) => c.captureVerdict !== null));
   if (withGate.length === 0) {
     out.push('> ⚠️ 现有 d004 产物里没有 `captureGate` 字段（早于本护栏），本节无数据（不补数）。');
@@ -593,38 +651,70 @@ export function renderComparison(aPath, bPath) {
 
 const argv = process.argv.slice(2);
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const md = renderReconciliation();
   const writeIdx = argv.indexOf('--write');
   const cmpIdx = argv.indexOf('--compare');
+  const browserIdx = argv.indexOf('--browser');
+
+  let browsers = DECLARED_BROWSERS;
+  if (browserIdx >= 0) {
+    try {
+      browsers = expandBrowserArg(argv[browserIdx + 1]);
+    } catch (error) {
+      console.error(
+        `${String(error?.message ?? error)}\n` +
+          `用法：node tests/reliability/reconcile.mjs [--browser all|${DECLARED_BROWSERS.join('|')}] ` +
+          '[--write] [--compare <A.json> <B.json>]',
+      );
+      process.exit(2);
+    }
+  }
+  if (writeIdx >= 0 && browserIdx >= 0) {
+    console.error(
+      '--browser 不能与 --write 同时使用：生成的报告必须覆盖全部声明引擎（否则会把"少读一个引擎"写进正式报告）。',
+    );
+    process.exit(2);
+  }
+
   if (cmpIdx >= 0) {
     const a = argv[cmpIdx + 1];
     const b = argv[cmpIdx + 2];
     if (!a || !b) { console.error('用法：--compare <A.json> <B.json>'); process.exit(2); }
     console.log(renderComparison(resolve(REPO, a), resolve(REPO, b)));
-  } else if (writeIdx >= 0) {
-    const { writeFileSync } = await import('node:fs');
-    const target = resolve(REPO, 'docs/reports/reliability-reconciliation.md');
-    const BEGIN = '<!-- BEGIN GENERATED';
-    const END = '<!-- END GENERATED -->';
-    const existing = readFileSync(target, 'utf8');
-    const i = existing.indexOf(BEGIN);
-    const j = existing.indexOf(END, i + 1);
-    if (i < 0 || j < 0) {
-      console.error(`!! 生成区标记未找到（BEGIN@${i} END@${j}），未写入。`);
-      process.exit(1);
-    }
-    const next =
-      existing.slice(0, i) +
-      `<!-- BEGIN GENERATED: node tests/reliability/reconcile.mjs --write -->\n${md}\n${END}` +
-      existing.slice(j + END.length);
-    if (next === existing) {
-      // 幂等：生成区已是最新（不是错误，退出码 0，便于脚本化）。
-      console.log('unchanged: docs/reports/reliability-reconciliation.md（生成区已是最新）');
-      process.exit(0);
-    }
-    writeFileSync(target, next);
-    console.log('written: docs/reports/reliability-reconciliation.md');
   } else {
-    console.log(md);
+    const { markdown, coverage } = renderReconciliation({ browsers });
+    if (coverage.missing.length > 0) {
+      // 显式告警：缺一个引擎的证据时，绝不能让命令行看起来像"全绿跑完"。
+      console.error(
+        `⚠️ [reconcile] 本次只覆盖了 ${coverage.covered}/${coverage.total} 个引擎：` +
+          `缺少 ${coverage.missing.join('、')} 的 tests/e2e/results/d004-<engine>.json。` +
+          '这是**证据覆盖缺口**（不是"通过"），报告 §3.0 已逐项记账。',
+      );
+    }
+    if (writeIdx >= 0) {
+      const { writeFileSync } = await import('node:fs');
+      const target = resolve(REPO, 'docs/reports/reliability-reconciliation.md');
+      const BEGIN = '<!-- BEGIN GENERATED';
+      const END = '<!-- END GENERATED -->';
+      const existing = readFileSync(target, 'utf8');
+      const i = existing.indexOf(BEGIN);
+      const j = existing.indexOf(END, i + 1);
+      if (i < 0 || j < 0) {
+        console.error(`!! 生成区标记未找到（BEGIN@${i} END@${j}），未写入。`);
+        process.exit(1);
+      }
+      const next =
+        existing.slice(0, i) +
+        `<!-- BEGIN GENERATED: node tests/reliability/reconcile.mjs --write -->\n${markdown}\n${END}` +
+        existing.slice(j + END.length);
+      if (next === existing) {
+        // 幂等：生成区已是最新（不是错误，退出码 0，便于脚本化）。
+        console.log('unchanged: docs/reports/reliability-reconciliation.md（生成区已是最新）');
+        process.exit(0);
+      }
+      writeFileSync(target, next);
+      console.log('written: docs/reports/reliability-reconciliation.md');
+    } else {
+      console.log(markdown);
+    }
   }
 }
