@@ -4,7 +4,7 @@
   "browser": "chromium",
   "driver": {
     "id": "npx-cache-playwright-core-1.60.0",
-    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "executablePath": "<ms-playwright>/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
     "exactPairing": true
   },
   "transport": {
@@ -15,7 +15,7 @@
     "note": "被复测的真实实现（单包 build 产物，源码 packages/transport/src/offline/**）"
   },
   "serverUrl": "http://127.0.0.1:60084",
-  "profileRoot": "/var/folders/tz/dg5xqq7n68v05f2rbtnjsvp80000gn/T/t29-e2e-d004-chromium-1792134790784",
+  "profileRoot": "<tmp>/t29-e2e-d004-chromium-1792134790784",
   "capturePolicy": {
     "guard": "on",
     "requiredStreak": 3,

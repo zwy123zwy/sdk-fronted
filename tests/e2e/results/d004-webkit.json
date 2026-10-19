@@ -4,7 +4,7 @@
   "browser": "webkit",
   "driver": {
     "id": "npx-cache-playwright-core-1.60.0",
-    "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/webkit-2287/pw_run.sh",
+    "executablePath": "<ms-playwright>/webkit-2287/pw_run.sh",
     "exactPairing": true
   },
   "transport": {
@@ -15,7 +15,7 @@
     "note": "被复测的真实实现（单包 build 产物，源码 packages/transport/src/offline/**）"
   },
   "serverUrl": "http://127.0.0.1:61536",
-  "profileRoot": "/var/folders/tz/dg5xqq7n68v05f2rbtnjsvp80000gn/T/t29-e2e-d004-webkit-1792134949288",
+  "profileRoot": "<tmp>/t29-e2e-d004-webkit-1792134949288",
   "capturePolicy": {
     "guard": "on",
     "requiredStreak": 3,

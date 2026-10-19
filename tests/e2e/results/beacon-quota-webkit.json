@@ -2,7 +2,7 @@
   "browser": "webkit",
   "project": "webkit",
   "driver": "npx-cache-playwright-core-1.60.0",
-  "executablePath": "/Users/spirit-ai/Library/Caches/ms-playwright/webkit-2287/pw_run.sh",
+  "executablePath": "<ms-playwright>/webkit-2287/pw_run.sh",
   "at": "2026-10-16T11:12:47.017Z",
   "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Safari/605.1.15",
   "rows": [

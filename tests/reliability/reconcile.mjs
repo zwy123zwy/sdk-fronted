@@ -12,7 +12,8 @@
  * 这里不再写第二份名单：写死 `['chromium','webkit']` 的后果是 `d004-firefox.json`
  * 永远读不到、也**没有人被告知少了一个引擎**——与 `d004-run.mjs` 修掉的「静默覆盖缺口」同一类。
  * 缺证据的引擎会：① 在报告 §3.0 顶部记「本次只覆盖了 N/M 个引擎」；② 在 §3.0/§3.1
- * 逐行标「文件缺失」；③ 在 stderr 告警一次。**退出码仍为 0**：
+ * 逐行标出**原因**（`文件缺失` = 没跑 / `产物损坏` = 文件在但读取或解析失败，并显示真实错误）；
+ * ③ 在 stderr 告警一次。**退出码仍为 0**：
  * 这是读取器如实记账的证据缺口，不是脚本执行错误（要让缺口变红请由调用方检查该告警）。
  *
  * 口径来源（**不得改动**）：
@@ -109,22 +110,44 @@ function summarizeCell(cell, index, browser) {
  * 读各引擎的 d004 证据。**默认枚举声明的全部引擎**（`tests/e2e/lib/browser-names.mjs`），
  * 不再写死 `['chromium','webkit']`。缺文件的引擎仍然返回一条 `missing: true` 记录，
  * 由渲染层显式记账——「没读到」与「没有问题」必须能分开。
+ *
+ * **`missing` 细分为两种，不得合并**（此前所有读取/解析错误都记成 `missing`，
+ * 把「没跑」与「跑了但产物坏了」说成同一件事，而两者的处置完全不同）：
+ * - `status: 'missing'`：文件不存在（`ENOENT`）⇒ **这次没跑**，去补跑；
+ * - `status: 'malformed'`：文件在、但读不出来（JSON 解析失败、权限等）⇒ **跑了但产物坏了**，去查产物；
+ * - `status: 'ok'`：读到并解析成功。
+ * `error` 一律带出并在渲染层**显示**（此前只存不展示，等于没有）。
+ * `missing` 布尔保留原语义（「没有可用证据」），覆盖账与各表的跳过逻辑依赖它。
+ * 注意：**能解析但结构不对**（例如缺 `cells`）仍会照旧抛错——那是"坏了"里更响的一种，不在此降级。
  */
 export function loadSummaries({ browsers = DECLARED_BROWSERS } = {}) {
   const out = [];
   for (const b of browsers) {
     const file = resolve(RESULTS, `d004-${b}.json`);
+    const relative = `tests/e2e/results/d004-${b}.json`;
+    if (!existsSync(file)) {
+      out.push({ browser: b, file: relative, missing: true, status: 'missing', error: null });
+      continue;
+    }
     let json;
     try {
       json = loadJson(file);
     } catch (err) {
-      out.push({ browser: b, file: `tests/e2e/results/d004-${b}.json`, missing: true, error: String(err) });
+      out.push({
+        browser: b,
+        file: relative,
+        missing: true,
+        status: 'malformed',
+        error: err instanceof Error ? err.message : String(err),
+      });
       continue;
     }
     out.push({
       browser: b,
-      file: `tests/e2e/results/d004-${b}.json`,
+      file: relative,
       missing: false,
+      status: 'ok',
+      error: null,
       task: json.task,
       generatedAt: json.generatedAt,
       driver: json.driver,
@@ -135,6 +158,17 @@ export function loadSummaries({ browsers = DECLARED_BROWSERS } = {}) {
     });
   }
   return out;
+}
+
+/**
+ * 证据状态的人类可读标签：**把「没跑」与「跑了但产物坏了」分开写**，并带上真实错误。
+ * 供 §3.0 / §3.1 / §3.2 / §3.4 的所有「不可用」行使用，避免各处各写一句。
+ */
+export function evidenceState(summary) {
+  if (summary.status === 'malformed') {
+    return `**产物损坏**（文件在，读取/解析失败：\`${summary.error}\`）`;
+  }
+  return '**文件缺失**（这次没跑）';
 }
 
 /**
@@ -195,25 +229,49 @@ function row(r, src) {
 /**
  * 引擎覆盖账：本次要读的（默认 = 声明的全部）、真正读到证据的、缺证据的。
  * 「有文件」的判据与 `loadSummaries` 一致（`missing === false`）。
+ *
+ * 缺口**分两类记账**（见 `loadSummaries`）：`missing` = 文件不存在（没跑），
+ * `malformed` = 文件在但读不出来（产物坏了，带 `error`）。两类的处置不同，故不合并。
+ * `covered` 仍是「有可用证据的引擎数」（坏产物不算证据，因此也不算覆盖）。
  */
 export function coverageOf(summaries, requested = DECLARED_BROWSERS) {
   const present = new Set(summaries.filter((s) => s.missing !== true).map((s) => s.browser));
-  const missing = requested.filter((name) => !present.has(name));
+  const absent = requested.filter((name) => !present.has(name));
+  const malformed = summaries
+    .filter((s) => s.status === 'malformed')
+    .map((s) => ({ browser: s.browser, file: s.file, error: s.error }));
+  const missing = absent.filter((name) => !malformed.some((m) => m.browser === name));
   return {
     requested: [...requested],
-    covered: requested.length - missing.length,
+    covered: requested.length - absent.length,
     total: requested.length,
     missing,
+    malformed,
   };
+}
+
+/** 缺口文案（两类分开点名；坏产物必须带上真实错误）。 */
+function gapText(coverage) {
+  const gaps = [];
+  if (coverage.missing.length > 0) {
+    gaps.push(`缺少 ${coverage.missing.join('、')} 的 d004 JSON（**文件缺失** = 这次没跑）`);
+  }
+  if (coverage.malformed.length > 0) {
+    gaps.push(
+      coverage.malformed
+        .map((m) => `${m.browser} 的 d004 JSON **存在但损坏**（读取/解析失败：\`${m.error}\`）`)
+        .join('、'),
+    );
+  }
+  return gaps.length === 0 ? '全部声明引擎都有证据' : `${gaps.join('；')}——这是证据缺口`;
 }
 
 /** §3.0 顶部的覆盖声明（固定写出 N/M；缺口必须点名）。 */
 export function coverageLine(coverage) {
   const gap =
-    coverage.missing.length === 0
+    coverage.missing.length === 0 && coverage.malformed.length === 0
       ? '全部声明引擎都有证据'
-      : `**缺少 ${coverage.missing.join('、')} 的 d004 JSON**——这是证据缺口，` +
-        '**不得读成"该引擎没有问题"或"没有差异"**';
+      : `${gapText(coverage)}，` + '**不得读成"该引擎没有问题"或"没有差异"**';
   return (
     `> **引擎覆盖：本次只覆盖了 ${coverage.covered}/${coverage.total} 个引擎**（${gap}）。` +
     '引擎名单来自 `tests/e2e/lib/browser-names.mjs`（= `@playwright/test` 的 BrowserType），不在本脚本另写一份。'
@@ -257,7 +315,7 @@ export function renderReconciliation({ browsers = DECLARED_BROWSERS } = {}) {
   };
   for (const s of summaries) {
     if (s.missing) {
-      p(`| ${s.browser} | — | **文件缺失**（\`${s.file}\`） | — | — | — | — | — | — |`);
+      p(`| ${s.browser} | — | ${evidenceState(s)} · \`${s.file}\` | — | — | — | — | — | — |`);
       continue;
     }
     for (const cls of ['graceful', 'hardKillDurable', 'hardKillExposure', 'anchorExposure']) {
@@ -279,7 +337,7 @@ export function renderReconciliation({ browsers = DECLARED_BROWSERS } = {}) {
   p('| 引擎 | 文件 | `generatedAt` | 被测实现 `sha256` 前缀 | 驱动 |');
   p('|---|---|---|---|---|');
   for (const s of summaries) {
-    if (s.missing) { p(`| ${s.browser} | \`${s.file}\` | **文件缺失** | — | — |`); continue; }
+    if (s.missing) { p(`| ${s.browser} | \`${s.file}\` | ${evidenceState(s)} | — | — |`); continue; }
     p(`| ${s.browser} | \`${s.file}\` | ${s.generatedAt} | \`${s.transport.sha256}\` | \`${s.driver.id}\` |`);
   }
   p('');
@@ -321,7 +379,7 @@ export function renderReconciliation({ browsers = DECLARED_BROWSERS } = {}) {
     p('');
     p(FULL_HEADER.trimEnd());
     for (const s of summaries) {
-      if (s.missing) { p(`| ${s.browser}：文件缺失 | — | — | — | — | — | — | — | — |`); continue; }
+      if (s.missing) { p(`| ${s.browser}：${evidenceState(s)} | — | — | — | — | — | — | — | — |`); continue; }
       for (const n of names) {
         const r = s.cells.find((c) => c.name === n);
         if (!r) { p(`| ${s.browser} \`${n}\` | **JSON 中无此格** | — | — | — | — | — | — | — |`); continue; }
@@ -359,11 +417,27 @@ export function renderReconciliation({ browsers = DECLARED_BROWSERS } = {}) {
       .filter((c) => c.windowCaptured && B.cells.find((x) => x.name === c.name)?.windowCaptured)
       .map((c) => [c.reopenCommitLoss.windowMs, B.cells.find((x) => x.name === c.name).reopenCommitLoss.windowMs]);
     const spread = winPairs.map(([x, y]) => Math.abs(y - x) / x);
+    // 「9/9 格的对账等式两次都成立」原先是**硬编码文案**。它想表达的是
+    // 「两次运行里，每一格都满足 存活 + 计数 = 期望」——这是**随数据变化**的事实
+    // （格子集合会变；某一次运行里也可能有格子不对账），因此必须现算。
+    // 若某天只有 8 格对齐，写死的那句会撒谎；现算则写成 8/9 并点名不对账的格子。
+    const aligns = (cell) => cell.survived.events + cell.d004.uncommittedFromIntent === cell.expectedEvents;
+    const compared = A.cells.filter((c) => B.cells.some((x) => x.name === c.name));
+    const alignedBoth = compared.filter((c) => {
+      const other = B.cells.find((x) => x.name === c.name);
+      return aligns(c) && other !== undefined && aligns(other);
+    });
+    const unaligned = compared.filter((c) => !alignedBoth.includes(c)).map((c) => `\`${c.name}\``);
+    const onlyInA = A.cells.filter((c) => !B.cells.some((x) => x.name === c.name)).map((c) => `\`${c.name}\``);
+    const onlyInB = B.cells.filter((c) => !A.cells.some((x) => x.name === c.name)).map((c) => `\`${c.name}\``);
+    const sameNameSet = onlyInA.length === 0 && onlyInB.length === 0;
     p('**读法（只陈述两次运行里实际变了什么）**：');
     p('');
     p(
-      `- **可重复**：两次运行捕获到窗口的格子数分别为 ${nCapturedA} / ${nCapturedB}（同一组格名），` +
-        `**9/9 格的对账等式两次都成立**；`,
+      `- **可重复**：两次运行捕获到窗口的格子数分别为 ${nCapturedA} / ${nCapturedB}` +
+        `${sameNameSet ? '（同一组格名）' : `（格名集合不同：仅 A 有 ${onlyInA.join('、') || '无'}，仅 B 有 ${onlyInB.join('、') || '无'}）`}，` +
+        `**对账等式（存活 + 计数 = 期望）两次都成立的格子 ${alignedBoth.length}/${compared.length}**` +
+        `${unaligned.length === 0 ? '；' : `；**不对账的格子：${unaligned.join('、')}**（不得读成"可重复"）；`}`,
     );
     p(
       `- **D-1 子窗口的计数装置可重复**：\`preflush-small\`（默认配置、最贴近生产的那一格）两次都是` +
@@ -421,7 +495,7 @@ export function renderCaptureGate() {
   if (missing.length > 0) {
     out.push(
       `> ⚠️ **本节引擎覆盖：${summaries.length - missing.length}/${summaries.length}**；` +
-        `缺少 ${missing.map((s) => s.browser).join('、')} 的证据（文件缺失）。` +
+        `缺证据的引擎：${missing.map((s) => `${s.browser}（${evidenceState(s)}）`).join('、')}。` +
         '下表只列有证据的引擎——**不得把"没出现在表里"读成"该引擎没有捕获问题"**。',
     );
     out.push('');
@@ -682,11 +756,23 @@ if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(
     console.log(renderComparison(resolve(REPO, a), resolve(REPO, b)));
   } else {
     const { markdown, coverage } = renderReconciliation({ browsers });
-    if (coverage.missing.length > 0) {
+    if (coverage.missing.length > 0 || coverage.malformed.length > 0) {
       // 显式告警：缺一个引擎的证据时，绝不能让命令行看起来像"全绿跑完"。
+      // 「文件缺失」（没跑）与「产物损坏」（跑了但坏了）分开写——处置不同。
+      const reasons = [];
+      if (coverage.missing.length > 0) {
+        reasons.push(`缺少 ${coverage.missing.join('、')} 的 tests/e2e/results/d004-<engine>.json（文件缺失 = 没跑）`);
+      }
+      if (coverage.malformed.length > 0) {
+        reasons.push(
+          coverage.malformed
+            .map((m) => `${m.browser} 的产物**存在但损坏**（读取/解析失败：${m.error}）`)
+            .join('、'),
+        );
+      }
       console.error(
         `⚠️ [reconcile] 本次只覆盖了 ${coverage.covered}/${coverage.total} 个引擎：` +
-          `缺少 ${coverage.missing.join('、')} 的 tests/e2e/results/d004-<engine>.json。` +
+          `${reasons.join('；')}。` +
           '这是**证据覆盖缺口**（不是"通过"），报告 §3.0 已逐项记账。',
       );
     }

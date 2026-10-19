@@ -81,6 +81,8 @@
 <!-- BEGIN GENERATED: node tests/reliability/reconcile.mjs --write -->
 #### 3.0 逐格总览与三类归属
 
+> **引擎覆盖：本次只覆盖了 2/3 个引擎**（缺少 firefox 的 d004 JSON（**文件缺失** = 这次没跑）——这是证据缺口，**不得读成"该引擎没有问题"或"没有差异"**）。引擎名单来自 `tests/e2e/lib/browser-names.mjs`（= `@playwright/test` 的 BrowserType），不在本脚本另写一份。
+
 - 已归类的格子名（9 个）：`durable`、`pending-d0`、`pending-d5`、`pending-d20`、`pending-d60`、`pending-d200`、`bulk-d0`、`preflush-d0`、`preflush-small`
 - **未归类的格子**：无（脚本把新出现的格子名视为口径缺口在此列出，不静默丢弃）
 
@@ -89,28 +91,30 @@
 | chromium | ② 硬杀已落盘 | `durable` | 1000 | 1000 | 0 | 否 | ✅ | `true` |
 | chromium | ③ 暴露窗口 | `pending-d0` | 1000 | 0 | 1000 | 是 | ✅ | `true` |
 | chromium | ③ 暴露窗口 | `pending-d5` | 1000 | 0 | 1000 | 是 | ✅ | `true` |
-| chromium | ③ 暴露窗口 | `pending-d20` | 1000 | 1000 | 0 | 否 | ✅ | `true` |
+| chromium | ③ 暴露窗口 | `pending-d20` | 1000 | 0 | 1000 | 是 | ✅ | `true` |
 | chromium | ③ 暴露窗口 | `pending-d60` | 1000 | 1000 | 0 | 否 | ✅ | `true` |
 | chromium | ③ 暴露窗口 | `pending-d200` | 1000 | 1000 | 0 | 否 | ✅ | `true` |
 | chromium | ③ 暴露窗口 | `bulk-d0` | 5000 | 0 | 5000 | 是 | ✅ | `true` |
 | chromium | ③-D1 锚点子窗口 | `preflush-d0` | 1000 | 0 | 1000 | 是 | ✅ | `true` |
 | chromium | ③-D1 锚点子窗口 | `preflush-small` | 100 | 0 | 100 | 是 | ✅ | `true` |
+| firefox | — | **文件缺失**（这次没跑） · `tests/e2e/results/d004-firefox.json` | — | — | — | — | — | — |
 | webkit | ② 硬杀已落盘 | `durable` | 1000 | 1000 | 0 | 否 | ✅ | `true` |
-| webkit | ③ 暴露窗口 | `pending-d0` | 1000 | 0 | 0 | 否 | ❌ | `{"survivors":0,"commitLost":0,"expected":1000}` |
+| webkit | ③ 暴露窗口 | `pending-d0` | 1000 | 0 | 1000 | 是 | ✅ | `true` |
 | webkit | ③ 暴露窗口 | `pending-d5` | 1000 | 0 | 1000 | 是 | ✅ | `true` |
 | webkit | ③ 暴露窗口 | `pending-d20` | 1000 | 1000 | 0 | 否 | ✅ | `true` |
 | webkit | ③ 暴露窗口 | `pending-d60` | 1000 | 1000 | 0 | 否 | ✅ | `true` |
 | webkit | ③ 暴露窗口 | `pending-d200` | 1000 | 1000 | 0 | 否 | ✅ | `true` |
 | webkit | ③ 暴露窗口 | `bulk-d0` | 5000 | 0 | 5000 | 是 | ✅ | `true` |
-| webkit | ③-D1 锚点子窗口 | `preflush-d0` | 1000 | 0 | 0 | 否 | ❌ | `{"survivors":0,"commitLost":0,"expected":1000}` |
-| webkit | ③-D1 锚点子窗口 | `preflush-small` | 100 | 0 | 0 | 否 | ❌ | `{"survivors":0,"commitLost":0,"expected":100}` |
+| webkit | ③-D1 锚点子窗口 | `preflush-d0` | 1000 | 0 | 1000 | 是 | ✅ | `true` |
+| webkit | ③-D1 锚点子窗口 | `preflush-small` | 100 | 0 | 100 | 是 | ✅ | `true` |
 
-### 3.1 数据源指纹（每个数字都可回指这两份文件）
+### 3.1 数据源指纹（每个数字都可回指这些数据文件）
 
 | 引擎 | 文件 | `generatedAt` | 被测实现 `sha256` 前缀 | 驱动 |
 |---|---|---|---|---|
-| chromium | `tests/e2e/results/d004-chromium.json` | 2026-10-15T02:12:53.315Z | `88ca1e9c49dc0f61` | `npx-cache-playwright-core-1.60.0` |
-| webkit | `tests/e2e/results/d004-webkit.json` | 2026-10-14T09:16:59.442Z | `26c232e4112442c6` | `npx-cache-playwright-core-1.60.0` |
+| chromium | `tests/e2e/results/d004-chromium.json` | 2026-10-16T07:14:45.993Z | `23d3de1440433527` | `npx-cache-playwright-core-1.60.0` |
+| firefox | `tests/e2e/results/d004-firefox.json` | **文件缺失**（这次没跑） | — | — |
+| webkit | `tests/e2e/results/d004-webkit.json` | 2026-10-16T07:16:38.330Z | `23d3de1440433527` | `npx-cache-playwright-core-1.60.0` |
 
 > **读表前必读：`exposure_window_ms` 的语义不等于 D004 的"暴露窗口"**（本任务实测发现，见缺口 2）。
 > 实现里 `commitLostWindowMs` 来自 `reconcileCommitLoss()` 的 `windowMs = now() - first_pending_at`，
@@ -138,34 +142,37 @@
 
 | 格子 | 样本量 | 期望事件 | 存活（读回） | 读不回 | `prewrite_commit_lost` 计数 | 暴露窗口时长 | 对账 | 证据（JSON 路径） |
 |---|---|---|---|---|---|---|---|---|
-| chromium `durable` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 11 ms） | 完全对账 ✅（等 `oncomplete` 后杀：1000/1000 全部读回，计 0） | `d004-chromium.json` `cells[0]` |
-| webkit `durable` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 16 ms） | 完全对账 ✅（等 `oncomplete` 后杀：1000/1000 全部读回，计 0） | `d004-webkit.json` `cells[0]` |
+| chromium `durable` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 478 ms） | 完全对账 ✅（等 `oncomplete` 后杀：1000/1000 全部读回，计 0） | `d004-chromium.json` `cells[0]` |
+| firefox：**文件缺失**（这次没跑） | — | — | — | — | — | — | — | — |
+| webkit `durable` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 8 ms） | 完全对账 ✅（等 `oncomplete` 后杀：1000/1000 全部读回，计 0） | `d004-webkit.json` `cells[0]` |
 
 ### ③ 硬杀「暴露窗口内未提交」——事务在途，按条数与窗口时长计量
 
 | 格子 | 样本量 | 期望事件 | 存活（读回） | 读不回 | `prewrite_commit_lost` 计数 | 暴露窗口时长 | 对账 | 证据（JSON 路径） |
 |---|---|---|---|---|---|---|---|---|
-| chromium `pending-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 1334 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[1]` |
-| chromium `pending-d5` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 1789 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[2]` |
-| chromium `pending-d20` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 21 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-chromium.json` `cells[3]` |
-| chromium `pending-d60` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 63 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-chromium.json` `cells[4]` |
-| chromium `pending-d200` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 200 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-chromium.json` `cells[5]` |
-| chromium `bulk-d0` | 500 批 × 10 | 5000 | 0 | 5000 | 5000 | 1538 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 5000 = 期望） | `d004-chromium.json` `cells[6]` |
-| webkit `pending-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 0 | —（未捕获；杀在发出后 0 ms） | ⛔ **窗口未捕获，本格无结论**：SIGKILL 落在任何提交之前（`nothingCommitted=true`），JSON 的 `exposureReconciles` 是对象 `{"survivors":0,"commitLost":0,"expected":1000}` 而非 `true`；存活+计数 0 ≠ 期望 1000。**不得记为 0 丢失，也不得计入"已对账"** | `d004-webkit.json` `cells[1]` |
-| webkit `pending-d5` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 923 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-webkit.json` `cells[2]` |
-| webkit `pending-d20` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 21 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-webkit.json` `cells[3]` |
+| chromium `pending-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 3035 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[1]` |
+| chromium `pending-d5` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 2495 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[2]` |
+| chromium `pending-d20` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 3311 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[3]` |
+| chromium `pending-d60` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 59 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-chromium.json` `cells[4]` |
+| chromium `pending-d200` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 233 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-chromium.json` `cells[5]` |
+| chromium `bulk-d0` | 500 批 × 10 | 5000 | 0 | 5000 | 5000 | 5855 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 5000 = 期望） | `d004-chromium.json` `cells[6]` |
+| firefox：**文件缺失**（这次没跑） | — | — | — | — | — | — | — | — |
+| webkit `pending-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 608 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-webkit.json` `cells[1]` |
+| webkit `pending-d5` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 1147 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-webkit.json` `cells[2]` |
+| webkit `pending-d20` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 22 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-webkit.json` `cells[3]` |
 | webkit `pending-d60` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 61 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-webkit.json` `cells[4]` |
-| webkit `pending-d200` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 202 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-webkit.json` `cells[5]` |
-| webkit `bulk-d0` | 500 批 × 10 | 5000 | 0 | 5000 | 5000 | 656 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 5000 = 期望） | `d004-webkit.json` `cells[6]` |
+| webkit `pending-d200` | 100 批 × 10 | 1000 | 1000 | 0 | 0 | —（未捕获；杀在发出后 201 ms） | 完全对账 ✅（未捕获窗口：事务已先提交，存活 1000/1000，计 0） | `d004-webkit.json` `cells[5]` |
+| webkit `bulk-d0` | 500 批 × 10 | 5000 | 0 | 5000 | 5000 | 712 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 5000 = 期望） | `d004-webkit.json` `cells[6]` |
 
 ### ③-D1 子窗口「事件已产生、锚点未落」（D-1 修复后新增计数）
 
 | 格子 | 样本量 | 期望事件 | 存活（读回） | 读不回 | `prewrite_commit_lost` 计数 | 暴露窗口时长 | 对账 | 证据（JSON 路径） |
 |---|---|---|---|---|---|---|---|---|
-| chromium `preflush-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 985 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[7]` |
-| chromium `preflush-small` | 10 批 × 10 | 100 | 0 | 100 | 100 | 1227 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 100 = 期望） | `d004-chromium.json` `cells[8]` |
-| webkit `preflush-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 0 | —（未捕获；杀在发出后 0 ms） | ⛔ **窗口未捕获，本格无结论**：SIGKILL 落在任何提交之前（`nothingCommitted=true`），JSON 的 `exposureReconciles` 是对象 `{"survivors":0,"commitLost":0,"expected":1000}` 而非 `true`；存活+计数 0 ≠ 期望 1000。**不得记为 0 丢失，也不得计入"已对账"** | `d004-webkit.json` `cells[7]` |
-| webkit `preflush-small` | 10 批 × 10 | 100 | 0 | 100 | 0 | —（未捕获；杀在发出后 0 ms） | ⛔ **窗口未捕获，本格无结论**：SIGKILL 落在任何提交之前（`nothingCommitted=true`），JSON 的 `exposureReconciles` 是对象 `{"survivors":0,"commitLost":0,"expected":100}` 而非 `true`；存活+计数 0 ≠ 期望 100。**不得记为 0 丢失，也不得计入"已对账"** | `d004-webkit.json` `cells[8]` |
+| chromium `preflush-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 2541 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-chromium.json` `cells[7]` |
+| chromium `preflush-small` | 10 批 × 10 | 100 | 0 | 100 | 100 | 2452 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 100 = 期望） | `d004-chromium.json` `cells[8]` |
+| firefox：**文件缺失**（这次没跑） | — | — | — | — | — | — | — | — |
+| webkit `preflush-d0` | 100 批 × 10 | 1000 | 0 | 1000 | 1000 | 1386 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 1000 = 期望） | `d004-webkit.json` `cells[7]` |
+| webkit `preflush-small` | 10 批 × 10 | 100 | 0 | 100 | 100 | 739 ms | 完全对账 ✅（窗口已捕获：存活 0 + 未提交 100 = 期望） | `d004-webkit.json` `cells[8]` |
 
 ### 3.2 重复性对账（Chromium 第二次独立运行，T32 本任务新增）
 
@@ -175,27 +182,27 @@
 node tests/e2e/lib/d004-run.mjs --browser chromium --out tests/reliability/results/d004-chromium-rerun.json
 ```
 
-- A：`/Users/spirit-ai/Desktop/sdk/tests/e2e/results/d004-chromium.json`（chromium，sha256 `88ca1e9c49dc0f61`，2026-10-15T02:12:53.315Z）
+- A：`/Users/spirit-ai/Desktop/sdk/tests/e2e/results/d004-chromium.json`（chromium，sha256 `23d3de1440433527`，2026-10-16T07:14:45.993Z）
 - B：`/Users/spirit-ai/Desktop/sdk/tests/reliability/results/d004-chromium-rerun.json`（chromium，sha256 `454fbb9008176f86`，2026-10-14T10:15:01.484Z）
-- 同一份被测实现：**否**（`88ca1e9c49dc0f61` vs `454fbb9008176f86`）—— 两次运行不可直接比较
+- 同一份被测实现：**否**（`23d3de1440433527` vs `454fbb9008176f86`）—— 两次运行不可直接比较
 
 | 格子 | A 窗口捕获 | B 窗口捕获 | A 存活+计数=期望 | B 存活+计数=期望 | A 窗口时长 | B 窗口时长 | A 杀在发出后 | B 杀在发出后 | 判定 |
 |---|---|---|---|---|---|---|---|---|---|
-| `durable` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 11 ms | 52 ms | 守恒且一致 |
-| `pending-d0` | 是 | 是 | 0+1000=1000 ✅ | 0+1000=1000 ✅ | 1334 ms | 1356 ms | 0 ms | 0 ms | 守恒且一致 |
-| `pending-d5` | 是 | 是 | 0+1000=1000 ✅ | 0+1000=1000 ✅ | 1789 ms | 1117 ms | 6 ms | 5 ms | 守恒且一致 |
-| `pending-d20` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 21 ms | 22 ms | 守恒且一致 |
-| `pending-d60` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 63 ms | 61 ms | 守恒且一致 |
-| `pending-d200` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 200 ms | 201 ms | 守恒且一致 |
-| `bulk-d0` | 是 | 是 | 0+5000=5000 ✅ | 0+5000=5000 ✅ | 1538 ms | 1233 ms | 11 ms | 11 ms | 守恒且一致 |
-| `preflush-d0` | 是 | 是 | 0+1000=1000 ✅ | 0+1000=1000 ✅ | 985 ms | 1294 ms | 0 ms | 0 ms | 守恒且一致 |
-| `preflush-small` | 是 | 是 | 0+100=100 ✅ | 0+100=100 ✅ | 1227 ms | 1300 ms | 0 ms | 0 ms | 守恒且一致 |
+| `durable` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 478 ms | 52 ms | 守恒且一致 |
+| `pending-d0` | 是 | 是 | 0+1000=1000 ✅ | 0+1000=1000 ✅ | 3035 ms | 1356 ms | 0 ms | 0 ms | 守恒且一致 |
+| `pending-d5` | 是 | 是 | 0+1000=1000 ✅ | 0+1000=1000 ✅ | 2495 ms | 1117 ms | 10 ms | 5 ms | 守恒且一致 |
+| `pending-d20` | 是 | 否 | 0+1000=1000 ✅ | 1000+0=1000 ✅ | 3311 ms | 0 ms | 21 ms | 22 ms | **需人判** |
+| `pending-d60` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 59 ms | 61 ms | 守恒且一致 |
+| `pending-d200` | 否 | 否 | 1000+0=1000 ✅ | 1000+0=1000 ✅ | 0 ms | 0 ms | 233 ms | 201 ms | 守恒且一致 |
+| `bulk-d0` | 是 | 是 | 0+5000=5000 ✅ | 0+5000=5000 ✅ | 5855 ms | 1233 ms | 33 ms | 11 ms | 守恒且一致 |
+| `preflush-d0` | 是 | 是 | 0+1000=1000 ✅ | 0+1000=1000 ✅ | 2541 ms | 1294 ms | 0 ms | 0 ms | 守恒且一致 |
+| `preflush-small` | 是 | 是 | 0+100=100 ✅ | 0+100=100 ✅ | 2452 ms | 1300 ms | 0 ms | 0 ms | 守恒且一致 |
 
 **读法（只陈述两次运行里实际变了什么）**：
 
-- **可重复**：两次运行捕获到窗口的格子数分别为 5 / 5（同一组格名），**9/9 格的对账等式两次都成立**；
+- **可重复**：两次运行捕获到窗口的格子数分别为 6 / 5（同一组格名），**对账等式（存活 + 计数 = 期望）两次都成立的格子 9/9**；
 - **D-1 子窗口的计数装置可重复**：`preflush-small`（默认配置、最贴近生产的那一格）两次都是「存活 0 + 计数 100 = 期望 100」与「存活 0 + 计数 100 = 期望 100」——第二次独立复现了"计数锚点覆盖到该子窗口"这一结论。
-- **不可重复（绝对值）**：暴露窗口时长在两次运行间的相对偏离为 2% / 38% / 20% / 31% / 6%（各捕获格）；`durable` 格的"杀在发出后"从 11 ms 变到 52 ms。**因此本报告不把任何单次窗口时长当作分布或 SLA 输入**（D004 引用的 p50 1–4.1 ms / p95 3–17 ms 是 POC-1 的批写提交延迟，不是这里的端到端窗口时长）。
+- **不可重复（绝对值）**：暴露窗口时长在两次运行间的相对偏离为 55% / 55% / 79% / 49% / 47%（各捕获格）；`durable` 格的"杀在发出后"从 478 ms 变到 52 ms。**因此本报告不把任何单次窗口时长当作分布或 SLA 输入**（D004 引用的 p50 1–4.1 ms / p95 3–17 ms 是 POC-1 的批写提交延迟，不是这里的端到端窗口时长）。
 - **仍不能说明的事**：两次运行都是 Chromium、都是单次、都是 headless；**WebKit 没有第二次运行**（本任务不允许覆写 T29 的 webkit 产物），Firefox 未测。
 
 ### 3.3 暴露窗口的夹逼读数（CR-008 追加，只增不改）
@@ -223,6 +230,37 @@ node tests/e2e/lib/d004-run.mjs --browser chromium --out tests/reliability/resul
 
 > 本产物有 **4/9** 格给出夹逼区间（捕获到窗口的格子共 4 格）；未给出的格子已逐格标注原因，**不得**读成"窗口为 0"。
 
+### 3.4 捕获判定（T29 尾部护栏「锚点合并残余窗口」，只增不改）
+
+> 背景：intent 锚点是**异步**写入且取值取自发起那一刻（`offline-store.ts:367-396`），
+> SIGKILL 落在 Δt=0 时只有最早那份锚点落盘 → `prewrite_commit_lost` **偏小**（不是数据丢失）。
+> 出处：`docs/reports/e2e-d004-hardkill.md` 局限第 6 条（已预报）。本节只报判定，不改上面任何结论。
+
+> ⚠️ **本节引擎覆盖：2/3**；缺证据的引擎：firefox（**文件缺失**（这次没跑））。下表只列有证据的引擎——**不得把"没出现在表里"读成"该引擎没有捕获问题"**。
+
+| 引擎 | 格子 | 捕获判定 | 通过 | 轮数 | 最长连续完整 / 要求 | 抖动率 | 逐轮判定（存活/计数/lostEvents） |
+|---|---|---|---|---|---|---|---|
+| chromium | `durable` | `not-gated` | —（非捕获格） | 1 | 0 / 3 | 100% | #1 window-missed(1000/0/0) |
+| chromium | `pending-d0` | `stable-complete` | ✅ | 3 | 3 / 3 | 0% | #1 complete(0/1000/1000)、#2 complete(0/1000/1000)、#3 complete(0/1000/1000) |
+| chromium | `pending-d5` | `not-gated` | —（非捕获格） | 1 | 1 / 3 | 0% | #1 complete(0/1000/1000) |
+| chromium | `pending-d20` | `not-gated` | —（非捕获格） | 1 | 1 / 3 | 0% | #1 complete(0/1000/1000) |
+| chromium | `pending-d60` | `not-gated` | —（非捕获格） | 1 | 0 / 3 | 100% | #1 window-missed(1000/0/0) |
+| chromium | `pending-d200` | `not-gated` | —（非捕获格） | 1 | 0 / 3 | 100% | #1 window-missed(1000/0/0) |
+| chromium | `bulk-d0` | `not-gated` | —（非捕获格） | 1 | 1 / 3 | 0% | #1 complete(0/5000/5000) |
+| chromium | `preflush-d0` | `stable-complete` | ✅ | 3 | 3 / 3 | 0% | #1 complete(0/1000/1000)、#2 complete(0/1000/1000)、#3 complete(0/1000/1000) |
+| chromium | `preflush-small` | `stable-complete` | ✅ | 3 | 3 / 3 | 0% | #1 complete(0/100/100)、#2 complete(0/100/100)、#3 complete(0/100/100) |
+| webkit | `durable` | `not-gated` | —（非捕获格） | 1 | 0 / 3 | 100% | #1 window-missed(1000/0/0) |
+| webkit | `pending-d0` | `never-complete` | ❌ **未通过** | 6 | 1 / 3 | 83% | #1 complete(0/1000/1000)、#2 undercounted(0/10/null)、#3 undercounted(0/10/null)、#4 blank(0/0/null)、#5 undercounted(0/10/null)、#6 undercounted(0/10/null) |
+| webkit | `pending-d5` | `not-gated` | —（非捕获格） | 1 | 1 / 3 | 0% | #1 complete(0/1000/1000) |
+| webkit | `pending-d20` | `not-gated` | —（非捕获格） | 1 | 0 / 3 | 100% | #1 window-missed(1000/0/0) |
+| webkit | `pending-d60` | `not-gated` | —（非捕获格） | 1 | 0 / 3 | 100% | #1 window-missed(1000/0/0) |
+| webkit | `pending-d200` | `not-gated` | —（非捕获格） | 1 | 0 / 3 | 100% | #1 window-missed(1000/0/0) |
+| webkit | `bulk-d0` | `not-gated` | —（非捕获格） | 1 | 1 / 3 | 0% | #1 complete(0/5000/5000) |
+| webkit | `preflush-d0` | `never-complete` | ❌ **未通过** | 6 | 2 / 3 | 33% | #1 complete(0/1000/1000)、#2 complete(0/1000/1000)、#3 undercounted(0/10/null)、#4 complete(0/1000/1000)、#5 complete(0/1000/1000)、#6 undercounted(0/10/null) |
+| webkit | `preflush-small` | `complete-with-jitter` | ✅ | 4 | 3 / 3 | 25% | #1 undercounted(0/10/null)、#2 complete(0/100/100)、#3 complete(0/100/100)、#4 complete(0/100/100) |
+
+- **未通过捕获判定的捕获格（2 个）**：webkit `pending-d0`（never-complete，抖动 83%）、webkit `preflush-d0`（never-complete，抖动 33%）。它们是**捕获不稳定/无计数证据**，既不是「0 丢失」也不是「数据丢失」；逐轮判定里 `lostEvents: null` 表示**没有计数证据**（不得读成 0）。
+- 注意：3.0/3.1/3.2 的表格读的是**被报告的那一轮**（护栏刻意挑一轮完整捕获，以免单轮抖动被读成红/绿）；单看那几张表**看不出**捕获是否稳定 —— 稳定性只在本节。
 <!-- END GENERATED -->
 
 ## 4. 复跑方式

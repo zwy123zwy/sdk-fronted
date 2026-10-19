@@ -124,7 +124,28 @@ describe('T20 基准：C03 配置合并与采样判定', () => {
     kernel.init();
     kernel.start();
     kernel.markConfigReady();
+
+    // 正断言 1：证明「空六段」这个**前提**成立（不是只把数字记下来）。
+    // 六段仍然是六段，且每一段都没有处理器——若有人在本节之前（或内核默认路径里）注册了处理器，
+    // 这里的样本就不再是「无处理器的固定开销」，而用例标题与 note 仍这么写 ⇒ 必须红。
+    expect(core.PIPELINE_STAGES).toHaveLength(6);
+    for (const stage of core.PIPELINE_STAGES) {
+      const registered = kernel.pipeline.size(stage);
+      expect(
+        registered,
+        `「空六段」前提不成立：stage=${stage} 上有 ${String(registered)} 个处理器`,
+      ).toBe(0);
+    }
+
+    // 正断言 2：证明测的是同一条**恒等透传**的管线——空管线不换事件对象、结论为 processed。
+    // 任何处理器（即便原样返回）或任何阶段的短路都会让这两条之一变红。
     const event = makeKernelEvent();
+    const firstOutcome = kernel.pipeline.process(event) as
+      | { readonly status?: unknown; readonly event?: unknown }
+      | undefined;
+    expect(firstOutcome?.status).toBe('processed');
+    expect(firstOutcome?.event).toBe(event);
+
     warmup(2_000, () => {
       kernel.pipeline.process(event);
     });
@@ -132,6 +153,10 @@ describe('T20 基准：C03 配置合并与采样判定', () => {
       kernel.pipeline.process(event);
     });
     const stats = summarize(samples);
+    // 测量完整性（README §1：只有这类断言会失败）：样本量与有限值由基准文件自己断言，
+    // 不交给 `report` 兜底——空数组会让 p99 变成 NaN 并静默记进结果 JSON。
+    expect(stats.samples).toBe(10_000);
+    expect(Number.isFinite(stats.p99)).toBe(true);
     report.record({
       metric: 'C02/C03 空六段管线单条事件（对照基线）',
       stat: 'p99',

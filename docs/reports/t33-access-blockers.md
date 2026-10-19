@@ -2141,3 +2141,19 @@ project 的 `browserName`，于是在每个 project 下都声明同样两条写�
 **未验证（不得读成已验证）**：`pnpm gates` 未跑（并发 3 lane）；全量 `pnpm test` 未跑；
 没有做 `--write`（`docs/reports/**` 不在本 lane 可写范围），生成的正式报告仍是旧内容。
 
+
+## 【2026-10-19 收口】18.5 的「只报告、未改」1/2/3/5 已修（本条覆盖上文对应条目）
+
+| 18.5 条目 | 现状 | 判别性证明（先确认文件确实变了，再看结果） |
+|---|---|---|
+| 1「空六段」无 `expect` | **已加**正断言：`PIPELINE_STAGES` 仍是 6 段、**每段 `size()===0`**、空管线是**恒等透传**（`status==='processed'` 且返回同一事件对象）、样本量 10,000 且 p99 有限 | 变异 A：先 `registerProcessor('sample', …)` → 红在「「空六段」前提不成立：stage=sample 上有 1 个处理器」；变异 B：先 `kernel.destroy()`（段表被清空，size 断言不会红）→ 红在 `expected 'stopped' to be 'processed'`（证明行为断言另有覆盖） |
+| 2 §3.2「9/9」硬编码 | **改为现算**：两次运行都满足「存活 + 计数 = 期望」的格子数 / 参与比较的格子数，并点名不对账的格子；格名集合不同时也会说明 | 变异：把 rerun JSON 的 `durable.survived.events` 1000→999 → 文案变成 **8/9** 且点名 **`durable`**（旧的硬编码会继续写 9/9）；恢复后 sha256 回基线 `a6d3b42…` |
+| 3 解析错误记成 `missing` | `loadSummaries` 新增 `status: ok / missing / malformed`：`ENOENT` ⇒ `missing`（没跑），读取/解析失败 ⇒ `malformed`（跑了但产物坏了）并带 `error`；§3.0 总览、§3.1 指纹、三类归属表、§3.4 与报告抬头/stderr 都**分别显示**原因与真实错误 | 变异：把 `d004-webkit.json` 写成坏 JSON → §3.0 抬头 **1/3**、逐行写「**产物损坏**（…`Unexpected token 'h'…`）」、stderr 同时点名「firefox 文件缺失」与「webkit 存在但损坏」；覆盖账仍把坏产物算作**没有证据**（未放宽判据）；恢复后 sha256 回基线 |
+| 5 handover「C08 映射 1 ms」 | **已改**为「C08 整窗映射**没有契约目标值**（`T17.md:32` 只有计数 ≤0.001 ms 与流量 ≤1%）；单元 0.06 ms 只是回归护栏」——与 `c08-monitor.bench.ts` 头注释、`client-bench-baseline.md` 口径一致 | 只读核对：`docs/tasks/T17.md` **0 处「映射」**；`docs/contracts/`、`docs/decisions/` 亦无该指标 |
+
+**仍待处理（不在本轮可写范围/需 `--write`）**：
+- `docs/reports/reliability-reconciliation.md` 的**生成区仍是旧文案**（§3.2 的 9/9、§3.0 的「文件缺失」；且其中
+  「两次捕获 5 / 5」与当前数据 6 / 5 已不一致）——本轮禁 `--write`，需由有权限者跑一次
+  `node tests/reliability/reconcile.mjs --write` 刷新；正文里另有 3 处手写「9/9」同属硬编码（当前恰与数据相符）。
+- 18.5 条目 6 已**部分过期**：`package.json` 现有 `bench-m01` 脚本、台账里 `M01-AC-14` 已 `verified`，
+  当前 pending 只剩 `K02-AC-03`（`node scripts/spec-line-check.mjs` 只读打印，不加 `--allow-pending` 时退出码 1 是设计如此）。
