@@ -113,24 +113,42 @@ export interface HttpOptions {
   headers?: Record<string, string>;
   body?: Buffer | string;
   timeoutMs?: number;
+  /**
+   * 取消信号：abort 时立即销毁连接并 reject。
+   *
+   * 这是「用例结束时不得留下在途请求」的机制（M01-AC-09 的 300 次串行请求曾因此在
+   * vitest 5 s 超时后继续存活，见 `injection.acceptance.test.ts` 的注释）。调用方
+   * 应当在 `finally` 里 abort 后 `await Promise.allSettled(...)`，让请求全部结算。
+   */
+  signal?: AbortSignal;
 }
 
+/** abort / 客户端超时用的错误文案（断言里可读）。 */
+const CLIENT_ABORT_MESSAGE = 'mock-receiver test client aborted';
+
 /**
- * 发送一个本机请求。超时或连接被重置时 reject，网络错误信息直接返回给断言。
+ * 发送一个本机请求。超时、连接被重置或被 `signal` 取消时 reject，
+ * 网络错误信息直接返回给断言。
  */
 export function httpRequestTo(
   port: number,
   path: string,
   options: HttpOptions = {},
 ): Promise<HttpResult> {
-  const { method = 'GET', headers = {}, body, timeoutMs = 5_000 } = options;
+  const { method = 'GET', headers = {}, body, timeoutMs = 5_000, signal } = options;
   return new Promise<HttpResult>((resolve, reject) => {
+    if (signal?.aborted === true) {
+      reject(new Error(CLIENT_ABORT_MESSAGE));
+      return;
+    }
+    let detach = (): void => undefined;
     const req = httpRequest(
       { host: '127.0.0.1', port, path, method, headers },
       (res) => {
         const chunks: Buffer[] = [];
         res.on('data', (chunk: Buffer) => chunks.push(chunk));
         res.on('end', () => {
+          detach();
           resolve({
             status: res.statusCode ?? 0,
             headers: res.headers,
@@ -139,10 +157,20 @@ export function httpRequestTo(
         });
       },
     );
+    const onAbort = (): void => {
+      req.destroy(new Error(CLIENT_ABORT_MESSAGE));
+    };
+    detach = (): void => {
+      signal?.removeEventListener('abort', onAbort);
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
     req.setTimeout(timeoutMs, () => {
       req.destroy(new Error('mock-receiver test client timeout'));
     });
-    req.on('error', reject);
+    req.on('error', (error) => {
+      detach();
+      reject(error);
+    });
     if (body !== undefined) req.write(body);
     req.end();
   });

@@ -8,7 +8,7 @@ import { createServer, type Server } from 'node:http';
 import { resolve } from 'node:path';
 import { runCli } from './cli.js';
 import { parseCliArgs } from './cli-args.js';
-import { isReceiverStartError, startReceiver } from './index.js';
+import { isReceiverStartError, startReceiver, type MockReceiver, type ReceiverOptions } from './index.js';
 import { delay, httpRequestTo, jsonOf, loadTest, readExample, type LoadResult } from './test-support.js';
 
 type Json = Record<string, unknown>;
@@ -20,11 +20,81 @@ const THROUGHPUT_ROUNDS = 5;
 const THROUGHPUT_ROUND_MS = 1_200;
 
 /**
- * 吞吐中位数回归护栏（批/秒）——**回归护栏，不是规格线**。
- * 规格线是 30 秒压测、每秒不少于 500 个批次，由 T20 基准口径与 T32 可靠性对账验证。
- * 取值依据见 M01-AC-14 用例上方的注释与 README「非功能目标与回归护栏」。
+ * 每批的 **CPU 成本**回归护栏（毫秒/批）——**负载无关**，见本文件 M01-AC-14 的注释。
+ *
+ * 取值依据（本机 10 核实测，2026-10-19）：5 轮 × 1.2 秒、并发 4、每批 15 条事件，
+ * `process.cpuUsage()` 差值 / 批次数 = **0.2067 ms/批（空闲）**、**0.2116 ms/批（覆盖率开）**；
+ * 护栏 2.5 ms/批 ≈ **11.8 倍余量**于带覆盖率实测最差值，等价于「每 CPU 秒 ≥ 400 批」。
  */
-const THROUGHPUT_MEDIAN_GUARD = 40;
+const THROUGHPUT_CPU_MS_PER_BATCH_GUARD = 2.5;
+
+/**
+ * 启动的 **CPU 时间**预算（毫秒）——负载无关的等价守卫，见本文件 M01-AC-13 的注释。
+ * 实测（20 次）中位数 0.131 ms、最大 3.201 ms（覆盖率开）⇒ 50 ms 预算约 380 倍余量于中位数、
+ * 15.6 倍于采样最大值；它只用于抓「启动路径被加了重计算」这类癌变，不参与墙钟判据。
+ */
+const START_CPU_BUDGET_MS = 50;
+
+/**
+ * 启动期间允许的最长定时器等待（毫秒）：**结构守卫**。
+ * 它堵死「在启动路径里 sleep 一段时间再返回」这种把慢启动藏起来的做法。
+ */
+const START_LONG_TIMER_BUDGET_MS = 50;
+
+/** 一次被审计的启动样本。 */
+interface StartSample {
+  readonly receiver: MockReceiver;
+  /** 本次启动的墙钟耗时（毫秒）——契约判据用。 */
+  readonly wallMs: number;
+  /** 本次启动消耗的进程 CPU 时间（毫秒）——负载无关。 */
+  readonly cpuMs: number;
+  /** 启动期间被安排的、≥ `START_LONG_TIMER_BUDGET_MS` 的定时器延时（毫秒）。 */
+  readonly longTimers: readonly number[];
+}
+
+/**
+ * 启动一次接收服务并审计三件事：
+ * 1. 墙钟（`M01-AC-13` 的 2 秒契约判据，**口径不变**）；
+ * 2. 本次启动消耗的**进程 CPU 时间**（负载无关，先例见
+ *    `tools/config-signer/src/__tests__/performance.test.ts`）；
+ * 3. 启动期间是否安排了 ≥50 ms 的定时器等待（结构守卫）。
+ *
+ * 只审计「启动」这一小段：审计窗口在 `startReceiver()` 返回后立即关闭，
+ * `globalThis.setTimeout` 一定在 `finally` 里还原。
+ */
+async function startWithAudit(options: ReceiverOptions): Promise<StartSample> {
+  // 只声明真正用到的能力（与 `mask-adversarial.test.ts` 的「最小声明」同一手法），
+  // 避免把 Node 的 `setTimeout.__promisify__` 之类内部形状拖进断言。
+  type TimerFn = (
+    callback: (...args: never[]) => void,
+    delayMs?: number,
+    ...args: never[]
+  ) => NodeJS.Timeout;
+  const globalTimers = globalThis as unknown as { setTimeout: TimerFn };
+  const originalSetTimeout = globalTimers.setTimeout;
+  const longTimers: number[] = [];
+  const auditor: TimerFn = (callback, delayMs, ...args) => {
+    if (typeof delayMs === 'number' && delayMs >= START_LONG_TIMER_BUDGET_MS) {
+      longTimers.push(delayMs);
+    }
+    return originalSetTimeout(callback, delayMs, ...args);
+  };
+  const cpuStarted = process.cpuUsage();
+  const wallStarted = Date.now();
+  globalTimers.setTimeout = auditor;
+  try {
+    const receiver = await startReceiver(options);
+    const cpuDelta = process.cpuUsage(cpuStarted);
+    return {
+      receiver,
+      wallMs: Date.now() - wallStarted,
+      cpuMs: (cpuDelta.user + cpuDelta.system) / 1000,
+      longTimers,
+    };
+  } finally {
+    globalTimers.setTimeout = originalSetTimeout;
+  }
+}
 
 /** 中位数（回归护栏用的稳健统计量；对单轮被进程抢占的抖动不敏感）。 */
 function median(samples: number[]): number {
@@ -106,41 +176,85 @@ describe('M01-AC-12 配置托管与 ETag（M01-F5）', () => {
   });
 });
 
+/**
+ * M01-AC-13 的口径（2026-10-19 收口）：
+ *
+ * - **「每次启动不超过 2 秒」是墙钟契约判据，不能被换成 CPU 时间**：原文在
+ *   `tests/acceptance/M01.md:19`（"每次启动不超过 2 秒"），并作为非功能目标写在
+ *   `docs/tasks/T09.md:34`。它约束的是**用户可见的启动时延**，不是"实现消耗了多少 CPU"。
+ * - 它**没有第二处验证**：`tests/bench/` 只有 C01–C08 与 K02（无 M01），
+ *   `docs/reports/reliability-reconciliation.md` 自报「M01 侧零数据」。因此按
+ *   「不许把契约要求偷偷换成 CPU 时间」的要求，**墙钟断言原样保留**（阈值 2,000 ms 未动）。
+ * - 另外两条是**同一契约的负载无关等价守卫**，只用来在墙钟被抢占噪声淹没时仍能抓住
+ *   "实现变慢"（`README.md:200` 的策略为「**规格线不进单元门禁。** 仓库策略是：单元门禁只保留
+ *   **带文档余量的回归护栏**，…」，本条即按该策略补的护栏；墙钟判据本身不降级）：
+ *   ① 启动的**进程 CPU 时间**中位数 ≤ `START_CPU_BUDGET_MS`（实测中位数 0.131 ms、
+ *      覆盖率开时最大 3.201 ms ⇒ 约 760 倍余量）；先例
+ *      `tools/config-signer/src/__tests__/performance.test.ts` 与
+ *      `packages/core/src/privacy/mask-adversarial.test.ts`；
+ *   ② **结构守卫**：启动期间不得安排 ≥ `START_LONG_TIMER_BUDGET_MS` 的定时器等待——
+ *      "在启动路径里 sleep 一下"这条把慢启动藏起来的路被直接堵死。
+ */
 describe('M01-AC-13 编程式启停（M01-F6）', () => {
   it('M01-AC-13 重复 3 次启动、发请求、停止；每次启动不超过 2 秒且停止后端口释放', async () => {
-    const started: number[] = [];
+    const walls: number[] = [];
+    const cpus: number[] = [];
     for (let round = 0; round < 3; round += 1) {
-      const before = Date.now();
-      const receiver = await startReceiver({ port: 0 });
-      const elapsed = Date.now() - before;
-      expect(elapsed).toBeLessThan(2_000);
-      started.push(elapsed);
+      const sample = await startWithAudit({ port: 0 });
+      const receiver = sample.receiver;
+      try {
+        walls.push(sample.wallMs);
+        cpus.push(sample.cpuMs);
 
-      expect(receiver.port).toBeGreaterThan(0);
-      expect(receiver.host).toBe('127.0.0.1');
+        // 契约墙钟判据（原文 M01.md:19）：阈值 2,000 ms 原样保留。
+        expect(
+          sample.wallMs,
+          `第 ${String(round + 1)} 次启动墙钟 ${String(sample.wallMs)} ms（契约判据 2,000 ms）`,
+        ).toBeLessThan(2_000);
+        // 结构守卫：启动不得靠 sleep 达标。
+        expect(
+          sample.longTimers,
+          `第 ${String(round + 1)} 次启动安排了 ≥${String(START_LONG_TIMER_BUDGET_MS)} ms 的定时器：${sample.longTimers.join(', ')}`,
+        ).toEqual([]);
+        // 负载无关的等价守卫：启动消耗的 CPU 时间。
+        expect(
+          sample.cpuMs,
+          `第 ${String(round + 1)} 次启动 CPU 时间 ${sample.cpuMs.toFixed(3)} ms（护栏 ${String(START_CPU_BUDGET_MS)} ms）`,
+        ).toBeLessThanOrEqual(START_CPU_BUDGET_MS);
 
-      const batch = (await readExample('batch.valid.json')) as Json;
-      const result = await httpRequestTo(receiver.port, '/v1/batch', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-app-id': 'demo-app',
-          'x-write-token': 'placeholder-write-token-0000',
-        },
-        body: Buffer.from(JSON.stringify(batch), 'utf8'),
-      });
-      expect(result.status).toBe(202);
+        expect(receiver.port).toBeGreaterThan(0);
+        expect(receiver.host).toBe('127.0.0.1');
 
-      await receiver.stop();
-      expect(receiver.listening).toBe(false);
-      await delay(30);
-      const portAfterStop = receiver.port;
-      expect(
-        await canBind(portAfterStop),
-        `第 ${String(round + 1)} 次停止后端口 ${String(portAfterStop)} 未释放`,
-      ).toBe(true);
+        const batch = (await readExample('batch.valid.json')) as Json;
+        const result = await httpRequestTo(receiver.port, '/v1/batch', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-app-id': 'demo-app',
+            'x-write-token': 'placeholder-write-token-0000',
+          },
+          body: Buffer.from(JSON.stringify(batch), 'utf8'),
+        });
+        expect(result.status).toBe(202);
+
+        await receiver.stop();
+        expect(receiver.listening).toBe(false);
+        await delay(30);
+        const portAfterStop = receiver.port;
+        expect(
+          await canBind(portAfterStop),
+          `第 ${String(round + 1)} 次停止后端口 ${String(portAfterStop)} 未释放`,
+        ).toBe(true);
+      } finally {
+        if (receiver.listening) await receiver.stop();
+      }
     }
-    expect(Math.max(...started)).toBeLessThan(2_000);
+    expect(Math.max(...walls)).toBeLessThan(2_000);
+    const cpuMedian = median(cpus);
+    expect(
+      cpuMedian,
+      `3 次启动的 CPU 时间中位数 ${cpuMedian.toFixed(3)} ms（护栏 ${String(START_CPU_BUDGET_MS)} ms；样本 ${cpus.map((value) => value.toFixed(3)).join(' / ')}）`,
+    ).toBeLessThanOrEqual(START_CPU_BUDGET_MS);
   });
 
   it('M01-AC-13 固定端口启动可用，重复 stop 幂等', async () => {
@@ -159,27 +273,35 @@ describe('M01-AC-13 编程式启停（M01-F6）', () => {
 });
 
 /**
- * M01-AC-14 吞吐护栏与规格线的口径（README「非功能目标与回归护栏」）：
+ * M01-AC-14 的口径（2026-10-19 收口）：
  *
- * - **规格线**（`tests/acceptance/M01.md`）：本地压测 **30 秒**、每批 15 条事件，
- *   每秒处理不少于 **500 个批次**，且无错误响应。它的权威验证归 T20 的 `tests/bench/`
- *   受控基准口径，并在 T32 的可靠性对账中以真实规模行使；本文件**不**断言规格线。
- * - **本文件的回归护栏**：把门禁内压测拆成 5 轮 × 1.2 秒（合计仍是既有的 6 秒口径，
- *   4 条 keep-alive 连接、每批 15 条唯一事件），断言**各轮吞吐的中位数**不低于
- *   `THROUGHPUT_MEDIAN_GUARD` 批/秒。中位数对单轮被进程抢占的抖动不敏感：实测同一台机器上
- *   6 秒总均值可以在 1,536–5,132 批/秒之间摆动（个别轮 366–5,177），而 5 轮中位数稳定在
- *   3,831–3,862 批/秒。护栏只是「病态回归警报」，不是规格线。
- * - **护栏取值 40 批/秒的依据**（≥10 倍余量于有负载实测结果）：本机（10 核，其他 lane 并发）
- *   加 26 个 CPU burner（load average 16.6 以上，10 核 2.7 倍超配）时，5 轮中位数 426.2–573.9，
- *   单轮最低 272.3；全量 `pnpm test`（含覆盖率插桩与并行 worker）时中位数 3,184–5,719；
- *   事故记录（12 路并发全量门禁）6 秒均值为 334.8。护栏 40 批/秒 ≈ 10.7 倍余量于有负载实测
- *   最小中位数 426.2，8.4 倍余量于事故记录 334.8，约 190 倍低于 README 记录的空闲值 7,635。
- *   刻意不再保留「≥ 500」与「≥ 1,000」两条硬阈值：抬门槛只会让门禁在共享机器上更红。
+ * - **规格线**（`tests/acceptance/M01.md:20`、`docs/tasks/T09.md:34`）：本地压测 **30 秒**、
+ *   每批 15 条事件，每秒处理不少于 **500 个批次**且无错误响应。**本文件不断言它**
+ *   （`README.md:200`："**规格线不进单元门禁。** 仓库策略是：单元门禁只保留**带文档余量的
+ *   回归护栏**，…"）。
+ * - **这条规格线现在实际上没有第二处验证**（本轮核对，必须记录，不能假设它有人接）：
+ *   `tests/bench/` 只有 C01–C08 与 K02 的客户端基准（无 M01）；T32 的
+ *   `docs/reports/reliability-reconciliation.md` 自报「M01 侧零数据」；README §8 的 30 秒
+ *   数字是**树外一次性脚本**（不可复跑）。⇒ 见 `docs/reports/t33-access-blockers.md` §13。
+ * - **原来的「5 轮吞吐中位数 ≥ 40 批/秒」是测试自定的经验值，不是契约线**：40 这个数来自
+ *   README §7 的余量推算（10.7 倍于有负载实测），而它量的是**墙钟吞吐**——负载一变就红
+ *   （本轮实测红过 24.1 / 32.8 批/秒）。同一实现上实测 1 条连接 5,277–6,017 批/秒、
+ *   4 条连接 5,968–6,834 批/秒（比值 **1.07–1.28**）⇒ **本实现在吞吐上是 CPU 受限，
+ *   不是并发受限**；因此"吞吐随并发线性增长"这类相对判据在这里会恒红，**不要写**。
+ * - **本文件的替代护栏是「每批的 CPU 成本」**（`process.cpuUsage()` 差值 / 批次数）：
+ *   它把「单位时间的量」里的时间换成 **CPU 时间**，与机器被抢占多久无关。
+ *   实测（5 轮 × 1.2 秒、并发 4、每批 15 条）：**0.2067 ms/批（空闲）**、
+ *   **0.2116 ms/批（覆盖率开）**；护栏 `THROUGHPUT_CPU_MS_PER_BATCH_GUARD` = 2.5 ms/批
+ *   ≈ **11.8 倍余量**，等价于「每 CPU 秒 ≥ 400 批」。
+ * - **它仍守住什么**：每批处理路径的病态回归——校验/序列化变成超线性、每批多一次同步 I/O、
+ *   每批多一次整表扫描，都会把 CPU/批抬上去（>12 倍即红）。它**不**再守「这台机器此刻有多快」
+ *   （那本来就不是代码属性，且规格线归受控口径）。
  */
-describe('M01-AC-14 吞吐（非功能，回归护栏）', () => {
-  it('M01-AC-14 五轮压测的吞吐中位数不低于回归护栏，且全程无错误响应（规格线「30 秒 ≥ 500 批/秒」由 T20/T32 验证）', async () => {
+describe('M01-AC-14 吞吐（非功能，负载无关护栏：每批 CPU 成本）', () => {
+  it('M01-AC-14 五轮压测每批 CPU 成本不高于护栏，且全程无错误响应（规格线「30 秒 ≥ 500 批/秒」不在单元门禁，见注释）', async () => {
     const receiver = await startReceiver({ port: 0 });
     try {
+      const cpuStarted = process.cpuUsage();
       const rounds: LoadResult[] = [];
       for (let round = 0; round < THROUGHPUT_ROUNDS; round += 1) {
         rounds.push(
@@ -193,6 +315,8 @@ describe('M01-AC-14 吞吐（非功能，回归护栏）', () => {
           }),
         );
       }
+      const cpuDelta = process.cpuUsage(cpuStarted);
+      const cpuMs = (cpuDelta.user + cpuDelta.system) / 1000;
 
       const perSecond = median(rounds.map((result) => result.batches / result.seconds));
       const batches = rounds.reduce((sum, result) => sum + result.batches, 0);
@@ -201,6 +325,7 @@ describe('M01-AC-14 吞吐（非功能，回归护栏）', () => {
       const firstFailure =
         rounds.find((result) => result.firstFailure !== null)?.firstFailure ?? null;
       const statuses = new Set(rounds.flatMap((result) => [...result.statuses.keys()]));
+      const cpuMsPerBatch = cpuMs / batches;
 
       // 确定性断言：这些才是真正的门禁，与吞吐高低无关。
       expect(errors).toBe(0);
@@ -209,11 +334,12 @@ describe('M01-AC-14 吞吐（非功能，回归护栏）', () => {
       expect(events).toBe(batches * 15);
       expect(receiver.counters.snapshot().stored_events).toBe(events);
 
-      // 回归护栏（非规格线）：中位数 ≥ 10 倍余量于有负载实测最小值。
+      // 负载无关护栏：每批 CPU 成本（墙钟吞吐只放在消息里作为诊断，不断言）。
       expect(
-        perSecond,
-        `五轮压测吞吐中位数 ${perSecond.toFixed(1)} 批/秒（回归护栏 ${String(THROUGHPUT_MEDIAN_GUARD)} 批/秒；规格线 500 批/秒由 T20/T32 验证）`,
-      ).toBeGreaterThanOrEqual(THROUGHPUT_MEDIAN_GUARD);
+        cpuMsPerBatch,
+        `每批 CPU ${cpuMsPerBatch.toFixed(4)} ms（护栏 ${String(THROUGHPUT_CPU_MS_PER_BATCH_GUARD)} ms/批；` +
+          `${String(batches)} 批耗 CPU ${cpuMs.toFixed(1)} ms；墙钟 ${perSecond.toFixed(0)} 批/秒，仅诊断）`,
+      ).toBeLessThanOrEqual(THROUGHPUT_CPU_MS_PER_BATCH_GUARD);
     } finally {
       await receiver.stop();
     }

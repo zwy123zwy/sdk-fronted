@@ -33,19 +33,22 @@ afterEach(async () => {
   await receiver.stop();
 });
 
-async function postBatch(headers: Record<string, string> = JSON_HEADERS): Promise<HttpResult> {
-  const batch = (await readExample('batch.valid.json')) as Json;
-  return httpRequestToBatch(batch, headers);
-}
-
-async function httpRequestToBatch(
-  batch: Json,
-  headers: Record<string, string> = JSON_HEADERS,
+/**
+ * 串行 POST 一个合法批次。
+ *
+ * `port` 默认按调用时刻从模块级变量读取（与 2026-10-19 事故现场一致）；需要在用例内
+ * **绑定自己的端口**时显式传 `port`——这样即使有请求活过了用例，也只会打向本用例的
+ * （已停止的）receiver，不会污染下一个用例。
+ */
+async function postBatch(
+  options: { port?: number; signal?: AbortSignal } = {},
 ): Promise<HttpResult> {
-  return httpRequestTo(port, '/v1/batch', {
+  const batch = (await readExample('batch.valid.json')) as Json;
+  return httpRequestTo(options.port ?? port, '/v1/batch', {
     method: 'POST',
-    headers,
+    headers: JSON_HEADERS,
     body: bodyOf(batch),
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
   });
 }
 
@@ -121,19 +124,73 @@ describe('M01-AC-09 按比例注入故障', () => {
     expect(share).toBeLessThanOrEqual(0.35);
   });
 
-  it('M01-AC-09 比例注入经 HTTP 生效且计数正确（真实占比 25%–35%）', async () => {
+  /**
+   * 2026-10-19 事故与修法（本轮收口，**不要**改成"给本用例加显式超时"）：
+   *
+   * 这条用例原本是 300 次**串行** HTTP 请求。在被抢占的机器上总耗时超过 vitest 默认
+   * 5 s 超时；而 **vitest 的超时只是把用例判红，并不取消被测函数**——实测（探针，见
+   * `docs/reports/t33-access-blockers.md` §13）：预算耗尽后循环**又完成了 80 个请求**。
+   * 于是泄漏出两条相互独立的害处：
+   *   ① 请求活过用例（用例结束后仍有在途请求）；
+   *   ② 每个用例的 `beforeEach` 会重建 receiver 并改写**模块级 `port`**，因此泄漏循环的
+   *      下一次请求打向**新** receiver 的 injection，先吃掉「清空注入配置后不再注入」
+   *      用例的 `setSequence(['429'])`（`none` 不推进游标，所以只吃掉一次）⇒ 该用例拿到
+   *      202 而不是 429。
+   *
+   * 因此修法是**消除泄漏**，共三道（缺一不可）：
+   *   1. 用 vitest 的 `TestContext.signal`（超时即 abort，实测 5,005 ms 触发）取消在途
+   *      请求，并让循环在 abort 后不再发新请求；
+   *   2. `finally` 里再 abort 一次并 `await Promise.allSettled(...)`，把本用例发出的请求
+   *      **全部结算**后才离开用例；
+   *   3. 用例内绑定自己的端口（`targetPort`），任何残留请求都不可能打向下一个 receiver。
+   *
+   * 请求数（300）与 25%–35% 的带**未改动**：M01-AC-09 原文要求的 1,000 次占比由同文件
+   * 上一条确定性用例承担，本条只验证「经 HTTP 生效且计数正确」。
+   */
+  it('M01-AC-09 比例注入经 HTTP 生效且计数正确（真实占比 25%–35%）', async ({ signal }) => {
     receiver.injection.setRatio('503', 0.3);
     const total = 300;
+    const targetPort = port;
+    const controller = new AbortController();
+    const cancelOnTestEnd = (): void => {
+      controller.abort();
+    };
+    signal.addEventListener('abort', cancelOnTestEnd, { once: true });
+    const pending = new Set<Promise<HttpResult>>();
     let hits = 0;
-    for (let index = 0; index < total; index += 1) {
-      const result = await postBatch();
-      if (result.status === 503) {
-        hits += 1;
-        expect(result.headers['retry-after']).toBeDefined();
-      } else {
-        expect(result.status).toBe(202);
+    let sampled = 0;
+    try {
+      for (let index = 0; index < total; index += 1) {
+        if (controller.signal.aborted) break;
+        const request = postBatch({ port: targetPort, signal: controller.signal });
+        pending.add(request);
+        const settled = await request.then(
+          (value) => ({ ok: true as const, value }),
+          (error: unknown) => ({ ok: false as const, error }),
+        );
+        pending.delete(request);
+        if (!settled.ok) {
+          // 只有「用例超时 → signal abort」才允许静默收尾；其他错误照常抛。
+          // 这里读 `signal`（而不是 controller.signal）：后者已被上面的 early-break 收窄成 false。
+          if (signal.aborted) break;
+          throw settled.error;
+        }
+        sampled += 1;
+        const result = settled.value;
+        if (result.status === 503) {
+          hits += 1;
+          expect(result.headers['retry-after']).toBeDefined();
+        } else {
+          expect(result.status).toBe(202);
+        }
       }
+    } finally {
+      signal.removeEventListener('abort', cancelOnTestEnd);
+      controller.abort();
+      await Promise.allSettled([...pending]);
+      expect(pending.size, '用例结束时仍有在途请求').toBe(0);
     }
+    expect(sampled, '用例必须跑满 300 次请求（超时会先 abort，不会静默少跑）').toBe(total);
     const share = hits / total;
     expect(share).toBeGreaterThanOrEqual(0.25);
     expect(share).toBeLessThanOrEqual(0.35);
